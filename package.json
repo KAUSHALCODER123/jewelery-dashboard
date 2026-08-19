@@ -1,0 +1,109 @@
+{
+  "name": "parivar-jewellery-erp",
+  "productName": "Parivar Jewellery ERP",
+  "version": "1.24.0",
+  "description": "Jewellery ERP desktop software \u2014 sales, invoicing, purchase, item creation, CRM and refining",
+  "main": "electron/main.cjs",
+  "author": "Parivar",
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"vite\" \"wait-on tcp:5173 && cross-env NODE_ENV=development electron .\"",
+    "build": "vite build",
+    "start": "cross-env NODE_ENV=production electron .",
+    "dist": "node ./scripts/make-installer.cjs",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "test": "electron ./test/e2e.cjs",
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "test:ui": "vite build && electron ./test/ui.cjs",
+    "test:full": "electron ./test/full.cjs",
+    "demo": "electron ./scripts/seed-demo.cjs",
+    "test:flows": "vite build && electron ./test/flows.cjs",
+    "test:all": "vite build && node ./test/parse.cjs && electron ./test/e2e.cjs && electron ./test/full.cjs && electron ./test/auth.cjs && electron ./test/backup.cjs && electron ./test/weightwise.cjs && electron ./test/acstock.cjs && electron ./test/returns.cjs && electron ./test/karagir.cjs && electron ./test/books.cjs && electron ./test/orderbooking.cjs && electron ./test/rated.cjs && electron ./test/multimetal.cjs && electron ./test/outstanding.cjs && electron ./test/registers.cjs && electron ./test/gst.cjs && electron ./test/stockmaster.cjs && electron ./test/loyalty.cjs && electron ./test/gssweight.cjs && electron ./test/stockedit.cjs && electron ./test/ratemaster.cjs && electron ./test/splitpay.cjs && electron ./test/gridcard.cjs && electron ./test/misreports.cjs && electron ./test/daybook.cjs && electron ./test/bugfixes.cjs && electron ./test/shopmonth.cjs && electron ./test/shopstress.cjs && electron ./test/shopyear.cjs && electron ./test/changeover.cjs && electron ./test/changeoverday.cjs && electron ./test/faults.cjs && electron ./test/gdrive.cjs && electron ./test/hunt.cjs && electron ./test/ui.cjs && electron ./test/layout.cjs && electron ./test/flows.cjs",
+    "test:parse": "node ./test/parse.cjs",
+    "test:splitpay": "electron ./test/splitpay.cjs",
+    "test:backup": "electron ./test/backup.cjs",
+    "test:weightwise": "electron ./test/weightwise.cjs",
+    "test:acstock": "electron ./test/acstock.cjs",
+    "test:returns": "electron ./test/returns.cjs",
+    "test:karagir": "electron ./test/karagir.cjs",
+    "test:books": "electron ./test/books.cjs",
+    "test:orderbooking": "electron ./test/orderbooking.cjs",
+    "test:rated": "electron ./test/rated.cjs",
+    "test:multimetal": "electron ./test/multimetal.cjs",
+    "test:outstanding": "electron ./test/outstanding.cjs",
+    "test:registers": "electron ./test/registers.cjs",
+    "test:gst": "electron ./test/gst.cjs",
+    "test:stockmaster": "electron ./test/stockmaster.cjs",
+    "test:loyalty": "electron ./test/loyalty.cjs",
+    "test:gssweight": "electron ./test/gssweight.cjs",
+    "test:stockedit": "electron ./test/stockedit.cjs",
+    "test:hunt": "electron ./test/hunt.cjs",
+    "manual": "electron ./scripts/make-manual.cjs",
+    "test:auth": "electron ./test/auth.cjs",
+    "test:gdrive": "electron ./test/gdrive.cjs",
+    "test:layout": "vite build && electron ./test/layout.cjs",
+    "test:ratemaster": "electron ./test/ratemaster.cjs",
+    "test:gridcard": "electron ./test/gridcard.cjs",
+    "test:misreports": "electron ./test/misreports.cjs",
+    "test:daybook": "electron ./test/daybook.cjs",
+    "test:bugfixes": "electron ./test/bugfixes.cjs",
+    "test:shopmonth": "electron ./test/shopmonth.cjs",
+    "test:shopstress": "electron ./test/shopstress.cjs",
+    "test:shopyear": "electron ./test/shopyear.cjs",
+    "test:changeover": "electron ./test/changeover.cjs",
+    "test:changeoverday": "electron ./test/changeoverday.cjs",
+    "test:faults": "electron ./test/faults.cjs"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
+    "@electron/rebuild": "^3.7.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.parivar.jewellery.erp",
+    "productName": "Parivar Jewellery ERP",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "node_modules/**/*",
+      "build/icon.*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "artifactName": "Parivar-Jewellery-ERP-Setup-${version}.${ext}",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "shortcutName": "Parivar Jewellery ERP",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    },
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "asarUnpack": [
+      "**/*.node"
+    ]
+  }
+}

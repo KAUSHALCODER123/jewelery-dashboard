@@ -1,0 +1,819 @@
+<title>Parivar Jewellery — The Owner's Guide</title>
+<style>
+  :root {
+    --paper:   #FBF8F2;
+    --paper-2: #F4EDE1;
+    --paper-3: #ECE2D2;
+    --ink:     #2A2320;
+    --ink-2:   #6B6057;
+    --rule:    #E4D9C7;
+    --khata:   #9E2B25;   /* the red-cloth ledger — the house accent */
+    --khata-soft: #F5E1DC;
+    --gold:    #997A1E;   /* antique gold, ornament only */
+    --gold-line: #D9C486;
+    --safe:    #3B6B4A;   /* money & gold protected, backup done */
+    --safe-soft: #E5EEE6;
+    --watch:   #9C5B18;   /* caution */
+    --watch-soft: #F6E7D6;
+    --shadow:  0 1px 2px rgba(42,35,32,.05), 0 8px 24px rgba(42,35,32,.06);
+    --measure: 66ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:   #1B1613;
+      --paper-2: #241D19;
+      --paper-3: #2E251F;
+      --ink:     #EFE7DB;
+      --ink-2:   #B0A392;
+      --rule:    #3A2F27;
+      --khata:   #E1786F;
+      --khata-soft: #331E1B;
+      --gold:    #CBA24C;
+      --gold-line: #5A4A24;
+      --safe:    #7FB891;
+      --safe-soft: #1E2A21;
+      --watch:   #D79A55;
+      --watch-soft: #2E2416;
+      --shadow:  0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #FBF8F2; --paper-2: #F4EDE1; --paper-3: #ECE2D2;
+    --ink: #2A2320; --ink-2: #6B6057; --rule: #E4D9C7;
+    --khata: #9E2B25; --khata-soft: #F5E1DC; --gold: #997A1E; --gold-line: #D9C486;
+    --safe: #3B6B4A; --safe-soft: #E5EEE6; --watch: #9C5B18; --watch-soft: #F6E7D6;
+  }
+  :root[data-theme="dark"] {
+    --paper: #1B1613; --paper-2: #241D19; --paper-3: #2E251F;
+    --ink: #EFE7DB; --ink-2: #B0A392; --rule: #3A2F27;
+    --khata: #E1786F; --khata-soft: #331E1B; --gold: #CBA24C; --gold-line: #5A4A24;
+    --safe: #7FB891; --safe-soft: #1E2A21; --watch: #D79A55; --watch-soft: #2E2416;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.72;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  .serif {
+    font-family: "Palatino Linotype", "Iowan Old Style", Palatino, "Book Antiqua", Georgia, serif;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 0 24px 6rem; }
+  .col  { max-width: var(--measure); }
+
+  a { color: var(--khata); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+  a:focus-visible { outline: 2px solid var(--khata); outline-offset: 3px; border-radius: 2px; }
+
+  /* ── Masthead ── */
+  header.mast {
+    border-bottom: 1px solid var(--rule);
+    background:
+      linear-gradient(var(--paper), var(--paper)) padding-box,
+      var(--paper);
+    padding: 4.5rem 0 3rem;
+    margin-bottom: 3rem;
+  }
+  .eyebrow {
+    font-size: .74rem; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--khata); font-weight: 600;
+    display: flex; align-items: center; gap: .7rem;
+  }
+  .eyebrow::before, .eyebrow::after {
+    content: ""; height: 1px; background: var(--gold-line); flex: 0 0 34px;
+  }
+  .eyebrow::after { flex: 1; }
+  h1.title {
+    font-size: clamp(2.3rem, 6vw, 3.4rem);
+    line-height: 1.08; margin: 1.1rem 0 .6rem; font-weight: 600;
+    letter-spacing: -0.01em; text-wrap: balance;
+  }
+  .lede { font-size: 1.2rem; color: var(--ink-2); max-width: 60ch; margin: 0; }
+  .byline {
+    margin-top: 2rem; font-size: .86rem; color: var(--ink-2);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.4rem;
+  }
+  .byline b { color: var(--ink); font-weight: 600; }
+
+  /* ── Contents ── */
+  nav.toc {
+    background: var(--paper-2);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 1.6rem 1.8rem;
+    margin-bottom: 3.5rem;
+    box-shadow: var(--shadow);
+  }
+  nav.toc h2 {
+    font-size: .78rem; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ink-2); margin: 0 0 1rem; font-weight: 600;
+  }
+  nav.toc ol { list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 2rem; }
+  nav.toc li { display: flex; gap: .7rem; align-items: baseline;
+    padding: .28rem 0; border-bottom: 1px solid transparent; }
+  nav.toc a { text-decoration: none; color: var(--ink); }
+  nav.toc a:hover { color: var(--khata); }
+  nav.toc .n {
+    font-family: "Palatino Linotype", Georgia, serif;
+    color: var(--khata); font-size: .95rem; min-width: 1.4rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Parts & sections ── */
+  section.part { margin: 4.5rem 0 0; scroll-margin-top: 1.5rem; }
+  .part-head { display: flex; align-items: baseline; gap: 1rem;
+    padding-bottom: .9rem; border-bottom: 2px solid var(--khata); margin-bottom: 2rem; }
+  .part-num {
+    font-family: "Palatino Linotype", Georgia, serif;
+    font-size: 2.4rem; line-height: 1; color: var(--khata); font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .part-head h2 { font-size: 1.7rem; margin: 0; font-weight: 600; letter-spacing: -.01em;
+    text-wrap: balance; }
+  .part-head .sub { color: var(--ink-2); font-size: .95rem; margin-top: .25rem; }
+
+  h3.job {
+    font-size: 1.28rem; margin: 2.8rem 0 .3rem; font-weight: 600; letter-spacing: -.005em;
+    text-wrap: balance;
+  }
+  .situation {
+    font-family: "Palatino Linotype", Georgia, serif;
+    font-style: italic; font-size: 1.05rem; color: var(--khata);
+    margin: 0 0 1rem;
+  }
+  p { margin: 0 0 1.15rem; max-width: var(--measure); }
+  h3.job + p, h3.job + .situation { margin-top: 0; }
+
+  /* Step lists */
+  ol.steps { counter-reset: step; list-style: none; margin: 1.2rem 0 1.4rem;
+    padding: 0; max-width: var(--measure); }
+  ol.steps > li { position: relative; padding: 0 0 .55rem 2.7rem; }
+  ol.steps > li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: -.05rem;
+    width: 1.75rem; height: 1.75rem; border-radius: 50%;
+    background: var(--khata-soft); color: var(--khata);
+    border: 1px solid var(--gold-line);
+    display: grid; place-items: center;
+    font-size: .85rem; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  ul.plain { max-width: var(--measure); padding-left: 1.2rem; }
+  ul.plain li { margin-bottom: .5rem; }
+  strong { font-weight: 600; }
+  kbd {
+    font: inherit; font-size: .82em; background: var(--paper-3);
+    border: 1px solid var(--rule); border-bottom-width: 2px;
+    border-radius: 5px; padding: .05em .45em; white-space: nowrap;
+  }
+  .press { color: var(--khata); font-weight: 600; }
+
+  /* Callouts */
+  .note { max-width: var(--measure); border-radius: 10px; padding: 1rem 1.2rem 1rem 1.3rem;
+    margin: 1.5rem 0; border: 1px solid var(--rule); position: relative;
+    background: var(--paper-2); font-size: .97rem; }
+  .note .lbl { display: block; font-size: .72rem; letter-spacing: .12em;
+    text-transform: uppercase; font-weight: 700; margin-bottom: .35rem; }
+  .note p:last-child { margin-bottom: 0; }
+  .note.safe  { background: var(--safe-soft); border-color: color-mix(in srgb, var(--safe) 35%, transparent); }
+  .note.safe .lbl  { color: var(--safe); }
+  .note.watch { background: var(--watch-soft); border-color: color-mix(in srgb, var(--watch) 40%, transparent); }
+  .note.watch .lbl { color: var(--watch); }
+  .note.why   { background: transparent; border: none; border-left: 3px solid var(--khata);
+    border-radius: 0; padding-left: 1.2rem; color: var(--ink-2); font-style: normal; }
+  .note.why .lbl { color: var(--khata); }
+
+  /* Money formulas */
+  .calc {
+    max-width: var(--measure);
+    background: var(--paper-2); border: 1px solid var(--rule); border-left: 3px solid var(--gold);
+    border-radius: 8px; padding: 1rem 1.2rem; margin: 1.3rem 0;
+    font-family: "Cascadia Code", Consolas, "SF Mono", ui-monospace, monospace;
+    font-size: .88rem; line-height: 1.65; overflow-x: auto;
+    font-variant-numeric: tabular-nums; white-space: pre;
+    color: var(--ink);
+  }
+  .calc .r { color: var(--khata); }
+
+  /* Field / mini reference tables */
+  .tblwrap { max-width: var(--measure); overflow-x: auto; margin: 1.3rem 0; }
+  table.ref { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  table.ref th, table.ref td { text-align: left; padding: .55rem .8rem;
+    border-bottom: 1px solid var(--rule); vertical-align: top; }
+  table.ref th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-2); font-weight: 700; background: var(--paper-2); }
+  table.ref td:first-child { font-weight: 600; white-space: nowrap; }
+  table.ref tr:last-child td { border-bottom: none; }
+
+  hr.soft { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; max-width: var(--measure); }
+
+  footer.end { margin-top: 5rem; padding-top: 2rem; border-top: 2px solid var(--khata);
+    color: var(--ink-2); font-size: .9rem; }
+  footer.end .serif { color: var(--ink); font-size: 1.05rem; }
+
+  @media (max-width: 620px) {
+    body { font-size: 16px; }
+    nav.toc ol { grid-template-columns: 1fr; }
+    .wrap { padding: 0 18px 4rem; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    nav.toc a { transition: color .15s ease; }
+    .printbtn { transition: filter .15s ease, transform .15s ease; }
+  }
+
+  /* ── Print button (screen only) ── */
+  .printbtn {
+    position: fixed; top: 18px; right: 18px; z-index: 60;
+    display: inline-flex; align-items: center; gap: .5rem;
+    font: inherit; font-size: .85rem; font-weight: 600;
+    color: #fff; background: var(--khata);
+    border: 1px solid color-mix(in srgb, var(--khata) 70%, #000 12%);
+    border-radius: 999px; padding: .55rem 1.05rem;
+    cursor: pointer; box-shadow: var(--shadow);
+  }
+  .printbtn:hover { filter: brightness(1.07); transform: translateY(-1px); }
+  .printbtn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .printbtn svg { width: 15px; height: 15px; }
+  @media (max-width: 620px) {
+    .printbtn { top: 10px; right: 10px; padding: .5rem .8rem; }
+    .printbtn .lbl-full { display: none; }
+  }
+
+  /* ── Print / Save as PDF ──────────────────────────────────────────
+     Print always on white paper with the light palette, whatever the
+     screen theme. Each Part starts a fresh page; nothing that should
+     read together is split across a page break. */
+  @media print {
+    :root, :root[data-theme="dark"], :root[data-theme="light"] {
+      --paper: #ffffff; --paper-2: #F7F2EA; --paper-3: #EFE8DB;
+      --ink: #231D19; --ink-2: #574D46; --rule: #D8CCB9;
+      --khata: #8E2721; --khata-soft: #F5E5E1; --gold: #866A19; --gold-line: #CBB679;
+      --safe: #35603F; --safe-soft: #EAF1EA; --watch: #8A4E14; --watch-soft: #F5E9D8;
+      --shadow: none; --measure: none;
+    }
+    html, body { background: #fff; }
+    body { font-size: 10.8pt; line-height: 1.5; }
+    @page { size: A4; margin: 16mm 15mm 18mm; }
+
+    .no-print { display: none !important; }
+    .wrap { max-width: none; padding: 0; }
+    p, .lede, .note, .calc, .tblwrap, ol.steps, ul.plain, .col { max-width: none; }
+    a { color: var(--ink); text-decoration: none; }
+
+    header.mast { padding: 0 0 1rem; margin: 0 0 1.4rem; border-bottom: 2px solid var(--khata); }
+    h1.title { font-size: 25pt; }
+    .lede { font-size: 11.5pt; }
+    .byline { margin-top: 1rem; }
+
+    nav.toc { box-shadow: none; background: #fff; break-inside: avoid; margin-bottom: 0; }
+
+    /* Each Part opens a new page; the masthead + contents own page one. */
+    section.part { break-before: page; margin-top: 0; padding-top: .2rem; }
+    .part-head { break-after: avoid; }
+    h3.job { break-after: avoid; }
+    h3.job + p, h3.job + .situation { break-before: avoid; }
+    .note, .calc, table.ref, .tblwrap, ol.steps > li, tr { break-inside: avoid; }
+    footer.end { break-before: avoid; }
+
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+
+<div class="wrap">
+
+<button class="printbtn no-print" onclick="window.print()" aria-label="Print or save as PDF">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+       stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/>
+    <path d="M6 15h12v6H6z"/>
+  </svg>
+  <span class="lbl-full">Print / Save&nbsp;as&nbsp;PDF</span>
+</button>
+
+<header class="mast">
+  <div class="eyebrow">The Owner's Guide</div>
+  <h1 class="title serif">Your shop, kept in one book</h1>
+  <p class="lede">
+    Everything your red khata does — the counter, the karagir, old gold, the scheme,
+    who owes you and what you're worth — now done once and adding up by itself. This
+    is how you actually run the day.
+  </p>
+  <div class="byline">
+    <span><b>Parivar Jewellery ERP</b></span>
+    <span>Written for the person behind the counter</span>
+    <span>Keep it near the till</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Contents">
+  <h2>What's inside</h2>
+  <ol>
+    <li><span class="n">1</span><a href="#setup">Before you start — setting up once</a></li>
+    <li><span class="n">2</span><a href="#day">Your day, at the counter</a></li>
+    <li><span class="n">3</span><a href="#jobs">The other regular jobs</a></li>
+    <li><span class="n">4</span><a href="#stand">Knowing where you stand</a></li>
+    <li><span class="n">5</span><a href="#safe">Keeping it safe</a></li>
+    <li><span class="n">6</span><a href="#wrong">When a number looks wrong</a></li>
+    <li><span class="n">7</span><a href="#rules">The gold &amp; money rules, in one place</a></li>
+  </ol>
+</nav>
+
+<!-- ═══════════════ PART 1 ═══════════════ -->
+<section class="part" id="setup">
+  <div class="part-head">
+    <span class="part-num serif">1</span>
+    <div>
+      <h2 class="serif">Before you start — setting up once</h2>
+      <div class="sub">You do this once, on the day you move over. Take your time with it.</div>
+    </div>
+  </div>
+
+  <h3 class="job">Move over slowly. Do not switch off your old book yet.</h3>
+  <p>
+    This software has been checked more ways than most, but <strong>it has never yet run
+    your shop</strong>. Only you can prove it right, and there is a calm way to do it.
+  </p>
+  <ol class="steps">
+    <li>Set the shop up here (below), including your opening balances.</li>
+    <li>For <strong>one full month</strong> — a month that has a busy day in it — keep writing
+      every bill, purchase and receipt in whatever you use now <em>as well as</em> here. Yes,
+      it is double work for a few weeks. It is the only way to be sure.</li>
+    <li>At the end of the month, open <span class="press">Changeover Check</span>. Type in
+      what your old book says — cash, bank, who owes you, what you owe, gold on hand. The
+      screen shows its own figure beside each, and the difference.</li>
+    <li>Anything marked <strong>Differs</strong> is a question to settle <em>before</em> you
+      trust this book, not after. The screen tells you where to look.</li>
+  </ol>
+  <div class="note safe">
+    <span class="lbl">This is the honest bit</span>
+    <p>A blank box is shown as <strong>Not checked</strong>, never as agreement — an
+      unanswered question is not a pass. When the figures you care about say
+      <strong>Agrees</strong>, and still do after a second week, you can stop the double work.</p>
+  </div>
+
+  <h3 class="job">Enter your shop and your opening balances</h3>
+  <p class="situation">You're starting with money, gold and khatas already in hand.</p>
+  <p>
+    Open <span class="press">Settings</span> at the bottom of the side menu.
+  </p>
+  <ul class="plain">
+    <li><strong>Company</strong> — your shop name, address, GSTIN and state. These print on
+      every bill, so type them exactly as they should appear.</li>
+    <li><strong>Accounts</strong> — open Cash Account and Bank Account and put in their
+      <strong>opening balance</strong>: the cash in your drawer and the money in your bank on
+      day one. This is the figure most often forgotten.</li>
+    <li><strong>Customers &amp; Suppliers</strong> — add each one, and enter what they owe you
+      as <strong>Dr</strong>, or what you owe them as <strong>Cr</strong>. A customer who is in
+      credit (paid you too much) goes in as <strong>Cr</strong>, not as a minus.</li>
+  </ul>
+
+  <h3 class="job">Don't forget the gold itself</h3>
+  <p>Money is only half of it. The metal has to go in too.</p>
+  <div class="tblwrap">
+    <table class="ref">
+      <tr><th>What you hold</th><th>Where it goes in</th></tr>
+      <tr><td>Tagged pieces on the shelf</td>
+        <td>Tag &amp; Barcode — enter each batch with its weight, purity and what it cost you
+          per gram (Cost/Gm).</td></tr>
+      <tr><td>Loose bullion &amp; scrap in the safe</td>
+        <td>Tag &amp; Barcode → <em>Made from loose metal</em> → <span class="press">Opening
+          metal</span>. Not a purchase — you don't owe anyone for it.</td></tr>
+      <tr><td>Gold a karagir is holding</td>
+        <td>On his record, as an opening <em>metal</em> balance (grams), Dr.</td></tr>
+      <tr><td>Metal a wholesale customer owes you</td>
+        <td>On their record, as an opening metal balance in grams.</td></tr>
+    </table>
+  </div>
+  <div class="note watch">
+    <span class="lbl">Fill in Cost/Gm on every piece</span>
+    <p>A piece with no cost recorded still shows its weight, but counts as <em>nothing</em>
+      towards your stock value — so your books will say you're poorer than you are. It is the
+      commonest reason the stock figure won't tie. Fill it in now.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ PART 2 ═══════════════ -->
+<section class="part" id="day">
+  <div class="part-head">
+    <span class="part-num serif">2</span>
+    <div>
+      <h2 class="serif">Your day, at the counter</h2>
+      <div class="sub">Open in the morning, serve through the day, count the drawer at night.</div>
+    </div>
+  </div>
+
+  <h3 class="job">Open the shop</h3>
+  <p>
+    Sign in with your own login (never share one — see Part 5). The <strong>Dashboard</strong>
+    greets you with today's sales, what's in stock, and anything due. A glance tells you the
+    shop is where you left it.
+  </p>
+
+  <h3 class="job">A customer buys a piece and pays now</h3>
+  <p class="situation">The everyday sale — cash or UPI, done and dusted.</p>
+  <ol class="steps">
+    <li>Press <span class="press">New Bill</span> (or <kbd>F2</kbd>).</li>
+    <li>Choose the customer, or leave it blank for a plain counter sale.</li>
+    <li><strong>Scan the tag</strong>. Weight, purity and rate fill in by themselves. Type the
+      rate for the day if it isn't already set.</li>
+    <li>Check the making charge on the line. Add more pieces the same way.</li>
+    <li>The bill totals on the right — goods, making, GST, the lot. Put what they paid in
+      <strong>Amount Received</strong>.</li>
+    <li>Press <span class="press">Save</span>, then <strong>Print</strong>.</li>
+  </ol>
+
+  <h3 class="job">…and they pay part now, rest later</h3>
+  <p class="situation">Regular customers, known faces — the khata sale.</p>
+  <p>
+    Same as above, but choose the customer (a credit bill needs one), tick
+    <strong>Credit</strong>, and put only what they've handed over in Amount Received. The
+    balance goes onto <strong>their khata</strong> automatically — you'll see it under
+    Outstanding until it's cleared.
+  </p>
+
+  <h3 class="job">…and they give old gold in exchange</h3>
+  <p class="situation">Trading up — an old chain towards a new one.</p>
+  <ol class="steps">
+    <li>Make the bill for the new piece as usual.</li>
+    <li>Open the <strong>Old Gold</strong> section. Enter the old piece's gross weight and its
+      <strong>tunch (purity)</strong>, and the rate you're allowing.</li>
+    <li>Its value comes off the bill — the customer pays only the difference.</li>
+  </ol>
+  <div class="note safe">
+    <span class="lbl">The old gold really comes in</span>
+    <p>It isn't just knocked off the total — the metal lands in your melting pot and shows in
+      your stock. You gave value for it, and now you hold it.</p>
+  </div>
+
+  <h3 class="job">…and they pay by card</h3>
+  <p>
+    Set the payment mode to <strong>Card</strong>. If you've told the software what your bank
+    charges for a swipe (Settings → Accounts → your bank), the customer's share of that fee is
+    added to the bill and your own share is quietly booked as an expense — so at the end of the
+    year you can see what taking cards actually costs you.
+  </p>
+  <div class="note why">
+    <span class="lbl">Why the card fee lands after GST</span>
+    <p>The fee is the bank's, not part of what you sold — so tax is worked out on the goods
+      first, and the fee added afterward. On a credit bill where nothing is swiped yet, there's
+      no fee until they actually pay.</p>
+  </div>
+
+  <h3 class="job">A wholesale customer buys on weight, not rupees</h3>
+  <p class="situation">Trade buyers who settle in metal — the weight-wise bill.</p>
+  <p>
+    Tick <strong>Weight-wise</strong> on the bill. Now the metal isn't priced per line; instead
+    the software works out the <strong>fine grams</strong> they owe (what they took, less any old
+    gold they gave). On the <strong>Balance Weight</strong> tab, enter how many grams they're
+    settling now and at what rate. Whatever's left stays owed <em>as gold</em> — a metal
+    receivable on their khata, kept apart from any rupees. Making and hallmark are still charged
+    in cash.
+  </p>
+
+  <h3 class="job">A scheme member comes to buy</h3>
+  <p class="situation">Their gold saving plan has matured — time to spend it.</p>
+  <p>
+    Make an ordinary bill. Once you've picked the customer, a <strong>Saving Scheme</strong> box
+    appears with their balance. Choose it, and the balance settles the bill. Anything left over
+    stays on the account, or you can hand it back in cash. (More on schemes in Part 3.)
+  </p>
+
+  <h3 class="job">Close the day</h3>
+  <p class="situation">Shutters down — the two things to do before you go home.</p>
+  <ol class="steps">
+    <li>Open the <span class="press">Day Book</span>. It shows the day's sales and purchases,
+      your gold position in gross / net / fine, every account, and what came in — split by cash,
+      card, UPI and so on.</li>
+    <li><strong>Count the drawer</strong> against the Cash Account figure. They should match.</li>
+    <li>Take your <strong>backup</strong> (Part 5). Every single evening.</li>
+  </ol>
+  <div class="note safe">
+    <span class="lbl">Only cash sits in the drawer</span>
+    <p>A card swipe, UPI, NEFT or a cheque all go to the <strong>bank</strong>, not the drawer.
+      So if the drawer doesn't match the Cash figure, something really is short — and that's a
+      number worth trusting.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ PART 3 ═══════════════ -->
+<section class="part" id="jobs">
+  <div class="part-head">
+    <span class="part-num serif">3</span>
+    <div>
+      <h2 class="serif">The other regular jobs</h2>
+      <div class="sub">Buying, making, melting, and moving money around.</div>
+    </div>
+  </div>
+
+  <h3 class="job">Buying gold from your supplier</h3>
+  <ol class="steps">
+    <li><span class="press">Purchase</span> (or <kbd>F3</kbd>) → choose the supplier and the
+      metal.</li>
+    <li>Cash or Credit. On Material In, enter what you received — weight, purity, rate, and any
+      <strong>wastage %</strong> the supplier charges.</li>
+    <li>The <strong>Fine + Wastage</strong> column shows what you're really paying for. Fill in
+      GST, TCS and what you paid, then save.</li>
+  </ol>
+  <p>
+    On credit, it goes onto the supplier's khata as money you owe. Sending metal back to them
+    later? Use <strong>Purchase Return</strong>, and it comes off exactly.
+  </p>
+
+  <h3 class="job">Sending gold to your karagir, and getting it back</h3>
+  <p class="situation">The goldsmith who turns your bullion into pieces.</p>
+  <ol class="steps">
+    <li>Orders → <span class="press">Karagir Job Work</span> → <strong>Issue</strong>. Enter the
+      grams you're handing over. It sits on his metal khata — he's holding your gold now.</li>
+    <li>When he returns the finished piece, press <strong>Receive</strong>. Enter what came back,
+      the <strong>wastage you allow</strong>, and his <strong>labour rate</strong>.</li>
+    <li>The software works out whether he's square, still owes you a little metal, or is owed
+      labour in cash. His khata always shows exactly where you stand.</li>
+  </ol>
+
+  <h3 class="job">Melting scrap or old gold into new stock</h3>
+  <p>
+    Tag &amp; Barcode → <em>Made from loose metal</em>. Make your new tagged pieces, and the fine
+    weight comes <strong>out of your loose pool</strong> — it doesn't appear from nowhere. If you
+    haven't enough loose metal on hand, the screen tells you so before you save.
+  </p>
+
+  <h3 class="job">Sending gold out to be refined</h3>
+  <p>
+    <span class="press">Refining</span> → Material Out to send scrap to the refinery, Material In
+    when the pure gold comes back. Your stock drops when it leaves and rises when it returns —
+    the metal is never lost in between.
+  </p>
+
+  <h3 class="job">Paying money out — supplier, or the electricity bill</h3>
+  <p class="situation">Money leaving the shop, for any reason.</p>
+  <p>
+    <span class="press">Receipts &amp; Payments</span> → <strong>Payments</strong>. To pay a
+    supplier, choose them and the amount. To pay an expense — electricity, tea, rent — choose the
+    <strong>expense head</strong> instead of a party. (Make new heads under Settings → Accounts.)
+    Either way it comes out of cash or bank and shows in your day book and your profit figure.
+  </p>
+  <div class="note why">
+    <span class="lbl">Why there's no separate "expense" screen</span>
+    <p>An expense is just money paid to an expense head. Keeping it a normal payment is the only
+      way it reaches your cash book and your profit &amp; loss — a separate list off to the side
+      never would.</p>
+  </div>
+
+  <h3 class="job">Taking money against an old bill</h3>
+  <p>
+    <span class="press">Receipts &amp; Payments</span> → <strong>Receipts</strong>. Choose the
+    customer, enter what they've paid and how. It comes off their khata. Pick the right
+    <strong>payment type</strong> — cash goes to the drawer, everything else to the bank.
+  </p>
+
+  <h3 class="job">Running a gold saving scheme</h3>
+  <p class="situation">Customers who put by a little each month.</p>
+  <ol class="steps">
+    <li><span class="press">Gold Scheme</span> → <strong>Scheme Types</strong> → design the plan
+      once. Choose how the member saves: fixed <strong>rupees</strong>, or fixed
+      <strong>grams</strong> (so they're protected if gold goes up), and the benefit you add at
+      the end.</li>
+    <li><strong>Members</strong> → <strong>Enrol</strong> a customer. The whole month-by-month
+      schedule is created for you.</li>
+    <li>Each month, open the member and press <strong>Receive</strong> on that instalment. On a
+      weight plan, enter the day's rate and it shows the grams it buys.</li>
+    <li>At maturity they spend it — see "A scheme member comes to buy" in Part 2. Two cards for
+      one person? <strong>Merge Cards</strong> joins them.</li>
+  </ol>
+  <div class="note safe">
+    <span class="lbl">Scheme money is kept separate</span>
+    <p>It's a deposit you're holding, not a sale — so it lives in its own account and never gets
+      muddled with the customer's ordinary buying-and-selling khata.</p>
+  </div>
+
+  <h3 class="job">A customer returns something</h3>
+  <p>
+    <span class="press">Returns</span> → find the bill. The piece goes back into stock, the money
+    comes off what they owe (or is refunded), and the gold and the books all move back together.
+    Nothing is left dangling.
+  </p>
+</section>
+
+<!-- ═══════════════ PART 4 ═══════════════ -->
+<section class="part" id="stand">
+  <div class="part-head">
+    <span class="part-num serif">4</span>
+    <div>
+      <h2 class="serif">Knowing where you stand</h2>
+      <div class="sub">The screens that answer "how is the shop doing?"</div>
+    </div>
+  </div>
+
+  <h3 class="job">Who owes you, and who you owe</h3>
+  <p>
+    <span class="press">Outstanding</span> lists your debtors and creditors — in money, and (for
+    trade customers) in <strong>gold by weight</strong>. This is your morning call-list and your
+    payment reminder in one.
+  </p>
+
+  <h3 class="job">One customer's full account</h3>
+  <p>
+    <span class="press">Ledger → Money + Gold</span> shows a single customer's whole khata: every
+    bill and payment, with a running balance in <strong>both rupees and fine grams</strong>, each
+    on its own Dr/Cr — exactly as your paper khata does, but adding itself up.
+  </p>
+
+  <h3 class="job">What's on the shelf, and what it's worth</h3>
+  <p>
+    <span class="press">Stock Report</span>. See it piece by piece, or grouped by item, and its
+    <strong>Value at Cost</strong>. Found a piece weighed wrong at stock-take? Press
+    <strong>Edit Stock</strong> and fix it in place — the weight is recalculated and your metal
+    position moves with it. Sold pieces can't be edited here; fix the bill instead.
+  </p>
+
+  <h3 class="job">How the shop is really doing</h3>
+  <p>
+    <span class="press">MIS &amp; Scheme Reports</span> answers the owner's questions the daily
+    screens can't:
+  </p>
+  <ul class="plain">
+    <li><strong>Non-moving items</strong> — money sitting on a shelf untouched for months.</li>
+    <li><strong>Quiet customers</strong> — regulars who've stopped coming. A call-list.</li>
+    <li><strong>Top sellers</strong> and top areas — what and where actually sells.</li>
+    <li><strong>Purity profit</strong> — what you sold against what it cost you.</li>
+  </ul>
+
+  <h3 class="job">GST time</h3>
+  <p>
+    <span class="press">GST Reports</span> gives you GSTR-1, GSTR-2, the 3B summary and an
+    HSN-wise sheet, with the CGST/SGST/IGST split done right — inter-state as IGST, within the
+    state as CGST + SGST. Hand it to your accountant, or export it.
+  </p>
+  <div class="note">
+    <span class="lbl">Every report prints and exports</span>
+    <p>On any report, <strong>Print</strong> gives you a clean sheet to file, and
+      <strong>Export</strong> saves it as CSV, Excel or Word.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ PART 5 ═══════════════ -->
+<section class="part" id="safe">
+  <div class="part-head">
+    <span class="part-num serif">5</span>
+    <div>
+      <h2 class="serif">Keeping it safe</h2>
+      <div class="sub">The habits that mean a bad day is only a bad day.</div>
+    </div>
+  </div>
+
+  <h3 class="job">Back up every single evening</h3>
+  <p class="situation">The one habit that matters more than all the others.</p>
+  <p>
+    <span class="press">Settings → Data &amp; Backup → Backup Now</span>. Save it to a
+    <strong>pen drive</strong>, or set up <strong>Google Drive</strong> so it happens by itself.
+    Do it at close, every day. It takes ten seconds.
+  </p>
+  <div class="note watch">
+    <span class="lbl">A backup on the same PC is not a backup</span>
+    <p>If the machine is stolen or its disk dies, a copy sitting on that same machine dies with
+      it. Get it onto a pen drive you take home, or into Google Drive. That is what saves you.</p>
+  </div>
+
+  <h3 class="job">If the power goes, or the PC dies</h3>
+  <p>
+    A power cut cannot corrupt your books. A half-finished bill is simply <strong>not saved</strong>
+    — the software writes a bill completely or not at all, never half-way. When the power's back,
+    open the software and carry on; the last saved bill is the last one you'll see.
+  </p>
+  <p>
+    If the machine itself dies, install the software on a new one and <strong>restore your latest
+    backup</strong> (Settings → Data &amp; Backup). Before it replaces anything, it copies your
+    current books aside first — so even restoring the wrong file is undoable.
+  </p>
+
+  <h3 class="job">Staff logins — who can do what</h3>
+  <p>
+    Give every person their own login (Settings → Users). Never share one.
+  </p>
+  <div class="tblwrap">
+    <table class="ref">
+      <tr><th>Role</th><th>Can</th></tr>
+      <tr><td>Staff</td><td>Bill, take money, enter stock, run reports.</td></tr>
+      <tr><td>Manager</td><td>All of that, plus refining and removing tags.</td></tr>
+      <tr><td>Owner</td><td>Everything — settings, deleting bills, backups, staff logins.</td></tr>
+    </table>
+  </div>
+  <p>
+    So the person at the counter can sell all day, but only you can delete a bill or change a
+    setting. Change the default password the first time you sign in.
+  </p>
+</section>
+
+<!-- ═══════════════ PART 6 ═══════════════ -->
+<section class="part" id="wrong">
+  <div class="part-head">
+    <span class="part-num serif">6</span>
+    <div>
+      <h2 class="serif">When a number looks wrong</h2>
+      <div class="sub">Before you worry — the usual, ordinary reasons.</div>
+    </div>
+  </div>
+  <div class="tblwrap">
+    <table class="ref">
+      <tr><th>What you see</th><th>Usually because</th></tr>
+      <tr><td>Stock value looks low</td>
+        <td>Pieces with no <strong>Cost/Gm</strong> are left out of the value. The Stock Report
+          tells you how many — fill them in.</td></tr>
+      <tr><td>Cash or bank is off</td>
+        <td>The account's <strong>opening balance</strong> (Settings → Accounts) — the figure
+          most forgotten on day one.</td></tr>
+      <tr><td>A customer's balance is wrong</td>
+        <td>Their opening balance, or a bill entered in one book and not the other during
+          changeover. Open their ledger and walk it down.</td></tr>
+      <tr><td>Gold on hand doesn't match the trays</td>
+        <td>Loose bullion and old gold in the safe count too — not just tagged pieces.</td></tr>
+      <tr><td>"This tag is not in stock"</td>
+        <td>That piece is already sold, melted, or at another branch. It can't be billed
+          twice — that's the software protecting you.</td></tr>
+      <tr><td>A saving-scheme benefit hasn't shown</td>
+        <td>It's only added once every instalment is in <em>and</em> the maturity date has
+          passed. A member who stopped early gets back only what they put in.</td></tr>
+    </table>
+  </div>
+  <p>
+    Whatever it is, your evening backups mean you can always step back to yesterday. Nothing you
+    do in a day is beyond undoing.
+  </p>
+</section>
+
+<!-- ═══════════════ PART 7 ═══════════════ -->
+<section class="part" id="rules">
+  <div class="part-head">
+    <span class="part-num serif">7</span>
+    <div>
+      <h2 class="serif">The gold &amp; money rules, in one place</h2>
+      <div class="sub">So no figure on a bill is ever a mystery.</div>
+    </div>
+  </div>
+
+  <h3 class="job">Weights</h3>
+  <p>Everything starts from the weight. Stones, beads and the bag it sits in aren't metal, so they
+    come off before the piece is priced.</p>
+  <div class="calc">Net Weight   =  Gross − Stone − Beads − Bag
+Fine Weight  =  Net × Purity ÷ 100
+
+<span class="r">Example</span>  10.000 g gross, no stones, 91.6% pure
+         Net  = 10.000 g
+         Fine = 10.000 × 91.6 ÷ 100 = 9.160 g pure gold</div>
+
+  <h3 class="job">How a sale bill adds up</h3>
+  <div class="calc">Goods    =  Net Weight × Rate per gram
+Making   =  Net Weight × Making per gram
+Bill     =  Goods + Making + Hallmark
+Taxable  =  Bill − Discounts
+GST      =  Taxable × GST%
+Total    =  Taxable + GST + Other + Card fee
+Balance  =  Total − Old Gold − Received − Scheme
+
+<span class="r">Example</span>  12.000 g at ₹4,590, making ₹300/g, GST 3%
+         Goods   12 × 4,590  =  ₹55,080
+         Making  12 × 300    =   ₹3,600
+         Bill                =  ₹58,680
+         GST 3%              =   ₹1,760.40
+         Total               =  ₹60,440.40</div>
+
+  <h3 class="job">Old gold you take in</h3>
+  <div class="calc">Fine   =  Net × Purity ÷ 100
+Value  =  Fine × Rate you allow
+
+<span class="r">Example</span>  3.000 g at 80%, allowed at ₹4,500
+         Fine  = 2.400 g
+         Value = ₹10,800  — comes off the bill</div>
+
+  <h3 class="job">Dr and Cr, once and for all</h3>
+  <div class="calc">Money khata     Dr = they owe you    Cr = you owe them
+Gold khata      Dr = they owe you gold   Cr = you owe them gold
+
+They are never mixed. A customer can owe you rupees
+AND owe you grams at the same time — two separate columns.</div>
+
+  <div class="note safe">
+    <span class="lbl">Balances that can't drift</span>
+    <p>Every balance here is <strong>worked out fresh</strong> from the bills and receipts, not
+      kept as a running tally. So editing or deleting anything corrects itself — there's nothing
+      to unwind by hand, and no way for a figure to quietly go wrong.</p>
+  </div>
+</section>
+
+<footer class="end">
+  <p class="serif">That's the shop, in one book.</p>
+  <p>
+    Keep the daily backup, count the drawer each night, and reconcile against your old book for
+    the first month. Do those three things and the rest looks after itself. For the full
+    field-by-field reference, see the printed manual that came with the software.
+  </p>
+</footer>
+
+</div>

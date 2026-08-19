@@ -1,0 +1,2406 @@
+<meta charset="utf-8">
+<title>Parivar Jewellery ERP — User Manual</title>
+<style>
+  @page { size: A4; margin: 15mm 14mm 17mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Calibri, Arial, sans-serif;
+    font-size: 10pt; line-height: 1.45; color: #333; margin: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1, h2, h3, h4 { color: #333; margin: 0 0 .35em; line-height: 1.2; }
+  h1 { font-size: 21pt; letter-spacing: -.4pt; }
+  h2 {
+    font-size: 14pt; margin-top: 0; padding-bottom: 4px;
+    border-bottom: 2px solid #D4AF37; break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin-top: 1em; color: #8A6F1F; break-after: avoid; }
+  h4 { font-size: 10pt; margin-top: .8em; break-after: avoid; }
+  p { margin: 0 0 .55em; }
+  ul, ol { margin: 0 0 .6em; padding-left: 1.2em; }
+  li { margin-bottom: .22em; }
+  code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; }
+  strong { color: #1f1d19; }
+
+  .sheet { break-after: page; }
+  .sheet:last-child { break-after: auto; }
+
+  /* Cover */
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  .mark {
+    width: 74px; height: 74px; margin: 0 auto 20px; border-radius: 17px;
+    background: linear-gradient(135deg, #F2D882, #D4AF37 48%, #9E791C);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cover h1 { font-size: 30pt; margin-bottom: 6px; }
+  .cover .sub { font-size: 13pt; color: #6B6862; margin-bottom: 34px; }
+  .cover .meta { font-size: 10pt; color: #96918A; margin-top: 44px; line-height: 1.9; }
+
+  table { width: 100%; border-collapse: collapse; margin: .4em 0 .75em; font-size: 9pt; }
+  th { background: #F5F2EC; text-align: left; padding: 4px 7px; border: 1px solid #E7E3DA; font-weight: 650; }
+  td { padding: 4px 7px; border: 1px solid #E7E3DA; vertical-align: top; }
+  td.r, th.r { text-align: right; }
+  tr { break-inside: avoid; }
+
+  .note, .warn, .tip {
+    border-left: 3px solid #D4AF37; background: #FBF7EC;
+    padding: 7px 11px; margin: .6em 0; break-inside: avoid; font-size: 9.5pt;
+  }
+  .warn { border-left-color: #B3261E; background: #FDF0EF; }
+  .tip  { border-left-color: #1F7A4D; background: #EEF7F2; }
+  .note b, .warn b, .tip b { display: block; margin-bottom: 2px; }
+
+  .steps { counter-reset: s; padding-left: 0; list-style: none; }
+  .steps > li {
+    counter-increment: s; position: relative; padding-left: 25px; margin-bottom: .4em;
+  }
+  .steps > li::before {
+    content: counter(s); position: absolute; left: 0; top: 1px;
+    width: 18px; height: 18px; border-radius: 50%; background: #D4AF37; color: #3A2F0B;
+    font-size: 8.5pt; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  kbd {
+    font-family: Consolas, monospace; font-size: 8.5pt; background: #F5F2EC;
+    border: 1px solid #E7E3DA; border-radius: 3px; padding: 1px 5px; white-space: nowrap;
+  }
+  .toc { font-size: 10.5pt; }
+  .toc li { margin-bottom: .32em; }
+  .toc .n { display: inline-block; width: 26px; color: #8A6F1F; font-weight: 650; }
+  .toc ul { list-style: none; padding-left: 26px; margin: .25em 0 .5em; }
+  .toc ul li { color: #6B6862; font-size: 9.5pt; margin-bottom: .15em; }
+  .field-tbl td:first-child { width: 32%; font-weight: 600; }
+  .calc {
+    background: #F5F2EC; border: 1px solid #E7E3DA; border-radius: 4px;
+    padding: 8px 11px; font-family: Consolas, monospace; font-size: 9pt;
+    white-space: pre-wrap; margin: .5em 0 .8em; break-inside: avoid; line-height: 1.5;
+  }
+  .lead { font-size: 10.5pt; color: #6B6862; margin-bottom: .9em; }
+  .pill {
+    display: inline-block; background: #F7EFD9; color: #8A6F1F; border-radius: 10px;
+    padding: 1px 9px; font-size: 8.5pt; font-weight: 650;
+  }
+</style>
+
+<!-- ─────────────────────────── COVER ─────────────────────────── -->
+<div class="sheet cover">
+  <div class="mark">
+    <svg width="42" height="42" viewBox="0 0 24 24">
+      <path d="M6 3h12l3 6-9 12L3 9z" fill="#fff" stroke="#967316" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M3 9h18M9 3l3 6 3-6M12 9v12" fill="none" stroke="#967316" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <h1>Parivar Jewellery ERP</h1>
+  <div class="sub">Complete User Manual</div>
+  <div style="max-width:118mm;margin:0 auto;color:#6B6862;font-size:10.5pt">
+    Everything you need to run a jewellery shop on this software — from the first day's
+    setup, through daily billing, old-gold exchange, purchase, karagir orders, refining
+    and savings schemes, to closing the books and taking a backup.
+  </div>
+  <div class="meta">
+    Version 1.0 &nbsp;·&nbsp; Offline Windows Desktop Application<br>
+    Sales &nbsp;·&nbsp; Invoicing &nbsp;·&nbsp; Purchase &nbsp;·&nbsp; Stock &nbsp;·&nbsp; CRM &nbsp;·&nbsp; Refining
+  </div>
+</div>
+
+<!-- ─────────────────────────── CONTENTS ─────────────────────────── -->
+<div class="sheet">
+  <h2>Contents</h2>
+  <ol class="toc" style="list-style:none;padding-left:0">
+    <li><span class="n">1</span><strong>Before You Begin</strong>
+      <ul><li>What this software does · Installing it · Where your data lives</li></ul></li>
+    <li><span class="n">2</span><strong>Signing In &amp; Getting Around</strong>
+      <ul><li>Signing in and out · The sidebar · Top bar · Search box · Light and dark mode</li></ul></li>
+    <li><span class="n">3</span><strong>First-Day Setup</strong>
+      <ul><li>Shop details · Bank details · Invoice design · Numbering · Staff logins and roles</li></ul></li>
+    <li><span class="n">4</span><strong>Creating Items</strong>
+      <ul><li>Item types and groups · Purity · Weight-wise vs quantity-wise</li></ul></li>
+    <li><span class="n">5</span><strong>Entering Your Stock (Tag &amp; Barcode)</strong>
+      <ul><li>Tag numbers · Weights · Bulk entry · Excel import · Labels · Loose metal</li></ul></li>
+    <li><span class="n">6</span><strong>Customers and Suppliers</strong>
+      <ul><li>Opening balance · Opening metal balance · Loyalty</li></ul></li>
+    <li><span class="n">7</span><strong>Making a Sales Bill</strong>
+      <ul><li>Scanning a tag · Old gold exchange · Discounts and GST · Saving and printing</li></ul></li>
+    <li><span class="n">8</span><strong>Receiving and Paying Money</strong></li>
+    <li><span class="n">9</span><strong>Purchase and Metal Exchange</strong>
+      <ul><li>Material In and Material Out · Wastage · Balance weight</li></ul></li>
+    <li><span class="n">10</span><strong>Karagir Orders</strong></li>
+    <li><span class="n">11</span><strong>Refining</strong></li>
+    <li><span class="n">12</span><strong>Gold Saving Scheme</strong></li>
+    <li><span class="n">13</span><strong>Checking Your Stock</strong>
+      <ul><li>Stock report · Physical verification</li></ul></li>
+    <li><span class="n">14</span><strong>Reports and Khata</strong>
+      <ul><li>Day book · Money khata · Gold khata · Sales register</li></ul></li>
+    <li><span class="n">15</span><strong>Printing, WhatsApp and PDF</strong></li>
+    <li><span class="n">16</span><strong>Backup — Do This Every Day</strong>
+      <ul><li>To a pen drive · To Google Drive</li></ul></li>
+    <li><span class="n">17</span><strong>Keyboard Shortcuts</strong></li>
+    <li><span class="n">18</span><strong>How Every Number Is Calculated</strong></li>
+    <li><span class="n">19</span><strong>Problems and Solutions</strong></li>
+    <li><span class="n">20</span><strong>Glossary</strong></li>
+  </ol>
+
+  <div class="tip">
+    <b>How to read this manual</b>
+    If you are setting up for the first time, work through sections 3 to 6 in order —
+    each one depends on the last. If the shop is already running, jump straight to the
+    section you need.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 1 ─────────────────────────── -->
+<div class="sheet">
+  <h2>1. Before You Begin</h2>
+
+  <h3>What this software does</h3>
+  <p>
+    Parivar Jewellery ERP runs a retail jewellery shop end to end. It keeps your stock
+    piece by piece, makes GST tax invoices, tracks what every customer owes you in
+    <strong>both rupees and gold</strong>, records purchases from suppliers, follows
+    orders given to karagirs, handles metal sent for refining, and runs monthly gold
+    saving schemes.
+  </p>
+
+  <h3>It works without internet</h3>
+  <p>
+    Everything runs on your own computer. No internet connection is needed to make a
+    bill, and your customer and stock information never leaves the machine. The only
+    time the software opens the internet is when you press the WhatsApp or Email button,
+    and even then it just opens WhatsApp or your mail program with the message ready —
+    <strong>you still press send yourself</strong>.
+  </p>
+
+  <h3>Installing</h3>
+  <ol class="steps">
+    <li>Run the installer and choose where to install.</li>
+    <li>Open <strong>Parivar Jewellery ERP</strong> from the Start menu or desktop shortcut.</li>
+    <li>The first time it opens, the software creates an empty database and fills in
+        standard item groups (22K, 18K and so on) and standard accounts for you.</li>
+  </ol>
+
+  <h3>Signing in the first time</h3>
+  <p>
+    The software asks for a username and password every time it opens. On a brand-new
+    installation there is one account ready for you:
+  </p>
+  <div class="calc">Username:  admin
+  Password:  admin</div>
+  <div class="warn">
+    <b>Change this password before you start billing</b>
+    Until you do, anyone who has heard of this software can open your books. Sign in, go
+    to <strong>Settings &rarr; Users</strong>, and change it. The software keeps warning
+    you on that screen until you have.
+  </div>
+
+  <h3>Where your data is kept</h3>
+  <p>
+    All your data sits in a single file on this computer. You can see its exact location
+    at any time under <strong>Settings → Data &amp; Backup</strong>.
+  </p>
+  <div class="warn">
+    <b>Your data is only on this computer</b>
+    There is no copy anywhere else. If this computer is lost, stolen or its hard disk
+    fails, your books are gone with it. Take a backup at the end of every working day —
+    see section 16. It takes ten seconds.
+  </div>
+
+  <h3>The order to set things up</h3>
+  <p>Each step below needs the one before it, so follow this order the first time:</p>
+  <table>
+    <tr><th style="width:22%">Step</th><th>What you do</th><th style="width:26%">Section</th></tr>
+    <tr><td><strong>1. Shop details</strong></td><td>Name, address, GST number, bank details — these print on every bill</td><td>3</td></tr>
+    <tr><td><strong>2. Items</strong></td><td>Create Ring, Chain, Bangle and so on</td><td>4</td></tr>
+    <tr><td><strong>3. Stock</strong></td><td>Enter each physical piece and get a tag number</td><td>5</td></tr>
+    <tr><td><strong>4. Customers</strong></td><td>Add regular customers with their old balance</td><td>6</td></tr>
+    <tr><td><strong>5. Start billing</strong></td><td>You are ready</td><td>7</td></tr>
+  </table>
+</div>
+
+<!-- ─────────────────────────── 2 ─────────────────────────── -->
+<div class="sheet">
+  <h2>2. Signing In &amp; Getting Around</h2>
+
+  <h3>Signing in</h3>
+  <p>
+    Type your username and password and press <strong>Sign In</strong>. If either is
+    wrong you are told only "Invalid username or password" &mdash; the software never
+    reveals which part was wrong, so nobody can fish for valid usernames.
+  </p>
+  <p>
+    A login the owner has <strong>disabled</strong> cannot sign in at all, even with the
+    correct password.
+  </p>
+
+  <h3>Signing out</h3>
+  <p>
+    Your name sits at the top right. Click it and choose <strong>Sign out</strong>. Do
+    this whenever you leave the counter &mdash; the next person signs in with their own
+    login, so the shop knows who did what.
+  </p>
+  <p>
+    The same menu has <strong>Users &amp; Password</strong>, which jumps straight to where
+    you can change your own password.
+  </p>
+
+  <h3>The sidebar (left side)</h3>
+  <p>Everything in the software is reached from the left sidebar, arranged in four groups.</p>
+  <table>
+    <tr><th style="width:24%">Group</th><th>Screens</th></tr>
+    <tr><td><strong>Overview</strong></td><td>Dashboard</td></tr>
+    <tr><td><strong>Transactions</strong></td>
+        <td>Sales Invoice, Sales Register, Purchase, Receipts, Orders, Refining, Gold Scheme</td></tr>
+    <tr><td><strong>Masters</strong></td>
+        <td>Item Creation, Tag &amp; Barcode, Customers, Suppliers</td></tr>
+    <tr><td><strong>Reports</strong></td>
+        <td>Stock Report, Stock Verification, Day Book, Ledger / Khata, Accounting Books</td></tr>
+    <tr><td><strong>System</strong></td><td>Settings</td></tr>
+  </table>
+  <p>
+    The small grey letters on the right of each row — <kbd>F2</kbd>, <kbd>F3</kbd> and so on —
+    are shortcut keys. Pressing that key opens the screen instantly from anywhere.
+  </p>
+  <p>
+    The <strong>☰</strong> button at the top left shrinks the sidebar to icons only, giving
+    you more room for wide screens like the sales bill. Press it again to bring the names back.
+  </p>
+
+  <h3>The top bar</h3>
+  <table class="field-tbl">
+    <tr><td>Page name</td><td>Which screen you are on, with a short description under it</td></tr>
+    <tr><td>Search or jump to…</td><td>The search box — see below</td></tr>
+    <tr><td>Shop name and date</td><td>Confirms which shop file is open and today's date</td></tr>
+    <tr><td>Moon / Sun button</td><td>Switches between light and dark appearance</td></tr>
+  </table>
+
+  <h3>The search box — the fastest way to work</h3>
+  <p>
+    Press <kbd>Ctrl</kbd> + <kbd>K</kbd> anywhere in the software. A search box opens in
+    the middle of the screen. Start typing and it will find:
+  </p>
+  <ul>
+    <li><strong>Any screen</strong> — type <span class="mono">stock</span> and press Enter to open the Stock Report.</li>
+    <li><strong>Any customer or supplier</strong> — type a name and press Enter to open their khata directly.</li>
+  </ul>
+  <p>Use the <kbd>↑</kbd> and <kbd>↓</kbd> keys to choose, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close.</p>
+
+  <h3>Light and dark appearance</h3>
+  <p>
+    The moon button switches to a dark screen, which is easier on the eyes in a dim shop
+    or at night. Your choice is remembered the next time you open the software.
+  </p>
+
+  <h3>Things that behave the same everywhere</h3>
+  <ul>
+    <li><strong>Grids grow by themselves.</strong> Whenever you start typing in the last
+        empty row of a table, a fresh blank row appears below. You never need to press
+        an "add row" button.</li>
+    <li><strong>Grey boxes are calculated.</strong> If a box has a grey background you
+        cannot type in it — the software works it out for you (net weight, fine weight,
+        amounts, totals).</li>
+    <li><strong>Delete a row</strong> by moving your mouse over it and clicking the small
+        <strong>✕</strong> that appears on the far left.</li>
+    <li><strong>Messages</strong> appear briefly at the bottom right — green tick for
+        success, red for a problem. Read the red ones; they explain exactly what is wrong.</li>
+  </ul>
+</div>
+
+<!-- ─────────────────────────── 3 ─────────────────────────── -->
+<div class="sheet">
+  <h2>2b. Before You Trust This Software</h2>
+  <p class="lead">
+    Read this before you move your shop onto it. It is the most important page here.
+  </p>
+  <div class="note">
+    <b>Run both systems side by side first</b>
+    For at least a week — a month is better, and a month that includes a busy day is better
+    still — keep entering every bill, purchase and receipt in whatever you use now
+    <em>as well</em> as here. Yes, it is double work. It is the only way to find out whether
+    the two agree before your books depend on the answer.
+  </div>
+  <ol class="steps">
+    <li>Set the shop up (section 3) and enter your <strong>opening balances</strong>: cash in
+        hand, bank, what each customer owes you, what you owe each supplier, and your
+        stock. If a customer is <em>in credit</em>, enter the amount as <strong>Cr</strong>
+        rather than as a minus.</li>
+    <li>Enter the <strong>metal</strong> too, which is easy to forget. Tagged pieces go in on
+        the tag grid; loose bullion and scrap in the safe go in under <strong>Tag &amp;
+        Barcode → Made from loose metal → Opening metal</strong>. Do not enter it as a
+        purchase — you do not owe anyone for it. If a goldsmith is holding your gold, put
+        that on his record as an opening metal balance.</li>
+    <li>Work normally for a week or a month, entering everything in both systems.</li>
+    <li>Open <strong>Changeover Check</strong>. Set the date to the last day you entered.</li>
+    <li>Type what your <strong>old</strong> system says for each figure — cash, bank,
+        customers owing, suppliers owed, gold on hand, stock value, GST, scheme deposits.</li>
+    <li>Anything marked <span class="pill">Differs</span> is a question to answer
+        <em>before</em> you switch, not after. The screen tells you where to look, and lists
+        every customer and supplier so you can find which one is out.</li>
+  </ol>
+  <p>
+    A box you leave blank is reported as <strong>Not checked</strong> — never as agreement.
+    An empty form does not mean everything is fine; it means you have not looked yet.
+  </p>
+  <h4>The usual reasons a figure will not tie</h4>
+  <table class="field-tbl">
+    <tr><td>Stock value is low</td><td>Pieces with no <strong>Cost/Gm</strong> are left out of
+        the valuation entirely. The screen tells you how many. Fill them in on the Stock
+        Report.</td></tr>
+    <tr><td>Cash or bank is out</td><td>Check the account's <strong>opening balance</strong>
+        under Settings → Accounts. It is the figure most often forgotten on day one.</td></tr>
+    <tr><td>A customer is out</td><td>Their opening balance, or a bill entered in one system
+        and not the other. The lists at the bottom of the screen show every party.</td></tr>
+    <tr><td>Gold on hand is out</td><td>Count the trays. Remember loose metal and old gold in
+        the safe count too, not just tagged pieces.</td></tr>
+  </table>
+  <p>
+    When everything you care about says <span class="pill">Agrees</span>, and it still does
+    after a second week, you can stop the double entry.
+  </p>
+</div>
+
+<div class="sheet">
+  <h2>3. First-Day Setup</h2>
+  <p class="lead">Open <strong>Settings</strong> from the bottom of the sidebar. There are seven tabs.</p>
+
+  <h3>Company tab — your shop details</h3>
+  <p>Everything here prints on your bills, so type it exactly as it should appear.</p>
+  <table class="field-tbl">
+    <tr><td>Company Name</td><td>Your shop name, printed large at the top of every bill</td></tr>
+    <tr><td>Address</td><td>Printed under the shop name</td></tr>
+    <tr><td>Phone</td><td>Printed as "Contact No." on the bill</td></tr>
+    <tr><td>GSTIN</td><td>Your GST registration number</td></tr>
+    <tr><td>State</td><td>Used as the default place of supply on bills</td></tr>
+    <tr><td>Financial Year</td><td>From and to dates, normally 1 April to 31 March. Reports use this.</td></tr>
+  </table>
+
+  <h4>Bank Details</h4>
+  <p>
+    Bank name, account number, branch and IFSC code. These print in a box on the bill so
+    customers can transfer money to you. Leave them blank if you do not want them printed —
+    or switch the whole box off in the Invoice Design tab.
+  </p>
+
+  <h4>Invoice Declaration</h4>
+  <p>
+    The legal sentence printed in small type at the bottom of the bill. A standard GST
+    declaration is filled in already. Change it if your accountant advises different wording.
+  </p>
+  <p>Press <strong>Save Settings</strong> at the bottom right when done.</p>
+
+  <h3>Invoice Design tab — how your bill looks</h3>
+  <p>
+    The right half of this screen shows a <strong>live preview</strong> of a real bill.
+    Every change you make appears there immediately, so you can see the result before
+    printing anything.
+  </p>
+  <table class="field-tbl">
+    <tr><td>Paper</td><td><strong>A4 Sheet</strong> for a full tax invoice, or <strong>Thermal 3in</strong> for a small till-roll receipt</td></tr>
+    <tr><td>Document Title</td><td>Normally "TAX INVOICE". Change to "ESTIMATE" or "CASH MEMO" if you prefer</td></tr>
+    <tr><td>Accent Colour</td><td>The colour of your shop name and the highlight bands on the bill</td></tr>
+    <tr><td>Footer Note</td><td>An extra line under the totals, for example "Goods once sold will not be taken back"</td></tr>
+    <tr><td>Item Columns</td><td>Tick only the columns you want printed: HSN, Purity, HUID, Qty, Gross Wt, Net Wt, Rate, Making</td></tr>
+    <tr><td>Sections</td><td>Switch whole blocks on or off: shop name header, old gold table, bank details, declaration, signature row, pending balance</td></tr>
+  </table>
+  <div class="tip">
+    <b>Try before you commit</b>
+    Press <strong>Test Print</strong> to print one sample bill on your actual printer and
+    check the alignment. When you are happy, press <strong>Save Design</strong>. Press
+    <strong>Reset to default</strong> to undo everything and start again.
+  </div>
+
+  <h3>Bill Numbering tab</h3>
+  <p>
+    Shows each type of document, its letter prefix, and the next number that will be used.
+    You have three sales series ready to use:
+  </p>
+  <table>
+    <tr><th style="width:18%">Prefix</th><th>Used for</th></tr>
+    <tr><td class="mono"><strong>COM</strong></td><td>Normal retail bills over the counter</td></tr>
+    <tr><td class="mono"><strong>ESM</strong></td><td>Estimates — a quotation before the customer decides</td></tr>
+    <tr><td class="mono"><strong>Service</strong></td><td>Repair and service bills</td></tr>
+  </table>
+  <p>
+    Purchases use <span class="mono">MI</span>, refining <span class="mono">MO</span>,
+    receipts <span class="mono">VR</span>, payments <span class="mono">VP</span>,
+    orders <span class="mono">NO</span>, and gold schemes <span class="mono">GS</span>.
+  </p>
+  <div class="note">
+    <b>A power cut cannot corrupt your books</b>
+    If the power drops mid-bill, or someone pulls the plug, the half-finished bill is simply
+    not saved — the software either writes a document completely or not at all, never
+    half-way. When the power comes back, open the software and carry on; the last saved bill
+    is the last one you will see. Take your daily backup anyway (section 16): it protects
+    against a failed <em>disk</em>, which no software can.
+  </div>
+
+  <div class="note">
+    <b>Numbers are never reused</b>
+    Once a bill number is given out it is gone forever, even if you delete that bill.
+    This is deliberate — a missing number in your books is far safer than the same number
+    appearing on two different bills.
+  </div>
+
+  <h3>Accounts tab</h3>
+  <p>
+    The list of accounts the software posts to — Cash, Bank, Sales, Purchase, GST Payable,
+    Old Gold Purchase, Gold Saving Scheme and Shop Expenses. These are created for you and
+    marked "System". You do not need to change anything here.
+  </p>
+
+  <h4>Taking cards</h4>
+  <p>
+    Open your bank account from the list and tick <strong>Card swap account</strong>. Enter
+    what the bank charges, split two ways: <strong>For Customer in %</strong> is added to
+    their bill, <strong>For Us in %</strong> is what you absorb.
+  </p>
+  <p>
+    On a bill paid by <strong>Card</strong>, the customer's share appears as
+    <em>Card Charges</em> in the totals, and your share is recorded against a
+    <strong>Card Charges</strong> expense head so you can see what taking cards actually
+    costs you over a year.
+  </p>
+  <div class="note">
+    <b>Card charges are added after GST</b>
+    The fee is the bank's, not part of what you sold — so tax is worked out on the goods
+    first and the fee is added afterwards. Only one account can be your card account.
+  </div>
+  <p>
+    The fee is worked out on what actually went through the machine. On a
+    <strong>credit</strong> bill where the customer has not paid yet, no card has been
+    presented, so there is no fee — it appears when they pay.
+  </p>
+
+  <h3>Making &amp; Wastage tab — rates you charge every day</h3>
+  <p class="lead">
+    Most shops charge the same making on the same kind of item, day after day. Set it once
+    here and it fills itself in from then on.
+  </p>
+  <ol class="steps">
+    <li>Choose <strong>Making</strong> or <strong>Wastage</strong> at the top.</li>
+    <li>Press <strong>New Rule</strong>.</li>
+    <li>Pick <strong>a whole item group</strong> (for example all 22K Gold) or
+        <strong>one item</strong> (for example only Bangles).</li>
+    <li>Type the rate and press <strong>Save</strong>.</li>
+  </ol>
+  <table class="field-tbl">
+    <tr><td>Making per gram</td><td>Charged on the net weight, the usual way</td></tr>
+    <tr><td>Flat charge per piece</td><td>For items you charge a fixed making on, whatever they weigh</td></tr>
+    <tr><td>Wastage %</td><td>Your usual wastage on a purchase from a supplier</td></tr>
+  </table>
+  <p>
+    <strong>An item's own rule beats its group's.</strong> Set 22K Gold to ₹400 and Bangles
+    to ₹550, and bangles are charged ₹550 while every other 22K item is charged ₹400. Where a
+    number came from is shown under the box, so nothing appears from nowhere.
+  </p>
+  <p>The rates fill themselves into three places:</p>
+  <ul>
+    <li>the <strong>Making /gm</strong> box when you tag a new batch of stock;</li>
+    <li>the making on a <strong>bill line</strong>, if that piece was tagged without one;</li>
+    <li>the <strong>Wastage %</strong> on a purchase line.</li>
+  </ul>
+  <div class="note">
+    <b>These only start you off</b>
+    A rate that has filled itself in is just a starting point — change it on any row, any
+    time, and what you leave there is what is saved. The software will never go back and
+    change a bill or a tag you have already saved. That matters most when the right answer is
+    <em>nothing</em>: if you gave making free on a bill, it stays free.
+  </div>
+
+  <h3>Users tab &mdash; staff logins</h3>
+  <p class="lead">Give every person who uses the software their own login. Never share one.</p>
+
+  <h4>The three roles</h4>
+  <table>
+    <tr><th style="width:20%">Role</th><th>Who it is for</th></tr>
+    <tr><td><strong>Staff</strong></td>
+        <td>Counter salesmen &mdash; billing, receipts, orders, entering stock, viewing reports</td></tr>
+    <tr><td><strong>Manager</strong></td>
+        <td>Everything Staff can do, plus refining (melting metal) and removing tags from stock</td></tr>
+    <tr><td><strong>Owner</strong></td>
+        <td>Full access &mdash; staff logins, shop settings, deleting documents, backups</td></tr>
+  </table>
+
+  <h4>What each role may do</h4>
+  <table>
+    <tr><th>Task</th><th style="width:13%">Staff</th><th style="width:14%">Manager</th><th style="width:13%">Owner</th></tr>
+    <tr><td>Billing, receipts, orders, stock entry</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Reports, khata and exports</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Refining &mdash; melting metal</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Deleting a tag from stock</td><td>No</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>Deleting a bill, purchase or receipt</td><td>No</td><td>No</td><td>Yes</td></tr>
+    <tr><td>Shop settings and bill numbering</td><td>No</td><td>No</td><td>Yes</td></tr>
+    <tr><td>Creating and managing staff logins</td><td>No</td><td>No</td><td>Yes</td></tr>
+    <tr><td>Taking a database backup</td><td>No</td><td>No</td><td>Yes</td></tr>
+    <tr><td>Restoring from a backup</td><td>No</td><td>No</td><td>Yes</td></tr>
+  </table>
+  <p>This same table appears inside the software, so staff can see what they may do.</p>
+
+  <h4>Creating a login</h4>
+  <ol class="steps">
+    <li>Go to <strong>Settings &rarr; Users</strong> and press <strong>Add Staff</strong>.</li>
+    <li>Enter their full name and a username with no spaces, for example
+        <span class="mono">ramesh</span>.</li>
+    <li>Choose the role. When in doubt choose <strong>Staff</strong> &mdash; you can raise
+        it later.</li>
+    <li>Set a password of at least four characters and confirm it.</li>
+    <li>Press <strong>Create Login</strong> and tell them the password.</li>
+  </ol>
+
+  <h4>Managing logins</h4>
+  <table class="field-tbl">
+    <tr><td>Change a role</td><td>Pick a different role from the dropdown on their row</td></tr>
+    <tr><td>Disable a login</td><td>Press <strong>Disable</strong>. Use this when someone leaves &mdash; better than deleting, because their history stays clear.</td></tr>
+    <tr><td>Forgotten password</td><td>Press <strong>Reset password</strong>, set a new one and tell them</td></tr>
+    <tr><td>Delete a login</td><td>Removes it completely. Documents they created are unaffected.</td></tr>
+  </table>
+
+  <div class="note">
+    <b>Protections you cannot switch off</b>
+    The built-in <span class="mono">admin</span> account can never be deleted or disabled,
+    so you cannot lock yourself out. You also cannot disable your own login or remove your
+    own owner access.
+  </div>
+
+  <h4>Changing your own password</h4>
+  <p>
+    Anyone can change their own password under <strong>My Account</strong> on the Users
+    tab. You must type your current password first, so someone who finds an unattended
+    screen cannot lock the real user out.
+  </p>
+  <div class="tip">
+    <b>Passwords are stored safely</b>
+    Passwords are never saved as you typed them. Each is scrambled with a random value
+    unique to that account, so even someone who copies your data file cannot read them.
+  </div>
+
+  <h3>Data &amp; Backup tab</h3>
+  <p>Shows where your data file is, and lets you take a backup or restore one. See section 16.</p>
+</div>
+
+<!-- ─────────────────────────── 4 ─────────────────────────── -->
+<div class="sheet">
+  <h2>4. Creating Items</h2>
+  <p class="lead">
+    Press <kbd>F6</kbd> or click <strong>Item Creation</strong>.
+  </p>
+
+  <h3>What an "item" means here</h3>
+  <p>
+    An item is a <em>kind</em> of ornament, not a single piece. "Ring" is one item, even
+    though you may have forty rings in the shop. The individual rings are entered later as
+    tags (section 5).
+  </p>
+
+  <h3>Item Types and Item Groups</h3>
+  <p>Before creating items, understand these two lists:</p>
+  <ul>
+    <li><strong>Item Type</strong> — the metal: Gold, Silver, Platinum, Diamond, Stone.</li>
+    <li><strong>Item Group</strong> — the quality within that metal, and this is what
+        <strong>sets the purity</strong>: 22K Gold is 91.6%, 18K Gold is 75%, Silver is 92.5%,
+        and so on.</li>
+  </ul>
+  <p>
+    Both lists are ready to use. To add your own, press the <strong>Item Groups</strong> or
+    <strong>Item Types</strong> buttons at the top of the screen. When adding a group, type
+    its name, its purity percentage, and pick which metal it belongs to.
+  </p>
+
+  <h3>Creating an item</h3>
+  <ol class="steps">
+    <li>Press <strong>New Item</strong>.</li>
+    <li><strong>Item Name</strong> — for example <span class="mono">Ring</span>.</li>
+    <li><strong>Item Type</strong> — Gold.</li>
+    <li><strong>Item Group</strong> — 22K Gold. The purity shown beside each group is what
+        will be filled in automatically when you enter stock.</li>
+    <li><strong>Design</strong> — optional, for example Antique or Filigree.</li>
+    <li><strong>Weight / Qty</strong> — see the explanation below.</li>
+    <li><strong>UOM</strong> — the unit: GRAM, CARAT, PCS or TOLA.</li>
+    <li><strong>HSN Code</strong> — the GST code printed on the bill. 7113 is the usual code
+        for gold jewellery.</li>
+    <li><strong>Reorder Level</strong> — optional. Set the smallest number of pieces of this
+        item you want to keep. When stock drops below it, a red <em>Reorder alert</em> appears
+        at the top of the Stock Report telling you how many are short. Leave it 0 to switch the
+        alert off.</li>
+    <li>Press <strong>Save</strong>.</li>
+  </ol>
+
+  <h3>Weight-wise or Quantity-wise?</h3>
+  <table>
+    <tr><th style="width:24%">Choice</th><th>Use it for</th><th>How it is priced</th></tr>
+    <tr><td><strong>Weight-wise</strong></td>
+        <td>Almost everything — rings, chains, bangles, necklaces</td>
+        <td>Net weight × rate per gram</td></tr>
+    <tr><td><strong>Quantity-wise</strong></td>
+        <td>Things sold by the piece — coins, fixed-price articles</td>
+        <td>Number of pieces × rate</td></tr>
+  </table>
+
+  <h3>The tag prefix</h3>
+  <p>
+    As you type the item name, the software shows the tag prefix it will use — the first
+    three letters in capitals. <span class="mono">Ring</span> becomes
+    <span class="mono">RIN</span>, so its pieces will be tagged
+    <span class="mono">RIN00001</span>, <span class="mono">RIN00002</span> and so on.
+    <span class="mono">Necklace</span> becomes <span class="mono">NEC</span>.
+  </p>
+  <div class="note">
+    <b>Deleting items</b>
+    Once an item has stock tags against it, the software will not let you delete it —
+    that would leave your stock records pointing at nothing. Delete the tags first if you
+    genuinely need to remove the item.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 5 ─────────────────────────── -->
+<div class="sheet">
+  <h2>5. Entering Your Stock (Tag &amp; Barcode)</h2>
+  <p class="lead">
+    Press <kbd>F7</kbd> or click <strong>Tag &amp; Barcode</strong>. This is where every
+    physical piece in your shop is entered and given its own tag number.
+  </p>
+
+  <h3>Entering pieces</h3>
+  <ol class="steps">
+    <li>Choose the item from <strong>Select Item</strong> — for example Ring. The prefix and
+        default purity for that item appear beside it.</li>
+    <li>A grid appears. <strong>One row is one physical piece.</strong></li>
+    <li>Fill in the weights across the row. A new blank row appears as soon as you start typing.</li>
+    <li>Check the totals under the grid, then press <strong>Save … tags</strong>.</li>
+  </ol>
+
+  <h3>What each column means</h3>
+  <table class="field-tbl">
+    <tr><td>Gross Wt</td><td>The full weight of the piece as it comes off the scale, including stones</td></tr>
+    <tr><td>Black B.</td><td>Weight of black beads, if any</td></tr>
+    <tr><td>Stone Wt</td><td>Weight of stones set in the piece</td></tr>
+    <tr><td>Stone Rate</td><td>Price per unit of stone weight. The stone value is charged on top of
+        the metal on the bill. Leave blank for a plain gold piece.</td></tr>
+    <tr><td>Dia. Wt</td><td>Diamond weight. Like stones, it comes out of the metal — diamonds are
+        not gold — and is priced separately.</td></tr>
+    <tr><td>Dia. Rate</td><td>Price per unit of diamond weight.</td></tr>
+    <tr><td>Purity %</td><td>Filled in from the item group (91.6 for 22K). Change it for an odd piece.</td></tr>
+    <tr><td>Mkg/Gm</td><td>Your making charge per gram for this piece. Filled into the bill automatically later.</td></tr>
+    <tr><td>Hallmark</td><td>Hallmarking charge for this piece</td></tr>
+    <tr><td>Cost/Gm</td><td>What <em>you</em> paid, per gram of fine metal. Used for the stock
+        valuation on the Stock Report. Never printed on a customer's bill — leave it blank
+        if you would rather not record it.</td></tr>
+    <tr><td>Qty</td><td>Only for quantity-wise items such as coins</td></tr>
+    <tr><td>Net Wt <span class="pill">auto</span></td><td>Gross − Stone − Black beads − Diamond. The actual metal.</td></tr>
+    <tr><td>Fine Wt <span class="pill">auto</span></td><td>Net × Purity ÷ 100. The pure gold content.</td></tr>
+    <tr><td>HUID</td><td>The six-character hallmark ID, if the piece has one</td></tr>
+  </table>
+
+  <div class="calc">Example — a 22K ring
+  Gross Wt   10.000 g
+  Stone Wt    0.000 g
+  Net Wt     10.000 g      (10.000 − 0.000)
+  Purity       91.6 %
+  Fine Wt     9.160 g      (10.000 × 91.6 ÷ 100)</div>
+
+  <h3>Tag numbers</h3>
+  <p>
+    You do not type tag numbers. When you save, the software gives each piece the next
+    free number for that item — <span class="mono">RIN00001</span>,
+    <span class="mono">RIN00002</span> and so on. Write this number on the physical tag you
+    tie to the piece, or print a barcode for it.
+  </p>
+
+  <h3>The totals line</h3>
+  <p>
+    Under the grid you see <strong>Gross Wt</strong>, <strong>Net Wt</strong>,
+    <strong>Fine Wt</strong> and <strong>Pieces</strong> for everything you are entering.
+    Check these against your physical weighing before saving — it is the easiest moment to
+    catch a typing mistake.
+  </p>
+
+  <h3>The stock list below</h3>
+  <p>
+    Everything already tagged is listed underneath. You can search by tag or item name, and
+    filter by <strong>In stock</strong>, <strong>Sold</strong> or <strong>All</strong>.
+    <strong>Export</strong> saves the list as a CSV file you can open in Excel.
+  </p>
+  <div class="note">
+    <b>You cannot delete a sold tag</b>
+    Once a piece has been billed, its tag is part of that bill's history. If the tag was
+    entered wrongly, correct or delete the <em>bill</em> — the piece then returns to stock
+    and can be deleted or re-entered.
+  </div>
+
+  <h3>Tagging many pieces at once</h3>
+  <p class="lead">
+    Entering forty bangles one row at a time is slow. There are four faster ways.
+  </p>
+
+  <h4>1. Set what is the same for every piece</h4>
+  <p>
+    Above the grid is a <strong>Same for every piece</strong> row — purity, making per
+    gram, hallmark charge, location, and <strong>Category</strong> (Ladies/Gents),
+    <strong>Salesman</strong>, <strong>Shelf / Tray</strong> and <strong>Size</strong>.
+    Anything you set there is stamped onto every piece in the batch. Press <strong>Apply to
+    all rows</strong> to push it onto rows you have already typed. Later, the Stock Report can
+    group your stock by Category, Salesman or Shelf / Tray, so you can see what is where.
+  </p>
+  <p>
+    If you have set up a <strong>Making Master</strong> (section 3), the making per gram is
+    already filled in when you choose the item, and a note under the box tells you which rule
+    it came from. Change it whenever a batch is different — the master only starts you off.
+  </p>
+
+  <div class="note">
+    <b>Bag Weight comes off the metal</b>
+    If you weigh a piece in its pouch, put the pouch's weight in <strong>Bag Wt</strong>. It
+    is taken off before the piece is priced, exactly like stones and beads are — so the
+    customer is never charged a gold rate for plastic.
+  </div>
+
+  <h4>Which labels still need printing</h4>
+  <p>
+    The tagged-stock list has a <strong>Not printed only</strong> filter. Every piece shows
+    <span class="pill">Not printed</span> until its label has actually come out of the
+    printer, so you can work through a big batch over several sittings without labelling
+    anything twice. A piece is only counted once you press <strong>Print</strong> — cancel
+    the dialog and it stays on the list.
+  </p>
+
+  <h4>2. Duplicate a row</h4>
+  <p>
+    Type one piece, then press the <span class="mono">&times;10</span> button at the end of
+    its row to make ten more copies of it. Change the number beside
+    <strong>Add rows</strong> to duplicate a different amount. Every copy still gets its
+    own tag number when you save.
+  </p>
+  <p>Use this for batches of identical items — coins, plain bangles, standard chains.</p>
+
+  <h4>3. Paste from Excel</h4>
+  <p>
+    Weigh everything into a spreadsheet, copy the block of cells, and paste anywhere in
+    the grid. One line becomes one piece. The columns must be in this order:
+  </p>
+  <div class="calc">Gross Wt, Black Beads, Stone Wt, Purity, Making/gm, Hallmark, Cost/Gm, Qty, HUID, Location, Stone Rate, Dia. Wt, Dia. Rate</div>
+  <p>Only the first column is required — leave the rest blank to use your defaults. The stone
+     and diamond rate columns are at the end, so a spreadsheet made before they existed still
+     lines up.</p>
+  <p>
+    If your file has a <strong>header row</strong>, the columns are matched by name, so the
+    order does not matter and an older file that has no <em>Cost/Gm</em> column still loads
+    correctly. Only a headerless paste relies on the exact order above.
+  </p>
+
+  <h4>4. Import a CSV file</h4>
+  <ol class="steps">
+    <li>Press <strong>Import CSV</strong> above the grid.</li>
+    <li>Press <strong>Download template</strong> to get a correctly-shaped file, or paste
+        your rows straight into the box.</li>
+    <li>Check the <strong>preview</strong> — it shows the net and fine weight worked out
+        for every row before anything is created.</li>
+    <li>Press <strong>Load rows</strong>. They appear in the grid.</li>
+    <li>Check the totals against your physical weighing, then press <strong>Save</strong>.</li>
+  </ol>
+  <div class="note">
+    <b>Nothing is created until you press Save</b>
+    Importing only fills the grid. You always get to look at the rows and the totals
+    first, and you can still edit or delete any of them.
+  </div>
+
+  <h3>Printing barcode labels</h3>
+  <p>
+    In the <strong>Tagged Stock</strong> list, tick the pieces you want (or the box in the
+    header to take all of them) and press <strong>Print labels</strong>.
+  </p>
+  <table class="field-tbl">
+    <tr><td>Label size</td><td>Jewellery tag roll (50 &times; 12 mm), A4 sheet of 65, or A4 sheet of 24</td></tr>
+    <tr><td>Copies each</td><td>Two labels per piece if you tag both ends of a dumbbell tag</td></tr>
+    <tr><td>Skip labels</td><td>Start part-way down a sheet you have already used some of</td></tr>
+    <tr><td>Show on the label</td><td>Item name, purity, gross weight, net weight — tick what fits</td></tr>
+  </table>
+  <p>
+    The preview shows exactly what will print. The barcode is standard <strong>Code 128</strong>,
+    which every ordinary barcode scanner reads without any setup — scan it straight into
+    the Tag box on a sales bill.
+  </p>
+  <div class="tip">
+    <b>Check the alignment first</b>
+    Print one sheet on plain paper and hold it against your label sheet before running the
+    real ones.
+  </div>
+
+  <h3>Loose metal and tagged pieces</h3>
+  <p class="lead">
+    Your gold sits in the shop in two forms, and the software keeps them apart.
+  </p>
+  <table>
+    <tr><th style="width:26%">Form</th><th>What it is</th></tr>
+    <tr><td><strong>Tagged pieces</strong></td>
+        <td>Finished ornaments, each with its own tag number, ready to sell</td></tr>
+    <tr><td><strong>Loose metal</strong></td>
+        <td>Bars, scrap, metal back from the refiner, and old gold bought from customers —
+            no tags, just weight</td></tr>
+  </table>
+  <p>
+    Your total stock is both added together. The Day Book shows the split, so you can see
+    at a glance how much is on the shelf and how much is still waiting to be made up.
+  </p>
+
+  <h4>Turning loose metal into pieces</h4>
+  <p>
+    When the karagir turns your bar into bangles, that weight must <strong>move</strong>
+    from loose to tagged — not be added again. Otherwise buying 100 g and then tagging
+    100 g of bangles would look like 200 g of gold, and your books would be wrong.
+  </p>
+  <ol class="steps">
+    <li>Open <strong>Tag &amp; Barcode</strong>.</li>
+    <li>At the top, switch <strong>Where is this metal from?</strong> to
+        <strong>From loose metal</strong>.</li>
+    <li>A band appears showing how much loose metal you have and how much these pieces
+        will use.</li>
+    <li>Enter the pieces exactly as normal — the same grid, duplicate, paste and import
+        all still work.</li>
+    <li>Press <strong>Convert</strong>.</li>
+  </ol>
+  <p>
+    The tags are created and the same fine weight comes out of your loose stock. Your
+    total gold does not change — it has only changed form.
+  </p>
+  <div class="calc">Before   loose 50.000 g   tagged  0.000 g   total 50.000 g
+  Convert 40 g of loose metal into one kada
+  After    loose 10.000 g   tagged 40.000 g   total 50.000 g</div>
+
+  <div class="warn">
+    <b>The software will not let you use metal you do not have</b>
+    If the pieces need more fine weight than is loose, the band turns red, it tells you
+    how much you are short, and Convert is blocked. Either the weights are wrong, or a
+    purchase has not been entered yet.
+  </div>
+
+  <div class="note">
+    <b>Which mode should I use?</b>
+    <strong>New stock</strong> when you are first entering what is already in the shop, or
+    for pieces bought ready-made as finished ornaments.
+    <strong>From loose metal</strong> whenever the pieces were made from bar or scrap you
+    already own.
+  </div>
+
+  <h3>Working on many tags at once</h3>
+  <p>
+    The tick boxes in the stock list also let you <strong>Export</strong> just those rows,
+    or <strong>Delete</strong> them together. Pieces that have been sold or melted are
+    skipped — the software tells you how many it could not remove.
+  </p>
+
+  <div class="tip">
+    <b>Starting with a shop full of stock</b>
+    Take one item at a time — all your rings, then all your chains. Weigh a batch into a
+    spreadsheet, import it, check the totals, save, then print and tie the labels on.
+    Slow the first time, quick forever afterwards.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 6 ─────────────────────────── -->
+<div class="sheet">
+  <h2>6. Customers and Suppliers</h2>
+  <p class="lead">
+    Press <kbd>F8</kbd> for <strong>Customers</strong>. <strong>Suppliers</strong> is just
+    below it and works identically.
+  </p>
+
+  <h3>Do I have to add every customer?</h3>
+  <p>
+    No. For a walk-in cash sale you can simply type a name on the bill and leave it at that.
+    Add a customer properly when you want to:
+  </p>
+  <ul>
+    <li>give credit and track what they owe you,</li>
+    <li>keep a khata of their old gold and past purchases,</li>
+    <li>send them bills and reminders on WhatsApp,</li>
+    <li>enrol them in a gold saving scheme.</li>
+  </ul>
+
+  <h3>Adding a customer</h3>
+  <p>Press <strong>New Customer</strong>. The form is in five parts.</p>
+
+  <h4>Identity</h4>
+  <p>
+    Name (required), Mobile, WhatsApp No, Email, Reference Name. The WhatsApp number is used
+    when you send bills and reminders — if it is the same as the mobile, type it in both.
+  </p>
+
+  <h4>Address</h4>
+  <p>Area, City, Taluka, District, State and full address. Area is worth filling in — reports can group your customers by area.</p>
+
+  <h4>KYC &amp; Dates</h4>
+  <p>
+    Aadhaar, PAN and GSTIN for larger transactions. Birth date and anniversary let you greet
+    customers — a small thing that brings people back.
+  </p>
+
+  <h4>Opening Balance — money</h4>
+  <p>This is where you enter what a customer already owed you before you started using this software.</p>
+  <table>
+    <tr><th style="width:22%">Side</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><strong>Debit (Dr)</strong></td><td>They owe you</td><td>Customer took goods worth ₹9,500 on credit</td></tr>
+    <tr><td><strong>Credit (Cr)</strong></td><td>You owe them</td><td>Customer paid ₹2,400 advance</td></tr>
+  </table>
+  <div class="warn">
+    <b>Enter opening balances once, carefully</b>
+    Get these right at the start. If you change an opening balance later, every balance and
+    khata for that person shifts by the difference.
+  </div>
+
+  <h4>Opening Metal Balance — gold</h4>
+  <p>
+    Separately from money, a customer or supplier can owe you <em>metal</em>. If a supplier
+    is holding 50 grams of your fine gold, enter 50 against Gold on the Debit side. This
+    feeds the gold khata described in section 14.
+  </p>
+
+  <h3>The customer list</h3>
+  <p>
+    Shows name, mobile, area, city, GSTIN and current balance. Balances are colour-coded:
+    <strong style="color:#B3261E">red Dr</strong> means they owe you,
+    <strong style="color:#1F7A4D">green Cr</strong> means you owe them. A badge at the top
+    shows total outstanding. Click any row to open and edit; <strong>Export</strong> saves
+    the list to CSV.
+  </p>
+  <div class="note">
+    <b>Customers with transactions cannot be deleted</b>
+    Deleting them would break their bills and khata. This is intentional.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 7 ─────────────────────────── -->
+<div class="sheet">
+  <h2>7. Making a Sales Bill</h2>
+  <p class="lead">
+    Press <kbd>F2</kbd> — the screen you will use most. It is one page: customer at the top,
+    items in the middle, money at the bottom.
+  </p>
+
+  <h3>Step 1 — the customer</h3>
+  <p>
+    Start typing a name in <strong>Customer</strong>. Matching customers appear; use
+    <kbd>↓</kbd> and <kbd>Enter</kbd>, or click one. Mobile and area fill in automatically.
+  </p>
+  <ul>
+    <li><strong>New customer standing at the counter?</strong> Press the <strong>+</strong>
+        button beside the box. Enter name and mobile, press <strong>Save &amp; use</strong>,
+        and you are back on the bill with them selected.</li>
+    <li><strong>Walk-in cash sale?</strong> Just type the name and carry on. Nothing else needed.</li>
+  </ul>
+  <p>
+    If the customer has an old balance, it appears in a coloured badge:
+    <em>Previous balance ₹9,500.00 Dr</em>. Click <strong>View khata</strong> beside it to
+    see their full account.
+  </p>
+
+  <h4>Bill settings</h4>
+  <table class="field-tbl">
+    <tr><td>Series</td><td>COM for a normal bill, ESM for an estimate, Service for repairs</td></tr>
+    <tr><td>Bill No <span class="pill">auto</span></td><td>The next number in that series</td></tr>
+    <tr><td>Bill Date</td><td>Today by default</td></tr>
+    <tr><td>Payment</td><td><strong>Cash</strong> if paid now, <strong>Credit</strong> if on account</td></tr>
+  </table>
+
+  <h3>Step 2 — the items</h3>
+  <p>There are three ways to put a piece on the bill.</p>
+  <table>
+    <tr><th style="width:26%">Method</th><th>How</th></tr>
+    <tr><td><strong>Scan the barcode</strong></td>
+        <td>Click the <strong>Tag</strong> box and scan. Everything fills in instantly.</td></tr>
+    <tr><td><strong>Type the tag</strong></td>
+        <td>Type <span class="mono">RIN00002</span> in the Tag box and press <kbd>Enter</kbd>.</td></tr>
+    <tr><td><strong>Search by name</strong></td>
+        <td>Type in the <strong>Item</strong> box. A list of matching pieces in stock appears
+            showing tag, weights and purity. Choose one with <kbd>↓</kbd> and <kbd>Enter</kbd>.</td></tr>
+  </table>
+  <p>
+    However you choose it, the weights, purity, making rate and hallmark charge all come
+    across from the tag. <strong>You only have to type the rate per gram.</strong>
+  </p>
+  <p>
+    For a <strong>stone or diamond piece</strong>, the grid has <strong>Stone Rate</strong>,
+    <strong>Dia. Wt</strong> and <strong>Dia. Rate</strong> columns. The stone and diamond
+    weight come <em>out</em> of the metal — they are not gold — and are charged separately at
+    their own rate, shown as <em>Stone Amount</em> and <em>Diamond Amount</em> in the bill
+    summary. If the piece was tagged with these rates, they fill in for you. For a plain gold
+    piece, leave them blank and nothing changes.
+  </p>
+  <p>
+    The line total is worked out as you type. Start typing in the last row and a new row
+    appears for the next piece.
+  </p>
+
+  <h3>Step 3 — old gold given by the customer</h3>
+  <p>
+    Very common: the customer brings old jewellery and puts its value against the new
+    purchase. Click <strong>Add old gold</strong> in the "Old Gold Received (URD)" section.
+  </p>
+  <table class="field-tbl">
+    <tr><td>Name / Description</td><td>For example "Old Gold" / "chain"</td></tr>
+    <tr><td>Gross Wt, Net Wt</td><td>As weighed</td></tr>
+    <tr><td>Purity %</td><td>What you have tested it at — for example 80</td></tr>
+    <tr><td>Fine Wt <span class="pill">auto</span></td><td>Net × Purity ÷ 100</td></tr>
+    <tr><td>Rate</td><td>The rate per gram you are allowing for pure gold</td></tr>
+    <tr><td>Amount <span class="pill">auto</span></td><td>Fine Wt × Rate — deducted from the bill</td></tr>
+  </table>
+  <div class="calc">Example
+  Old chain, 3.000 g net, tested at 80% purity, allowed at ₹4,500 per gram
+
+  Fine Wt   3.000 × 80 ÷ 100  =   2.400 g
+  Amount    2.400 × 4,500     =  ₹10,800.00   deducted from the bill</div>
+
+  <h3>Weight-wise bills — settling in metal instead of money</h3>
+  <p>
+    Some customers deal in gold rather than in rupees: they bring old gold, take new
+    ornaments, and settle the difference in <strong>weight</strong>. Tick
+    <strong>Weight-wise bill</strong> and a <strong>Balance Weight</strong> section appears.
+  </p>
+  <p>The app works out what the customer owes you in pure gold:</p>
+  <div class="calc">Metal Owed  =  Fine weight sold  −  Fine weight of old gold taken in</div>
+  <p>
+    Then you enter how much of that they are paying for <em>now</em>, and at what rate.
+    Whatever is left stays owed <strong>as gold</strong>.
+  </p>
+  <table class="field-tbl">
+    <tr><td>Metal Owed <span class="pill">auto</span></td><td>Fine sold minus fine taken in</td></tr>
+    <tr><td>Settle Now</td><td>How many fine grams they are paying for today. Leave blank to settle it all.</td></tr>
+    <tr><td>Rate/Gm</td><td>The rate per fine gram you have agreed</td></tr>
+    <tr><td>Amount <span class="pill">auto</span></td><td>Settle Now × Rate/Gm — this becomes the bill</td></tr>
+    <tr><td>Pending Wt <span class="pill">auto</span></td><td>Metal Owed − Settle Now. Still owed <strong>in grams</strong>.</td></tr>
+  </table>
+  <div class="calc">Example
+  Sold      Ring 15.000 g at 100%      =  15.000 g fine
+  Old gold  chain 6.000 g at 100%      =   6.000 g fine
+                                          ------------
+  Metal owed                               9.000 g
+
+  Settle now  5.000 g at ₹5,000/g      = ₹25,000.00   bill amount
+  GST 3%                               =    ₹750.00
+                                          ------------
+  Total                                  ₹25,750.00
+  Pending weight                            4.000 g   still owed as gold</div>
+  <div class="note">
+    <b>Pending weight is not money.</b> It is gold the customer still owes you. It shows on
+    their <strong>gold khata</strong> (Ledger → Gold), not in their money balance, and it
+    stays there until they bring the metal or you raise another bill to settle it.
+  </div>
+  <div class="tip">
+    <b>Making charges are still charged in cash</b>
+    Making and hallmarking are labour, not metal, so they are added to the bill in rupees
+    as normal. Only the metal itself is settled by weight.
+  </div>
+
+  <h3>Step 4 — money and adjustments</h3>
+  <table class="field-tbl">
+    <tr><td>Amount Received</td><td>What the customer is paying now. Leave blank for full credit.</td></tr>
+    <tr><td>Payment Mode</td><td>Cash, UPI, Card, NEFT, Cheque or Bank</td></tr>
+    <tr><td>Bill Discount</td><td>Rupees off the whole bill</td></tr>
+    <tr><td>Making Discount</td><td>Rupees off the making charges only</td></tr>
+    <tr><td>Redeem Points</td><td>Only for loyalty members. Shows how many points they have and
+        what each is worth; type how many to spend and the value comes off the bill. You cannot
+        spend more than they have, or more than the bill is worth.</td></tr>
+    <tr><td>Other Charges</td><td>Anything extra to add</td></tr>
+    <tr><td>Saving Scheme</td><td>Only if the customer has an open gold scheme. Pick it and
+        their balance settles the bill — after GST, because it is their own deposit rather
+        than a discount. See section 12.</td></tr>
+    <tr><td>GST %</td><td>3% by default</td></tr>
+    <tr><td>Salesman</td><td>Who made the sale</td></tr>
+    <tr><td>Manual Bill No</td><td>Your handwritten book number, if you keep one</td></tr>
+    <tr><td>GST not required</td><td>Tick to make a bill with no GST</td></tr>
+  </table>
+
+  <div class="note">
+    <b>Loyalty points</b>
+    Tick <strong>Enable loyalty points</strong> on a customer's record and every bill earns them
+    points — a percentage of the goods value, which you set in
+    <strong>Settings → Company → Loyalty Programme</strong> along with what one point is worth.
+    Points come off a later bill <em>before</em> GST, so tax is charged on what the customer
+    really pays. Their balance is worked out from their bills, so correcting or deleting a bill
+    fixes the points automatically — there is nothing to adjust by hand.
+  </div>
+
+  <h3>Step 5 — check and save</h3>
+  <p>The <strong>Bill Summary</strong> on the right builds up as you work:</p>
+  <div class="calc">Goods Amount        55,080.00     net weight × rate
+  Making Amount        3,600.00     net weight × making per gram
+  Bill Amount         58,680.00
+  GST @ 3%             1,760.40
+  Total              ₹60,440.40
+  Less: Old Gold     − 10,800.00
+  Balance Due        ₹49,640.40</div>
+
+  <table>
+    <tr><th style="width:26%">Button</th><th>What it does</th></tr>
+    <tr><td><strong>Save</strong></td><td>Saves the bill without printing</td></tr>
+    <tr><td><strong>Save &amp; Print</strong></td><td>Saves and sends the bill to your printer</td></tr>
+    <tr><td><strong>PDF</strong></td><td>Saves the bill as a PDF file</td></tr>
+    <tr><td><strong>WhatsApp</strong></td><td>Opens WhatsApp with the bill details typed out, ready for you to send</td></tr>
+    <tr><td><strong>New Bill</strong></td><td>Clears the screen for the next customer</td></tr>
+  </table>
+
+  <p>
+    When you save, the pieces on the bill leave your stock, the customer's khata is updated,
+    and the money is recorded.
+  </p>
+
+  <h3>Correcting a bill</h3>
+  <p>
+    Open <strong>Sales Register</strong> and click the bill. Change whatever is wrong and
+    press <strong>Save</strong>. The software undoes everything the old version did and
+    re-records it — stock, khata and cash all follow. The bill number does not change.
+  </p>
+  <p>
+    <strong>Delete</strong> removes the bill entirely: pieces go back into stock and the
+    khata is reversed.
+  </p>
+  <div class="warn">
+    <b>"Tag … is not in stock — it cannot be billed again"</b>
+    You are trying to sell a piece that is already sold or has been melted. Check the tag
+    number. This message is protecting you from selling one physical piece twice.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 8 ─────────────────────────── -->
+<div class="sheet">
+  <h2>8. Receiving and Paying Money</h2>
+  <p class="lead">
+    Press <kbd>F4</kbd> or click <strong>Receipts</strong>. Use this when money moves
+    <em>without</em> a bill — a customer paying off an old balance, or you paying a supplier.
+  </p>
+
+  <h3>Receipts and Payments</h3>
+  <ul>
+    <li><strong>Receipts</strong> — money coming in, usually from a customer.</li>
+    <li><strong>Payments</strong> — money going out, usually to a supplier.</li>
+  </ul>
+  <p>Switch between them with the toggle at the top left.</p>
+
+  <h3>Recording a receipt</h3>
+  <ol class="steps">
+    <li>Press <strong>New Receipt</strong>.</li>
+    <li>Start typing the party's name and pick them from the list.</li>
+    <li>The software shows their <strong>current balance</strong>, and as you type an amount
+        it shows what the balance <strong>will become</strong>. Check this before saving —
+        it catches wrong amounts immediately.</li>
+    <li>Enter the amount and date.</li>
+    <li>Choose the payment mode. For anything other than cash, a Bank Name box appears.</li>
+    <li>Enter a reference number — cheque number, UPI transaction ID or bank UTR.</li>
+    <li>Press <strong>Save</strong>.</li>
+  </ol>
+
+  <div class="note">
+    <b>Money taken on the bill itself</b>
+    If the customer pays at the time of purchase, put it in <strong>Amount Received</strong>
+    on the bill instead. Only use this screen for payments that arrive separately.
+  </div>
+
+  <p>
+    The list shows every receipt or payment for the chosen dates, with a running total in the
+    badge at the top right. To remove a wrong entry, click the bin icon on its row — the
+    party's balance is corrected automatically.
+  </p>
+</div>
+
+<!-- ─────────────────────────── 9 ─────────────────────────── -->
+<div class="sheet">
+  <h2>9. Purchase and Metal Exchange</h2>
+  <p class="lead">
+    Press <kbd>F3</kbd>. Use this when you buy material or finished ornaments from a supplier.
+  </p>
+
+  <h3>A simple cash purchase</h3>
+  <ol class="steps">
+    <li>Press <strong>New Purchase</strong>.</li>
+    <li>Choose the <strong>Supplier</strong>. Invoice number and date fill in.</li>
+    <li>Choose the <strong>Metal</strong> — Gold, Silver or Platinum. It posts to that metal's
+        stock and to the supplier's khata for that metal. (Refining, karagir issue/receive and
+        cash settlement have the same dropdown.)</li>
+    <li>Choose <strong>Cash</strong> or <strong>Credit</strong>.</li>
+    <li>On the <strong>Material In</strong> tab, enter what you received.</li>
+    <li>Fill in Discount, GST %, TCS % and <strong>Paid Amount</strong> as needed.</li>
+    <li>Press <strong>Save Purchase</strong>.</li>
+  </ol>
+
+  <h4>Wastage</h4>
+  <p>
+    Suppliers usually charge a percentage above the pure metal weight to cover their loss in
+    working. Enter it in the <strong>Wastage%</strong> column and the
+    <strong>Fine+Wst</strong> column shows what you are actually paying for. If you have set a
+    <strong>Wastage Master</strong> rule (section 3), typing the item name fills the
+    percentage in for you — change it whenever this supplier has agreed something different.
+  </p>
+  <div class="calc">175 g at 99.5% purity, 2% wastage, ₹6,000 per gram
+
+  Fine          175 × 99.5 ÷ 100        =  174.125 g
+  Fine + 2%     174.125 × 1.02          =  177.608 g
+  Amount        177.608 × 6,000         =  ₹10,65,648</div>
+
+  <h3>Metal-for-metal exchange</h3>
+  <p>
+    Often no money changes hands at all. You give the supplier fine gold and take back
+    finished ornaments, settling only the difference. That is what the second tab is for.
+  </p>
+  <ol class="steps">
+    <li>Enter what you <strong>received</strong> on the <strong>Material In</strong> tab.</li>
+    <li>Switch to <strong>Material Out</strong> and enter the metal you <strong>gave</strong>
+        the supplier.</li>
+    <li>A <span class="pill">Metal exchange</span> badge appears, and the strip under the grid
+        shows the settlement.</li>
+  </ol>
+
+  <h4>The Balance Wgt strip</h4>
+  <div class="calc">In  — Gross 100.000 g   Net 100.000 g   Fine  91.600 g
+  Out — Gross  95.000 g   Net  95.000 g   Fine  94.525 g
+  Balance Fine  −2.925 g</div>
+  <p>
+    A <strong>negative</strong> balance means you handed over more pure gold than you took
+    back, so the supplier owes you the difference in metal. A positive balance means you
+    received more than you gave.
+  </p>
+  <p>
+    The value of the Material Out lines appears as <strong>Material Returned</strong> in the
+    summary and is deducted from the bill. If you gave more value than you took, the bill
+    total goes <strong>negative</strong> — that is correct, and means the supplier owes you
+    money.
+  </p>
+  <div class="tip">
+    <b>Both sides are tracked</b>
+    The money difference goes to the supplier's normal khata, and the metal difference goes
+    to their <strong>gold khata</strong>. See section 14 to view either.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 10 ─────────────────────────── -->
+<div class="sheet">
+  <h2>10. Karagir Orders</h2>
+  <p class="lead">
+    Press <kbd>F5</kbd>. Use this when a customer orders something you do not have, and you
+    give the work to a karagir.
+  </p>
+
+  <h3>Booking an order</h3>
+  <ol class="steps">
+    <li>Press <strong>New Order</strong>.</li>
+    <li>Choose the <strong>Customer</strong> (required).</li>
+    <li>Choose the <strong>Karagir</strong> who will make it — you can leave this and assign later.</li>
+    <li>Set the <strong>Delivery Date</strong> you have promised the customer, and the
+        <strong>Karagir Date</strong> — the earlier deadline for the goldsmith to hand the
+        piece back, so you have time to check and finish it.</li>
+    <li>Enter the expected items — weights, purity, rate and making charge.</li>
+    <li>If the customer gives <strong>old gold</strong> now, enter it in the
+        <strong>Old Gold at Booking</strong> grid. It lowers the balance straight away and is
+        recorded on the customer's gold khata; when you convert the order to a bill it carries
+        across automatically.</li>
+    <li>Enter any <strong>Advance Received</strong>.</li>
+    <li>Press <strong>Save Order</strong>.</li>
+  </ol>
+
+  <h3>The four stages</h3>
+  <table>
+    <tr><th style="width:22%">Stage</th><th>Meaning</th><th style="width:30%">Next step</th></tr>
+    <tr><td><strong>Booked</strong></td><td>Customer has ordered</td><td>Press <em>Issue to Karagir</em></td></tr>
+    <tr><td><strong>Issued</strong></td><td>Work is with the karagir</td><td>Press <em>Mark Received</em></td></tr>
+    <tr><td><strong>Received</strong></td><td>Finished piece is back with you</td><td>Press <em>Convert to Sales Bill</em></td></tr>
+    <tr><td><strong>Delivered</strong></td><td>Billed and handed over</td><td>Done</td></tr>
+  </table>
+
+  <h3>Turning the order into a bill</h3>
+  <p>
+    When the piece comes back, open the order and press <strong>Convert to Sales Bill</strong>.
+    A normal sales bill opens with all the items already filled in and the
+    <strong>advance already entered as amount received</strong>. Adjust the final weights and
+    rate to what was actually made, then save and print as usual.
+  </p>
+  <div class="note">
+    <b>The advance is never counted twice</b>
+    While the order is open, only the advance appears in the customer's khata — an order is
+    not a sale. When you convert it, the advance moves onto the bill. The customer is charged
+    exactly once.
+  </div>
+
+  <h3>Watching your orders</h3>
+  <p>
+    The list shows every order with its status. A delivery date that has passed is shown in
+    <strong style="color:#B3261E">red</strong> so overdue work stands out. The tiles at the
+    top show how many orders are open and how much money is still pending.
+  </p>
+  <p>
+    In <strong>Karagir Job Work</strong>, the order-tracking table shows both dates side by
+    side with their own days-left. A karagir date that has slipped is flagged
+    <strong style="color:#B3261E">red with a ⚠</strong> — a warning that the piece is at risk
+    <em>before</em> the customer's own delivery date is in danger.
+  </p>
+  <p>
+    To cancel an order, open it and press <strong>Cancel Order</strong>.
+  </p>
+</div>
+
+<!-- ─────────────────────────── 11 ─────────────────────────── -->
+<div class="sheet">
+  <h2>11. Refining</h2>
+  <p class="lead">
+    Press <kbd>F9</kbd>. Use this when you send scrap, old gold or broken pieces to a refinery
+    and get pure metal back.
+  </p>
+
+  <h3>Sending metal out</h3>
+  <ol class="steps">
+    <li>Press <strong>New Refining Entry</strong>.</li>
+    <li>Leave <strong>Direction</strong> on <strong>Send Out</strong>.</li>
+    <li>Choose the refinery.</li>
+    <li>Enter what you are sending. If a piece has a tag, scan or type it in the
+        <strong>Tag</strong> column and press <kbd>Enter</kbd> — the weights fill in.</li>
+    <li>Use <strong>Wastage</strong> for the burning loss the refiner charges.</li>
+    <li>Press <strong>Save Entry</strong>.</li>
+  </ol>
+  <div class="warn">
+    <b>Tagged pieces sent for refining are gone from stock</b>
+    A piece sent to be melted is marked <strong>Melted</strong> and leaves your tagged stock.
+    A warning appears on the screen before you save. If you make a mistake, delete the
+    refining entry and the piece comes back.
+  </div>
+
+  <h3>Receiving pure metal back</h3>
+  <p>
+    When the refinery returns your gold, make a second entry with <strong>Direction</strong>
+    set to <strong>Receive</strong>. Enter the weight and purity you got back — usually 100%
+    for pure gold — and any refining charges you paid.
+  </p>
+
+  <h3>Keeping track</h3>
+  <p>
+    The tiles at the top show <strong>Fine Sent Out</strong> and <strong>Fine Received</strong>
+    for the dates chosen, so you can see at a glance how much metal is still lying with the
+    refinery. The refinery's gold khata (section 14) gives the full picture.
+  </p>
+</div>
+
+<!-- ─────────────────────────── 12 ─────────────────────────── -->
+<div class="sheet">
+  <h2>12. Gold Saving Scheme</h2>
+  <p class="lead">
+    Click <strong>Gold Scheme</strong>. This runs the monthly savings plans where a customer
+    pays a fixed amount for several months and you add a bonus at the end.
+  </p>
+
+  <h3>Step 1 — create the plan (once)</h3>
+  <ol class="steps">
+    <li>Open the <strong>Scheme Types</strong> tab and press <strong>New Scheme</strong>.</li>
+    <li>Give it a name, for example <em>11 + 1 Gold Plan</em>.</li>
+    <li><strong>Scheme Type</strong> — what the member is really saving up. See the table below.</li>
+    <li><strong>Period</strong> — whether instalments fall due in <em>Days</em>, <em>Months</em>
+      or <em>Years</em>. The labels below change to match.</li>
+    <li><strong>Monthly Amount</strong> — what the member pays each month. On a
+      <em>Weight Wise</em> plan this becomes <strong>Monthly Weight</strong> in grams instead.</li>
+    <li><strong>Paying Months</strong> — how many months they pay, for example 11.</li>
+    <li><strong>Total Months</strong> — paying months plus your bonus month, for example 12.</li>
+    <li><strong>Benefit at Maturity</strong> — your contribution at the end, in rupees, in
+      grams, or as a making-charge waiver depending on the type.</li>
+  </ol>
+  <p>A box shows the value at maturity as you type, so you can see exactly what you are promising:</p>
+  <div class="calc">₹2,000 × 11 months  =  ₹22,000   paid by the member
+  + ₹2,000 benefit    =  ₹24,000   value at maturity</div>
+
+  <h4>The four kinds of plan</h4>
+  <table>
+    <tr><th>Type</th><th>Member pays</th><th>They are saving up</th><th>Your benefit</th></tr>
+    <tr><td><strong>On Amount</strong></td><td>a fixed amount</td><td>rupees</td>
+      <td>a rupee bonus</td></tr>
+    <tr><td><strong>On Making</strong></td><td>a fixed amount</td><td>rupees</td>
+      <td>making charges waived</td></tr>
+    <tr><td><strong>On Weight</strong></td><td>a fixed amount</td>
+      <td><strong>grams</strong>, worked out at your rate on the day of each payment</td>
+      <td>extra grams</td></tr>
+    <tr><td><strong>Weight Wise</strong></td><td>whatever that day's grams cost</td>
+      <td><strong>grams</strong>, a fixed number each month</td><td>extra grams</td></tr>
+  </table>
+  <div class="note">
+    <b>Which weight plan should I offer?</b>
+    Both protect the customer from the gold rate rising. <strong>On Weight</strong> keeps the
+    payment the same — ₹5,000 a month buys more grams when gold is cheap and fewer when it is
+    dear. <strong>Weight Wise</strong> keeps the grams the same — one gram a month is always
+    one gram, and the payment goes up and down instead. Customers who budget by the month
+    prefer the first; customers saving for a particular piece prefer the second.
+  </div>
+
+  <h3>Step 2 — enrol a member</h3>
+  <ol class="steps">
+    <li>Go to the <strong>Members</strong> tab and press <strong>Enrol Member</strong>.</li>
+    <li>Choose the customer and the scheme. The amounts fill in from the plan.</li>
+    <li>Set the start date and press <strong>Enrol</strong>.</li>
+  </ol>
+  <p>
+    The software immediately creates the <strong>whole instalment schedule</strong> — one row
+    per month with its due date. The last row is your benefit, marked
+    <span class="pill">Shop benefit</span>, which the member never pays.
+  </p>
+
+  <h3>Step 3 — collect each month</h3>
+  <p>
+    Open the member from the list. The schedule shows every instalment:
+  </p>
+  <ul>
+    <li><strong style="color:#1F7A4D">Green</strong> — received</li>
+    <li><strong style="color:#B3261E">Red</strong> — overdue</li>
+    <li>Plain — not due yet</li>
+  </ul>
+  <p>
+    Press <strong>Receive</strong> on the row being paid, confirm the amount, date and payment
+    mode, and save. Pressed the wrong row? Press <strong>Undo</strong> and it reverses cleanly.
+  </p>
+  <p>
+    On a <strong>weight plan</strong> the box also asks for the <strong>rate per gram</strong>
+    on the day of payment, and shows you the conversion before you save — <em>₹6,000 at
+    ₹5,000/g — accrues 1.200 g</em>. The schedule then carries a <strong>Weight</strong> column
+    alongside the amount, so you can always see how many grams the member has built up and at
+    what rate each instalment went in.
+  </p>
+
+  <h4>Reminders</h4>
+  <p>
+    Press <strong>Remind</strong> at the top to open WhatsApp with a message already written
+    out — the member's name, the amount due, the due date and what they have paid so far.
+    Check it and send.
+  </p>
+
+  <h3>Step 4 — spending the scheme on a bill</h3>
+  <p>
+    When the member comes to buy, make an ordinary sales bill as usual. Once you have chosen
+    the customer, a <strong>Saving Scheme</strong> box appears in the bill's totals panel
+    listing their open schemes. Pick one and the balance comes off the bill.
+  </p>
+  <ul>
+    <li><strong>Scheme Amount</strong> — how much of the balance to spend. Leave it blank to
+      spend as much as the bill can take.</li>
+    <li>On a weight plan you also enter today's <strong>rate per gram</strong>, which is what
+      values their grams. The bill then shows how many grams were used.</li>
+    <li><strong>Return in Cash</strong> — if the balance is bigger than the bill, the rest
+      stays on the account for next time unless you type an amount here to hand back.</li>
+  </ul>
+  <div class="note">
+    <b>Scheme money comes off after GST, not before</b>
+    A discount reduces what you charge tax on. Scheme money is different — it is the
+    customer's own deposit being handed back, so GST is charged on the full bill first and
+    the scheme money then settles it, exactly like cash would:
+    <div class="calc">Bill amount        52,000.00
+  + GST @ 3%          1,560.00
+  = Total            53,560.00
+  − GSS Amount        6,000.00
+  = To pay           47,560.00</div>
+    An <strong>On Making</strong> plan is the exception: waiving making charges genuinely does
+    reduce the bill, so that one goes in <em>before</em> GST and the tax falls with it.
+  </div>
+
+  <h3>Closing an account</h3>
+  <p>
+    When the scheme matures and the customer takes their jewellery, press
+    <strong>Close Account</strong>. It stays in your records and can be seen under the
+    <strong>Closed</strong> filter.
+  </p>
+  <div class="note">
+    <b>The balance always tells the truth</b>
+    A member's balance is worked out fresh from their receipts, less whatever bills have
+    already spent. Undo a receipt, correct a bill or delete one and the balance simply
+    re-reads correctly — there is nothing to reverse by hand and no way for it to drift.
+    Your benefit is only added once <em>all</em> the paying instalments are in and the
+    maturity date has passed, so a member who stops halfway gets back what they put in.
+  </div>
+  <div class="note">
+    <b>Scheme money is kept separate</b>
+    Money collected under a scheme is a deposit you are holding, not a sale. It is kept in
+    its own account and deliberately does <strong>not</strong> appear in the customer's normal
+    buying-and-selling khata, so neither figure confuses the other.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 13 ─────────────────────────── -->
+<div class="sheet">
+  <h2>13. Checking Your Stock</h2>
+
+  <h3>Stock Report</h3>
+  <p>Click <strong>Stock Report</strong> to see what you are holding.</p>
+  <table class="field-tbl">
+    <tr><td>In Stock / Sold / All</td><td>Which pieces to show</td></tr>
+    <tr><td>Tag-wise (detail)</td><td>Every individual piece with its tag</td></tr>
+    <tr><td>Item Name Total</td><td>One line per item — Ring, Chain, Bangle and so on</td></tr>
+    <tr><td>Summary by Item Group</td><td>Totals for 22K Gold, 18K Gold, Silver…</td></tr>
+    <tr><td>Summary by Location</td><td>Totals for Shop, Locker and any other location</td></tr>
+  </table>
+  <p>
+    In <strong>Item Name Total</strong> the <strong>Purity</strong> column is the purity the
+    whole line would have if it were a single piece — worked out from the weights, not by
+    averaging the percentages. That matters: a 1 g scrap ring at 50% should not drag the
+    figure down as much as a 50 g chain at 100%, and this way it does not.
+  </p>
+  <p>
+    The tiles across the top give <strong>Pieces</strong>, <strong>Gross Weight</strong>,
+    <strong>Net Weight</strong>, <strong>Fine Weight</strong> and <strong>Value at Cost</strong>.
+    <strong>Fine weight is the number that matters</strong> — it is your actual pure gold,
+    whatever purity the pieces are.
+  </p>
+
+  <h4>Value at Cost</h4>
+  <p>
+    This is what the stock <em>cost you</em>, not what it would sell for:
+  </p>
+  <div class="calc">Value at Cost  =  Fine Weight × Cost per gram</div>
+  <p>
+    The cost per gram comes from the <strong>Cost/Gm</strong> column you fill in when
+    tagging (see <em>Tag &amp; Barcode</em>). If you left it blank on some pieces, those
+    pieces are <strong>left out of the total</strong> and the tile tells you how many were
+    excluded — so a partial figure never reads as the full stock value. In the summary
+    views an asterisk marks any group that contains uncosted pieces.
+  </p>
+  <div class="note">
+    Cost is for your eyes only. It is never printed on a customer's bill.
+  </div>
+  <p><strong>Export</strong> saves whatever you are looking at as a CSV file for Excel.</p>
+
+  <h4>Correcting a piece after a count</h4>
+  <p>
+    Found a piece that weighs differently to what was typed in, or a purity entered wrong?
+    You do not have to delete the tag and start again.
+  </p>
+  <ol class="steps">
+    <li>Switch to <strong>Tag-wise (detail)</strong> and leave the filter on
+        <strong>In Stock</strong>.</li>
+    <li>Press <strong>Edit Stock</strong>. The grid turns into boxes you can type in.</li>
+    <li>Correct <strong>Gross Wt</strong>, <strong>Stone</strong>, <strong>Purity</strong>,
+        <strong>Cost/Gm</strong>, <strong>Location</strong> or <strong>HUID</strong> on any
+        rows you need. Changed rows turn green as you go.</li>
+    <li>Press <strong>Save</strong>. The button shows how many pieces you have changed.</li>
+  </ol>
+  <p>
+    <strong>Net Wt</strong> and <strong>Fine Wt</strong> are worked out for you and update as
+    you type — you never enter them by hand. Your metal on hand moves with the correction
+    too, so the Day Book and the stock position stay right.
+  </p>
+  <div class="note">
+    <b>Sold pieces cannot be changed here</b>
+    A piece that has been sold is already priced on a customer's bill. Changing its weight on
+    this screen would leave the bill and your stock telling two different stories, with
+    nothing to say which one is right — so the software refuses, and tells you which tag.
+    Open the bill and correct it there instead. If any row in a save is refused,
+    <strong>none</strong> of them are saved, so you never end up half-corrected.
+  </div>
+
+  <h3>The Day Book</h3>
+  <p class="lead">
+    Click <strong>Day Book</strong> and pick a date. This is your end-of-day check.
+  </p>
+  <p>
+    The right-hand panel, <strong>Cash And Bank Accounts</strong>, shows for each metal what
+    you started the day with and what you finished with, in <strong>three weights</strong>:
+  </p>
+  <div class="calc">Gold :-        Opening    Closing
+  Gross Wt     492.100    540.300
+  Net Wt       492.100    540.100
+  Final Wt     467.564    517.412</div>
+  <p>
+    Use <strong>Gross Wt</strong> when you physically weigh your trays — that is the number
+    a count produces. <strong>Net Wt</strong> takes the stones out, and
+    <strong>Final Wt</strong> is the pure metal inside. Old gold taken from customers has its
+    own block underneath, so it never gets mixed up with your own stock.
+  </p>
+  <p>
+    Below that, every <strong>cash and bank account</strong> with its opening and closing
+    balance, then <strong>Today Received Details</strong> — what came in today, split by
+    whether it was cash, card, UPI, NEFT or cheque, counting both bills and receipts.
+  </p>
+  <div class="note">
+    <b>Only cash goes in the cash drawer</b>
+    A card swipe, a UPI transfer, NEFT or a cheque all go to the <strong>bank</strong>, not
+    the drawer — that is where the money actually lands. So if your drawer does not match the
+    Cash Account figure at closing, something really is missing, and the number is worth
+    trusting.
+  </div>
+
+  <h3>Branches and moving stock between them</h3>
+  <p class="lead">
+    Click <strong>Branches &amp; Transfer</strong>. Use this if you have more than one shop,
+    or a locker you keep stock in.
+  </p>
+  <ol class="steps">
+    <li>On the <strong>Branches</strong> tab, add each shop or locker by name.</li>
+    <li>On <strong>Transfers</strong>, press <strong>New Transfer</strong>.</li>
+    <li>Choose the branch the pieces are leaving and the one they are going to.</li>
+    <li>Scan each barcode, or press <strong>Add</strong> beside it in the list underneath.</li>
+    <li>Press <strong>Save Transfer</strong>.</li>
+  </ol>
+  <p>
+    The top of the screen always shows <strong>where your stock is</strong> — pieces, weight
+    and value at each branch. Got a transfer wrong? Delete it and every piece goes straight
+    back where it came from.
+  </p>
+  <div class="note">
+    <b>A piece can only be in one place</b>
+    The software will not let you send a piece from a branch it is not actually at, or one
+    that has already been sold — either would create stock out of thin air at the other end.
+    If you rename a branch, everything recorded there comes with it.
+  </div>
+  <p>
+    If a piece has been moved on again since, you must delete the <em>newer</em> transfer
+    first — otherwise undoing an old one would drag the piece backwards past a move that
+    still stands. The software tells you which document is in the way.
+  </p>
+
+  <h3>Stock Verification — the physical count</h3>
+  <p class="lead">
+    Click <strong>Stock Verification</strong>. Use this to check that what is in your safe
+    matches what the software says. Do it monthly at least.
+  </p>
+  <ol class="steps">
+    <li>Take out your pieces tray by tray.</li>
+    <li>Scan each barcode, or type the tag number and press <kbd>Enter</kbd>.</li>
+    <li>Each piece you scan turns <strong style="color:#1F7A4D">green</strong> and the
+        <strong>Found</strong> counter goes up.</li>
+    <li>When you have scanned everything, switch the filter to <strong>Missing</strong>.</li>
+  </ol>
+  <p>
+    Whatever is still <strong style="color:#B3261E">red</strong> is not physically in your
+    shop. Those are the pieces to hunt for.
+  </p>
+
+  <h4>The four counters</h4>
+  <table class="field-tbl">
+    <tr><td>Expected</td><td>What the software says you should have</td></tr>
+    <tr><td>Found</td><td>What you have scanned</td></tr>
+    <tr><td>Missing</td><td>Not scanned — investigate these</td></tr>
+    <tr><td>Not In Stock</td><td>You scanned a tag the software does not expect: already sold, melted, or from another branch</td></tr>
+  </table>
+
+  <div class="note">
+    <b>Counting changes nothing</b>
+    This screen never alters your records. It only tells you what does not match. Press
+    <strong>Reset</strong> to start a fresh count, or <strong>Export</strong> to save the
+    sheet as evidence of the count.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 14 ─────────────────────────── -->
+<div class="sheet">
+  <h2>14. Reports and Khata</h2>
+
+  <h3>Dashboard</h3>
+  <p>
+    The first screen you see each morning: today's sales, this month's sales, stock in hand
+    in fine grams, and total receivable. Under it are quick buttons for the four commonest
+    jobs, and your recent bills — click any one to open it.
+  </p>
+
+  <h3>Sales Register</h3>
+  <p>
+    Every bill for a chosen date range. Three tiles show number of bills, total sales and
+    total outstanding. Each row has a <strong>print</strong> and a <strong>WhatsApp</strong>
+    button. Click a row to open and edit the bill. <strong>Export</strong> gives you a CSV.
+  </p>
+
+  <h3>Day Book — closing the day</h3>
+  <p>
+    Click <strong>Day Book</strong> and press <strong>Today</strong>. This is your end-of-day
+    check.
+  </p>
+  <ul>
+    <li><strong>Transactions</strong> — sales, purchases, old gold, receipts and payments,
+        split into cash and credit.</li>
+    <li><strong>Stock &amp; Cash Position</strong> — opening and closing figures for gold
+        stock (in fine grams), old gold (URD) stock, and cash.</li>
+  </ul>
+  <p>Count the cash in your drawer against the closing cash figure before you lock up.</p>
+
+  <h3>Ledger / Khata — the most useful report</h3>
+  <p>
+    Click <strong>Ledger / Khata</strong> and search for a customer or supplier. You get the
+    traditional two-column account, exactly as in a handwritten khata book.
+  </p>
+  <p>
+    There is a <strong>Money</strong> / <strong>Metal</strong> / <strong>Money + Metal</strong>
+    switch at the top. This is important: a party can owe you rupees and owe you metal, and they
+    are two different things.
+  </p>
+  <p>
+    When you choose <strong>Metal</strong> or <strong>Money + Metal</strong>, a small dropdown
+    appears — <strong>Gold</strong>, <strong>Silver</strong> or <strong>Platinum</strong>. Each
+    metal has its own khata; gold owed is gold and silver owed is silver, never mixed together.
+    Most shops only ever use Gold, and it is selected for you.
+  </p>
+
+  <h4>Money khata</h4>
+  <div class="calc">Dr — What they owe            Cr — What they paid
+  01/Apr Opening Balance  9,500    19/Jul Cash Account VR1  30,000
+  15/Jul Sales Account   49,687           By Balance c/d    29,187
+         Total           59,187           Total             59,187
+
+  To Balance b/d   ₹29,186.75 Dr</div>
+
+  <h4>Gold khata</h4>
+  <div class="calc">Dr — Metal we gave them       Cr — Metal they gave us
+  14/Jul Metal exchange  94.525    13/Jul Purchase          177.608
+                                   14/Jul Metal exchange     91.600
+
+  Balance   174.683 g fine Cr</div>
+  <p>
+    <strong>Dr</strong> means they owe you; <strong>Cr</strong> means you owe them. In the
+    example above, you are holding 174.683 grams of fine gold belonging to that supplier.
+  </p>
+  <h3>Returns — goods coming back</h3>
+  <p>
+    Open <strong>Returns</strong> from the sidebar. A return is a
+    <strong>new document</strong>, not a change to the old bill: the original bill stays
+    exactly as you printed it, and the return puts the stock, the money and the gold back
+    on the day the goods actually came in.
+  </p>
+  <div class="note">
+    <b>Never delete a bill to reverse it.</b> Once a bill is printed and in your books,
+    deleting it changes history and your day book for that day will no longer match what
+    you handed the customer. Raise a return instead.
+  </div>
+  <ol class="steps">
+    <li>Choose <strong>Sales Returns</strong> or <strong>Purchase Returns</strong>.</li>
+    <li>Press <strong>New Return</strong>.</li>
+    <li>Search the original bill and pick it — the lines are filled in for you. If there is
+        no bill to point at, leave it blank and type the lines yourself.</li>
+    <li>Set the date the goods came back, and a reason if you want one on record.</li>
+    <li>Enter a <strong>refund</strong> if you are paying cash back now; leave it blank to
+        adjust it against the customer's khata instead.</li>
+    <li>Save.</li>
+  </ol>
+  <p>
+    A tagged piece that comes back becomes sellable again straight away, and the customer's
+    gold khata is reduced by the fine weight returned.
+  </p>
+
+  <h3>Karagir job work — metal out and back</h3>
+  <p>
+    Go to <strong>Orders → Karagir Job Work</strong> and pick a goldsmith. This is where you
+    keep him honest:
+  </p>
+  <div class="calc">Still with karagir  =  Issued  −  Received  −  Wastage allowed</div>
+  <ol class="steps">
+    <li><strong>Issue Material</strong> — enter the weight and purity you are handing over.
+        It leaves your stock and goes onto his account.</li>
+    <li>When the finished piece comes back, press <strong>Receive Order</strong>. Enter what
+        you weighed, the <strong>wastage %</strong> you are allowing him, and the making
+        rate. TDS and a part payment can be entered here too.</li>
+    <li>Watch the <strong>Still With Karagir</strong> tile. It should be zero. Anything left
+        is gold he has not accounted for, and it shows in red.</li>
+  </ol>
+  <div class="tip">
+    <b>Order Tracking</b>
+    The table at the bottom shows every order with its delivery date and how many days are
+    left. Anything past its date turns red, so you can see at a glance what is late before
+    the customer walks in asking.
+  </div>
+
+  <h3>Settling gold for cash</h3>
+  <p>
+    Sometimes a gold balance needs to be closed in money instead of metal — you owe a
+    supplier 100 g and you would rather pay for it. Go to
+    <strong>Receipts &amp; Payments → Metal Settlement</strong> and press
+    <strong>New Settlement</strong>.
+  </p>
+  <ol class="steps">
+    <li>Pick the party. The screen shows how much gold is on their account and fills in
+        the weight and direction for you.</li>
+    <li>Check the direction — <em>Metal out</em> means it leaves you and you will owe the
+        money; <em>Metal in</em> means the opposite.</li>
+    <li>Enter the rate per fine gram, and making or GST if they apply.</li>
+    <li>Save. The gold balance moves to zero and the same value appears as a money balance.</li>
+  </ol>
+  <div class="calc">Example
+  You owe Sangam Gold                   100.000 g  Cr
+  Settle at ₹5,000 per gram         =  ₹5,00,000
+
+  After saving:
+    Gold balance                          0.000 g
+    Money balance                   ₹5,00,000  Cr   (you now owe money, not metal)</div>
+  <div class="note">
+    This settles the <b>account</b>, not the shelf. The metal itself moved earlier on its
+    own purchase, sale or refining bill, so your stock figures do not change here.
+  </div>
+
+  <h3>Money + Gold — one statement</h3>
+  <p>
+    The third button, <strong>Money + Gold</strong>, shows both books on a single sheet.
+    Each bill, receipt or payment is <em>one line</em>, with what it charged, what was
+    received, how much metal moved and which way — and two running balances side by side:
+    rupees and fine grams.
+  </p>
+  <div class="calc">Date     Doc    Transaction              Fine Wt  In/Out    Amount   Received   Balance Rs    Balance g
+                  Opening Balance                                                       9,500 Dr     10.000 Dr
+21/07/26 COM1   Sale bill (weightwise)     4.000  OUT     25,750.00              35,250 Dr     14.000 Dr
+21/07/26 VR1    Cash Account                                        20,000.00    15,250 Dr     14.000 Dr
+                  Closing Balance                                                      15,250 Dr     14.000 Dr</div>
+  <p>
+    Use this when a customer deals in both — it answers &ldquo;what do they owe me?&rdquo;
+    in one look, in <strong>both</strong> money and gold, without switching screens.
+  </p>
+  <div class="note">
+    The two balances are kept separate on purpose. Gold owed is gold, not rupees; its value
+    changes with the rate every day, so it is never converted into a money figure for you.
+  </div>
+
+  <p><strong>Export</strong> saves any of the three views as a CSV file.</p>
+
+  <h3>Outstanding — who owes whom, at a glance</h3>
+  <p>
+    Click <strong>Outstanding</strong> for two lists side by side: <strong>Debtors</strong>
+    (everyone who owes the shop) and <strong>Creditors</strong> (everyone the shop owes), each
+    with a running total. Two tiles at the top show your total receivable and total payable.
+  </p>
+  <p>
+    A <strong>Money (₹) / Metal (g)</strong> toggle reads the same thing two ways. In
+    <strong>Money</strong> it is rupees from the khata. In <strong>Metal</strong> a dropdown
+    picks Gold, Silver or Platinum and the lists show <em>fine grams</em> owed in that metal —
+    never turned into a rupee value, because metal owed is metal and its price changes daily.
+    Use this to chase payments, or to see at a glance how much gold your customers are holding
+    against you. Exports to CSV.
+  </p>
+
+  <h3>Accounting Books — Trial Balance, Profit &amp; Loss, Balance Sheet</h3>
+  <p>
+    Click <strong>Accounting Books</strong> for the three statements your accountant asks
+    for. Pick a date range at the top — it opens on the current financial year (1 April to
+    31 March); <strong>This FY</strong> resets it. Three tabs across the top switch between
+    the books.
+  </p>
+  <ul>
+    <li><strong>Trial Balance</strong> — every account with its Debit or Credit balance, in
+      two columns that must add up to the same total. They always do; anything the books
+      cannot otherwise place (usually your own capital brought forward) appears as its own
+      line called <em>Capital / Opening Difference</em>.</li>
+    <li><strong>Profit &amp; Loss</strong> — a Trading account that works out your
+      <em>Gross Profit</em> (sales plus closing stock, less purchases and old gold), then a
+      Profit &amp; Loss account that takes off shop expenses, karagir labour, refining and
+      discounts to reach <em>Net Profit</em>. Two tiles at the bottom show both figures.</li>
+    <li><strong>Balance Sheet</strong> — what the business owns (cash, bank, money customers
+      owe, stock at cost) against what it owes (suppliers, GST, scheme deposits) and your
+      capital. The two sides always match; capital carries the profit the period earned.</li>
+  </ul>
+  <div class="note">
+    These books are built from your bills, purchases, receipts and payments — you do not
+    post journal entries by hand. Two things to know: <strong>stock is valued at what you
+    paid for it</strong> (the same <em>Value at Cost</em> as the Stock Report), taken from
+    what is in stock right now; and <strong>gold is not mixed into the rupee books</strong> —
+    metal has its own weight statement in the Ledger. Each book exports to CSV.
+  </div>
+
+  <h3>Cash Book &amp; Registers</h3>
+  <p>
+    Click <strong>Cash Book &amp; Registers</strong> for the day-to-day listing books. Three
+    tabs across the top:
+  </p>
+  <ul>
+    <li><strong>Cash / Bank Book</strong> — every receipt and payment through the account with
+      a running balance, so you can tally the cash drawer or reconcile the bank. The dropdown
+      switches between the Cash Book and the Bank Book.</li>
+    <li><strong>Journal</strong> — every entry the software posted, in date order, with the
+      account it touched and the debit or credit. This is the full audit trail behind the
+      khatas.</li>
+    <li><strong>Sales &amp; Purchase Books</strong> — a register per document: Sales, Sales
+      Return, Purchase, Purchase Return. Each lists the documents with their taxable value,
+      GST and total, and totals the columns at the foot — handy at GST-return time.</li>
+  </ul>
+  <p>Pick a date range at the top (it opens on the current financial year). Every view exports to CSV.</p>
+
+  <h3>GST Reports</h3>
+  <p>
+    Click <strong>GST Reports</strong> at return time. Five tabs give you what the monthly
+    return needs:
+  </p>
+  <ul>
+    <li><strong>GSTR-1</strong> (your sales) and <strong>GSTR-2</strong> (your purchases) list
+      every taxable bill and split the tax correctly — <strong>CGST + SGST</strong> when the
+      customer is in your own state, <strong>IGST</strong> when they are in another — and mark
+      each as <strong>B2B</strong> (a registered dealer, GSTIN on file) or <strong>B2C</strong>
+      (a counter sale). Set your own state in <strong>Settings → Company</strong> so the split
+      is right.</li>
+    <li><strong>GSTR-3B</strong> is the summary: tax you collected on sales, less the credit
+      for tax you paid on purchases, giving what you actually pay in cash (or the credit that
+      carries to next month).</li>
+    <li><strong>HSN Summary</strong> groups your sales by HSN code with the taxable value and
+      tax — the annexure the return asks for.</li>
+    <li><strong>TCS / TDS</strong> lists the TCS you collected on large sales and the TDS you
+      withheld from karagir labour, so you know what to deposit.</li>
+  </ul>
+  <div class="note">
+    The GSTR-3B figures are the same as the GST line in the Accounting Books — one number, two
+    places, always in agreement. Everything here exports to CSV to hand to your accountant or
+    upload to the portal.
+  </div>
+</div>
+
+<!-- ─────────────────────────── 15 & 16 ─────────────────────────── -->
+<div class="sheet">
+  <h2>14b. Reports for the Owner (MIS)</h2>
+  <p class="lead">
+    Click <strong>MIS &amp; Scheme Reports</strong>. These answer the questions the daily
+    screens cannot.
+  </p>
+  <table class="field-tbl">
+    <tr><td>Non-Moving Items</td><td>Pieces sitting in stock untouched, with how long they
+        have been there and what they cost you. This is money on a shelf.</td></tr>
+    <tr><td>Quiet Customers</td><td>People who used to buy and have not been in. Their last
+        bill and what they have spent with you overall — a call list.</td></tr>
+    <tr><td>Top Selling Items</td><td>What actually sells, by value.</td></tr>
+    <tr><td>Top Areas</td><td>Where your customers come from.</td></tr>
+    <tr><td>Purity Profit</td><td>What you sold against what it cost, per purity.</td></tr>
+  </table>
+  <p>
+    Change <strong>Quiet after</strong> to set how many days counts as "not moving" and
+    "gone quiet" — 90 days by default.
+  </p>
+  <div class="note">
+    <b>Profit only counts what you recorded a cost for</b>
+    A piece sold without a <strong>Cost/Gm</strong> is left out of the profit figures
+    completely, and the screen tells you how many were left out. It would be worse to count
+    them as costing nothing — that would show as pure profit and flatter your margin. Fill
+    the cost in on the Stock Report and it joins the figures.
+  </div>
+  <p>
+    The second tab, <strong>Gold Scheme Reports</strong>, lists your schemes, every member
+    and their balance, instalments due, instalments received, and bills paid for with a
+    scheme.
+  </p>
+</div>
+
+<div class="sheet">
+  <h2>15. Printing, WhatsApp and PDF</h2>
+
+  <h3>Printing a bill</h3>
+  <p>
+    Press <strong>Save &amp; Print</strong> on the sales bill, or the printer icon on any row
+    in the Sales Register. Your normal Windows print dialog opens.
+  </p>
+  <p>
+    The layout follows what you set in <strong>Settings → Invoice Design</strong> — A4 or
+    thermal, which columns show, whether bank details and the declaration print. Set that up
+    once and every bill follows it.
+  </p>
+
+  <h3>Saving as PDF</h3>
+  <p>
+    Press <strong>PDF</strong>, choose where to save, and the file is created. Useful for
+    emailing a bill or keeping a copy.
+  </p>
+
+  <h3>Sending on WhatsApp</h3>
+  <p>
+    Press the <strong>WhatsApp</strong> button. WhatsApp opens with the bill details already
+    written out — items, weights, amounts and balance.
+  </p>
+  <div class="note">
+    <b>Nothing is sent automatically</b>
+    The software only opens WhatsApp with the message prepared. <strong>You</strong> read it
+    and press send. The same applies to reminders and statements.
+  </div>
+  <p>
+    For this to work, the customer must have a WhatsApp number saved. If not, you will see
+    "No mobile number on this record" — add it under Customers.
+  </p>
+
+  <h3>Exporting to Excel</h3>
+  <p>
+    Most report screens have an <strong>Export</strong> button which saves a CSV file. Open
+    it in Excel to make your own summaries or send to your accountant.
+  </p>
+
+  <h2 style="margin-top:2em">16. Backup — Do This Every Day</h2>
+
+  <div class="warn">
+    <b>This is the most important page in this manual</b>
+    All your data is in one file on this one computer. If the disk fails and you have no
+    backup, every bill, customer and stock record is gone permanently. No one can recover it.
+  </div>
+
+  <h3>Taking a backup</h3>
+  <ol class="steps">
+    <li>Go to <strong>Settings → Data &amp; Backup</strong>.</li>
+    <li>Press <strong>Create Backup</strong>.</li>
+    <li>Choose where to save. The file is named with today's date automatically.</li>
+    <li>The folder opens so you can confirm the file is there.</li>
+  </ol>
+
+  <h3>Where to keep backups</h3>
+  <table>
+    <tr><th style="width:26%">Place</th><th>Why</th></tr>
+    <tr><td><strong>Pen drive</strong></td><td>Keep it away from the shop. Protects against fire and theft.</td></tr>
+    <tr><td><strong>Google Drive or OneDrive folder</strong></td><td>Copies itself off-site automatically</td></tr>
+    <tr><td><strong>Second computer</strong></td><td>Protects against one machine failing</td></tr>
+  </table>
+
+  <div class="tip">
+    <b>A simple routine that works</b>
+    Take a backup to a pen drive every evening before locking up, and keep a second copy in a
+    cloud folder once a week. Keep at least the last seven days — if a mistake goes unnoticed
+    for a few days, you can still go back.
+  </div>
+
+  <h3>Restoring from a backup</h3>
+  <p>
+    Use this when the computer has been replaced, the data file has been damaged, or
+    something has gone badly wrong and you want the books as they were. Only the
+    <strong>owner</strong> can do it.
+  </p>
+  <ol class="steps">
+    <li>Go to <strong>Settings → Data &amp; Backup</strong>.</li>
+    <li>Press <strong>Choose Backup File…</strong> and pick the <span class="mono">.db</span> file.</li>
+    <li>The app reads the file and shows you what is inside it — shop name, how many
+        customers, tagged pieces and bills, and the date of the last entry — next to the
+        same figures for what is in the app right now. <strong>Nothing has changed yet.</strong></li>
+    <li>Check the two columns. If the backup is the one you want, press
+        <strong>Replace my data</strong>.</li>
+    <li>The app restarts by itself. Sign in again and check the Day Book.</li>
+  </ol>
+
+  <div class="note">
+    <b>Everything currently in the app is replaced.</b> Any bills, receipts or stock entered
+    since that backup was taken will no longer be there. If you are unsure, take a fresh
+    backup first — then you have both.
+  </div>
+
+  <div class="tip">
+    <b>You can undo a restore</b>
+    Just before replacing anything, the app saves your current books as a file named
+    <span class="mono">pre-restore-…&hairsp;.db</span> in the data folder (the location is
+    shown at the top of the same screen). If you restore the wrong file, restore that one
+    to get straight back.
+  </div>
+
+  <p>
+    If the file you choose is not a backup, is from a different program, or has been
+    damaged, the app refuses it and tells you why. Your books are not touched.
+  </p>
+
+  <h3>Backing up to Google Drive</h3>
+  <p class="lead">
+    The app can upload the backup to your own Google Drive with one press, or once a day
+    by itself.
+  </p>
+
+  <h4>One-time setup</h4>
+  <p>
+    Google requires every program that touches Drive to be registered first. Doing this
+    yourself means the backups sit in <strong>your</strong> Drive, under your control, and
+    nobody else can reach them. It is free and takes about five minutes.
+  </p>
+  <p>
+    Go to <strong>Settings &rarr; Data &amp; Backup &rarr; Google Drive Backup</strong> and
+    press <strong>Show me how</strong>. The software walks you through all seven steps.
+    In short:
+  </p>
+  <ol class="steps">
+    <li>Open <span class="mono">console.cloud.google.com</span> and create a project.</li>
+    <li>Enable the <strong>Google Drive API</strong>.</li>
+    <li>Fill in the OAuth consent screen and set it to <strong>In production</strong>.</li>
+    <li>Create an <strong>OAuth client ID</strong> of type <strong>Desktop app</strong>.</li>
+    <li>Paste the Client ID and Secret into the app.</li>
+  </ol>
+  <div class="warn">
+    <b>Set the consent screen to "In production"</b>
+    If it is left on "Testing", Google cuts the connection every seven days and you have
+    to sign in again and again.
+  </div>
+
+  <h4>Connecting and backing up</h4>
+  <ol class="steps">
+    <li>Press <strong>Connect Google Drive</strong>. Your browser opens Google's sign-in.</li>
+    <li>Choose the account that should hold the backups and press <strong>Allow</strong>.</li>
+    <li>Come back to the app — it now shows which account is connected.</li>
+    <li>Press <strong>Back Up Now</strong> whenever you like, or tick
+        <strong>Back up automatically once a day</strong>.</li>
+  </ol>
+  <p>
+    Backups go into a folder called <strong>Parivar Jewellery ERP Backups</strong>. The
+    newest ten are kept and older ones removed, so your Drive does not fill up. Press
+    <strong>Show backups in Drive</strong> to see what is there.
+  </p>
+
+  <h4>What the app can see in your Drive</h4>
+  <ul>
+    <li>It can only touch the backup files it created itself.</li>
+    <li>It <strong>cannot</strong> read, list or change anything else in your Drive.</li>
+    <li>Your Google password is never seen by this software — you type it on Google's own
+        page.</li>
+    <li>You can cut off access any time at
+        <span class="mono">myaccount.google.com/permissions</span>, or press
+        <strong>Disconnect</strong> in the app.</li>
+  </ul>
+  <div class="tip">
+    <b>Do not rely on one backup alone</b>
+    Google Drive is excellent, but keep a pen-drive copy too. Two places, not one.
+  </div>
+
+  <h3>Restoring</h3>
+  <p>
+    A backup is a complete copy of your data file. To restore it, close the software, copy the
+    backup into the data folder shown on the Data &amp; Backup screen, and rename it to
+    <span class="mono">parivar.db</span>. If you are unsure, ask whoever supports your
+    computers — do this carefully, as it replaces everything.
+  </p>
+</div>
+
+<!-- ─────────────────────────── 17 & 18 ─────────────────────────── -->
+<div class="sheet">
+  <h2>17. Keyboard Shortcuts</h2>
+  <p class="lead">Learning these five or six will make you much faster.</p>
+  <table>
+    <tr><th style="width:26%">Key</th><th>What it opens</th></tr>
+    <tr><td><kbd>Ctrl</kbd> + <kbd>K</kbd></td><td>Search box — jump to any screen or customer</td></tr>
+    <tr><td><kbd>F2</kbd></td><td>Sales Invoice</td></tr>
+    <tr><td><kbd>F3</kbd></td><td>Purchase</td></tr>
+    <tr><td><kbd>F4</kbd></td><td>Receipts</td></tr>
+    <tr><td><kbd>F5</kbd></td><td>Orders</td></tr>
+    <tr><td><kbd>F6</kbd></td><td>Item Creation</td></tr>
+    <tr><td><kbd>F7</kbd></td><td>Tag &amp; Barcode</td></tr>
+    <tr><td><kbd>F8</kbd></td><td>Customers</td></tr>
+    <tr><td><kbd>F9</kbd></td><td>Refining</td></tr>
+  </table>
+
+  <h3>Inside lists and boxes</h3>
+  <table>
+    <tr><th style="width:26%">Key</th><th>What it does</th></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Move through a suggestion list</td></tr>
+    <tr><td><kbd>Enter</kbd></td><td>Choose the highlighted suggestion; in the Tag box, look up the tag</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Close the suggestion list or the open window</td></tr>
+    <tr><td><kbd>Tab</kbd></td><td>Move to the next box</td></tr>
+  </table>
+
+  <h2 style="margin-top:2em">18. How Every Number Is Calculated</h2>
+  <p class="lead">
+    Nothing is hidden. Every figure the software shows comes from one of these formulas.
+  </p>
+
+  <h3>Weights</h3>
+  <div class="calc">Net Weight   =  Gross Weight − Stone Weight − Black Beads
+  Fine Weight  =  Net Weight × Purity ÷ 100
+
+  Example:  10.000 g gross, no stones, 91.6% purity
+            Net  = 10.000 g
+            Fine = 10.000 × 91.6 ÷ 100 = 9.160 g</div>
+
+  <h3>A sales bill</h3>
+  <div class="calc">Goods Amount   =  Net Weight × Rate per gram
+  Making Amount  =  Net Weight × Making per gram
+  Bill Amount    =  Goods + Making + Hallmark charges
+  Taxable        =  Bill Amount − Bill Discount − Making Discount
+  GST            =  Taxable × GST %
+  Total          =  Taxable + GST + Other charges + TCS
+  Balance Due    =  Total − Old Gold value − Amount Received − GSS Amount
+
+  Example:  12.000 g at ₹4,590, making ₹300 per gram, GST 3%
+            Goods   12.000 × 4,590  =  ₹55,080.00
+            Making  12.000 × 300    =   ₹3,600.00
+            Bill                    =  ₹58,680.00
+            GST 3%                  =   ₹1,760.40
+            Total                   =  ₹60,440.40</div>
+
+  <h3>Old gold taken from a customer</h3>
+  <div class="calc">Fine Weight  =  Net Weight × Purity ÷ 100
+  Value        =  Fine Weight × Rate per gram
+
+  Example:  3.000 g at 80% purity, allowed at ₹4,500
+            Fine  = 3.000 × 80 ÷ 100  =  2.400 g
+            Value = 2.400 × 4,500     =  ₹10,800.00</div>
+
+  <h3>A purchase</h3>
+  <div class="calc">Fine + Wastage  =  Net × Purity ÷ 100 × (1 + Wastage %)
+  Amount          =  Fine + Wastage × Rate per gram
+  Bill Amount     =  Purchase − Discount − Material Returned + GST + TCS</div>
+
+  <h3>Refining</h3>
+  <div class="calc">Fine Weight  =  Net Weight × Purity ÷ 100
+  Amount       =  Fine Weight × Rate per gram</div>
+
+  <h3>Gold saving scheme</h3>
+  <div class="calc">On Amount / On Making
+    Value at Maturity  =  Monthly Amount × Paying Months + Shop Benefit
+
+  On Weight   (fixed money, grams follow the rate)
+    Grams accrued      =  Amount Paid ÷ Rate on the day
+    Balance            =  All grams accrued + Benefit grams
+
+  Weight Wise (fixed grams, money follows the rate)
+    Amount to pay      =  Monthly Weight × Rate on the day
+    Balance            =  Monthly Weight × Paying Months + Benefit grams
+
+  Spending it on a bill
+    To pay             =  Total (incl. GST) − Old Gold − Received − GSS Amount
+
+  Example:  6,000 paid when gold is 5,000/g  =  1.200 g accrued
+            the same 6,000 at 6,000/g        =  1.000 g accrued</div>
+
+  <h3>Balances</h3>
+  <div class="calc">Money balance  =  Opening + (all debits − all credits)
+  Gold balance   =  Opening + (metal given − metal received)
+
+  Positive = Dr = they owe you
+  Negative = Cr = you owe them</div>
+</div>
+
+<!-- ─────────────────────────── 19 & 20 ─────────────────────────── -->
+<div class="sheet">
+  <h2>19. Problems and Solutions</h2>
+
+  <table>
+    <tr><th style="width:38%">What you see</th><th>What to do</th></tr>
+    <tr>
+      <td><strong>"Tag … is not in stock — it cannot be billed again"</strong></td>
+      <td>That piece is already sold or has been melted. Check the tag number. The software
+          is stopping you selling one physical piece twice.</td>
+    </tr>
+    <tr>
+      <td><strong>"Tag … cannot be sent for refining"</strong></td>
+      <td>Same reason — the piece has already left your stock.</td>
+    </tr>
+    <tr>
+      <td><strong>"A credit bill needs a customer"</strong></td>
+      <td>You marked the bill Credit but did not choose a customer. Either pick one, or switch
+          the bill to Cash.</td>
+    </tr>
+    <tr>
+      <td><strong>"Cannot delete: this item already has stock tags"</strong></td>
+      <td>Delete or sell the tagged pieces first.</td>
+    </tr>
+    <tr>
+      <td><strong>"Cannot delete: this party already has transactions"</strong></td>
+      <td>Deleting them would break their bills and khata. Leave them in place.</td>
+    </tr>
+    <tr>
+      <td><strong>"Invalid username or password"</strong></td>
+      <td>Check both, and that Caps Lock is off. Usernames ignore capitals but passwords
+          do not. If it is still refused, ask the owner to reset it.</td>
+    </tr>
+    <tr>
+      <td><strong>"This account is disabled"</strong></td>
+      <td>The owner has switched this login off. They can enable it under
+          Settings &rarr; Users.</td>
+    </tr>
+    <tr>
+      <td><strong>"This action is restricted to an authorised role"</strong></td>
+      <td>Your role may not do that &mdash; see the table in section 3. Ask the owner to
+          do it, or to raise your role.</td>
+    </tr>
+    <tr>
+      <td><strong>"Please sign in to continue"</strong></td>
+      <td>The session ended. Sign in again.</td>
+    </tr>
+    <tr>
+      <td><strong>Nobody knows the owner password</strong></td>
+      <td>Any Owner login can reset another user's password. If every owner password is
+          lost, the data file must be restored from a backup taken when it was known
+          &mdash; another reason to keep backups.</td>
+    </tr>
+    <tr>
+      <td><strong>"No mobile number on this record"</strong></td>
+      <td>Add a WhatsApp or mobile number for that customer under Customers.</td>
+    </tr>
+    <tr>
+      <td><strong>The item search finds nothing</strong></td>
+      <td>Only pieces <em>in stock</em> are offered. If it is sold or melted it will not
+          appear. Check the Stock Report.</td>
+    </tr>
+    <tr>
+      <td><strong>Nothing appears in a report</strong></td>
+      <td>Check the date range at the top. Most reports open showing this month only.</td>
+    </tr>
+    <tr>
+      <td><strong>Fine weight looks wrong</strong></td>
+      <td>Check the purity on the tag. A 22K piece entered at 75% will show far less fine
+          weight than it should.</td>
+    </tr>
+    <tr>
+      <td><strong>The customer's balance looks wrong</strong></td>
+      <td>Open their khata (Ledger) and read down the entries. Every figure has a document
+          number beside it, so you can find the bill or receipt that caused it.</td>
+    </tr>
+    <tr>
+      <td><strong>A bill was made by mistake</strong></td>
+      <td>Open it from the Sales Register and press <strong>Delete</strong>. The pieces go
+          back into stock and the khata is reversed.</td>
+    </tr>
+    <tr>
+      <td><strong>"Only … g of loose metal is available"</strong></td>
+      <td>You are trying to make pieces from more metal than you hold loose. Check the
+          weights, or enter the purchase that brought the metal in. If the pieces were
+          bought ready-made, use <strong>New stock</strong> mode instead.</td>
+    </tr>
+    <tr>
+      <td><strong>Stock looks twice what it should</strong></td>
+      <td>Metal was probably purchased and then tagged using <strong>New stock</strong>
+          instead of <strong>From loose metal</strong>, so it was counted twice. Delete
+          those tags and re-enter them as a conversion.</td>
+    </tr>
+    <tr>
+      <td><strong>Pasted rows do not appear</strong></td>
+      <td>The first column must be a gross weight. Check the column order shown above the
+          grid, and that you copied cells rather than a picture.</td>
+    </tr>
+    <tr>
+      <td><strong>Barcode labels print off-centre</strong></td>
+      <td>Choose the right label size in the print window, print one sheet on plain paper
+          and compare, then adjust. Use <strong>Skip labels</strong> for a part-used sheet.</td>
+    </tr>
+    <tr>
+      <td><strong>The scanner does not read a label</strong></td>
+      <td>Print larger — use the A4 sheet of 24 rather than 65 — and make sure the label is
+          not creased across the bars.</td>
+    </tr>
+    <tr>
+      <td><strong>Google Drive keeps asking me to reconnect</strong></td>
+      <td>The OAuth consent screen is still set to "Testing", which expires access every
+          seven days. Set it to "In production" in the Google Cloud console.</td>
+    </tr>
+    <tr>
+      <td><strong>"Could not reach Google"</strong></td>
+      <td>No internet, or a firewall is blocking it. Ordinary pen-drive backups still work
+          offline.</td>
+    </tr>
+    <tr>
+      <td><strong>Printing is misaligned</strong></td>
+      <td>Go to Settings → Invoice Design, check A4 or Thermal is right for your printer, and
+          use <strong>Test Print</strong> until it lines up.</td>
+    </tr>
+  </table>
+
+  <h3>Golden rules</h3>
+  <ul>
+    <li><strong>Give every person their own login</strong>, never share one, and sign
+        out when you leave the counter.</li>
+    <li><strong>Correct, do not duplicate.</strong> Edit the wrong bill rather than making a
+        second one to cancel it.</li>
+    <li><strong>Take a backup every day.</strong></li>
+    <li><strong>Verify stock monthly.</strong> Small differences found early are easy to explain.</li>
+  </ul>
+
+  <h2 style="margin-top:2em">20. Glossary</h2>
+  <table>
+    <tr><th style="width:26%">Term</th><th>Meaning</th></tr>
+    <tr><td><strong>Gross weight</strong></td><td>The full weight of a piece including stones</td></tr>
+    <tr><td><strong>Net weight</strong></td><td>Gross weight less stones and black beads — the metal only</td></tr>
+    <tr><td><strong>Fine weight</strong></td><td>The pure gold in a piece. Net weight × purity.</td></tr>
+    <tr><td><strong>Purity / Tunch</strong></td><td>Percentage of pure gold. 22K = 91.6%, 18K = 75%.</td></tr>
+    <tr><td><strong>Making charge</strong></td><td>Labour charge, usually per gram</td></tr>
+    <tr><td><strong>Wastage</strong></td><td>Extra weight charged to cover metal lost in working</td></tr>
+    <tr><td><strong>URD / Old gold</strong></td><td>Unregistered dealer purchase — old jewellery bought from a customer</td></tr>
+    <tr><td><strong>Tag</strong></td><td>The unique number given to one physical piece, e.g. RIN00001</td></tr>
+    <tr><td><strong>HUID</strong></td><td>Hallmark Unique ID — the six-character code on hallmarked jewellery</td></tr>
+    <tr><td><strong>HSN</strong></td><td>The GST classification code. 7113 for gold jewellery.</td></tr>
+    <tr><td><strong>Karagir</strong></td><td>The craftsman who makes ornaments to order</td></tr>
+    <tr><td><strong>Refinery</strong></td><td>Where scrap gold is melted and purified</td></tr>
+    <tr><td><strong>Khata</strong></td><td>A running account for one party</td></tr>
+    <tr><td><strong>Dr (Debit)</strong></td><td>They owe you</td></tr>
+    <tr><td><strong>Cr (Credit)</strong></td><td>You owe them</td></tr>
+    <tr><td><strong>Balance b/d</strong></td><td>Balance brought down — what is carried forward</td></tr>
+    <tr><td><strong>GSS</strong></td><td>Gold Saving Scheme — the monthly savings plan</td></tr>
+    <tr><td><strong>TCS</strong></td><td>Tax Collected at Source, on large sales</td></tr>
+    <tr><td><strong>Loose stock</strong></td><td>Metal held without an individual tag — bars, scrap, refinery returns, old gold</td></tr>
+    <tr><td><strong>Conversion</strong></td><td>Turning loose metal into tagged pieces; the weight moves rather than being added</td></tr>
+    <tr><td><strong>Code 128</strong></td><td>The barcode standard used on the labels — read by any ordinary scanner</td></tr>
+    <tr><td><strong>CSV</strong></td><td>A simple spreadsheet file Excel can save and this software can read</td></tr>
+    <tr><td><strong>Role</strong></td><td>What a login may do &mdash; Staff, Manager or Owner</td></tr>
+    <tr><td><strong>Owner</strong></td><td>The highest role: full access, including staff logins and backups</td></tr>
+  </table>
+
+  <div style="margin-top:2.4em;padding-top:14px;border-top:2px solid #D4AF37;text-align:center;color:#96918A;font-size:9.5pt">
+    Parivar Jewellery ERP · User Manual · Version 1.0<br>
+    Keep this manual near the billing computer.
+  </div>
+</div>
