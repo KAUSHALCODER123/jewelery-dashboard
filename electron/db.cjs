@@ -148,6 +148,38 @@ function migrate() {
       AND EXISTS (SELECT 1 FROM gss_scheme s WHERE s.id = scheme_id
                     AND (s.scheme_type <> 'On Amount' OR s.period_unit <> 'Months'))
   `)
+
+  // Loose weight-wise items (mani, fuli, dori): bought and sold by the gram out
+  // of a common lot rather than tagged piece by piece. Existing items are all
+  // tagged goods, so 'TAG' is the right default for every row already there.
+  addCol('item', 'stock_mode', "TEXT NOT NULL DEFAULT 'TAG'")
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS item_stock (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id    INTEGER NOT NULL REFERENCES item(id),
+      gross_wt   REAL NOT NULL DEFAULT 0,
+      qty        REAL NOT NULL DEFAULT 0,
+      rate       REAL NOT NULL DEFAULT 0,
+      amount     REAL NOT NULL DEFAULT 0,
+      doc_type   TEXT NOT NULL,
+      doc_id     INTEGER,
+      doc_no     TEXT DEFAULT '',
+      direction  TEXT NOT NULL CHECK (direction IN ('IN','OUT')),
+      remark     TEXT DEFAULT '',
+      entry_date TEXT NOT NULL DEFAULT (date('now','localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_item_stock_item ON item_stock(item_id);
+    CREATE INDEX IF NOT EXISTS idx_item_stock_doc  ON item_stock(doc_type, doc_id);
+  `)
+  // A purchase return only ever kept the item's NAME. That is enough for metal,
+  // but a loose item's weight has to come off that item's own lot, so the return
+  // has to say which item it was.
+  addCol('purchase_return_item', 'item_id', 'INTEGER')
+
+  // Which bill an order became. Orders delivered before this column existed have
+  // no way to say, so they stay NULL — cancelling one of those old bills still
+  // needs the order re-opened by hand, but nothing from here on does.
+  addCol('order_booking', 'sale_id', 'INTEGER')
 }
 
 function get() {

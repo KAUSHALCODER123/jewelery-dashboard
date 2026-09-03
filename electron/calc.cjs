@@ -92,7 +92,12 @@ function metalSettlement(lines, urdLines, rows) {
     m[key] += v
     fine.set(metal, m)
   }
-  for (const l of lines) add(l.metal || 'Gold', 'sold', fineWeight(l.net_wt, l.purity))
+  // A loose item (mani, fuli) is weighed in grams but it is not metal, so it
+  // owes nothing in fine weight - it is paid for in rupees like a stone.
+  for (const l of lines) {
+    if (l.is_loose) continue
+    add(l.metal || 'Gold', 'sold', fineWeight(l.net_wt, l.purity))
+  }
   for (const u of urdLines) add(u.metal || 'Gold', 'urd', nn(u.final_wt))
 
   // A row the user has already filled in wins; anything else is derived.
@@ -135,8 +140,12 @@ function saleTotals(head, items, urds, metals) {
   // the metal is priced, so it is added in both branches — including weightwise,
   // where the metal settles in grams but the stones are still paid for in rupees.
   const stone_diamond = r2(lines.reduce((s, l) => s + num(l.stone_amount) + num(l.diamond_amount), 0))
+  // Loose items settle in rupees on both kinds of bill for the same reason as
+  // stones: no metal changed hands, so a weightwise bill has nothing to net them
+  // against and dropping them here would hand the beads over free.
+  const loose_amount = r2(lines.reduce((s, l) => s + (l.is_loose ? num(l.total_amount) : 0), 0))
   const goods_amount = weightwise
-    ? r2(metalRows.reduce((s, m) => s + m.amount, 0) + stone_diamond)
+    ? r2(metalRows.reduce((s, m) => s + m.amount, 0) + stone_diamond + loose_amount)
     : r2(lines.reduce((s, l) => s + num(l.total_amount), 0) + stone_diamond)
   const making_amount = r2(lines.reduce((s, l) => s + num(l.mkg_amount), 0))
   const hallmark_amount = r2(lines.reduce((s, l) => s + num(l.hallmark_charges), 0))
@@ -231,6 +240,19 @@ const rateBasis = (metal) => (!metal || metal === 'Gold' ? GOLD_RATE_PURITY : 10
 /** Compute one purchase line (supplier material in), incl. wastage. */
 function purchaseLine(line, metal) {
   const net = line.net_wt != null && line.net_wt !== '' ? nn(line.net_wt) : netWeight(line)
+  // A loose item (mani, fuli) is bought by the gram at a flat rate, not on a
+  // metal touch basis: 100 g at 35 is 3,500. Running it through the touch would
+  // both misprice it and — worse — put 100 g of beads on the supplier's gold
+  // khata, so it carries no fine weight at all.
+  if (line.is_loose) {
+    return {
+      ...line,
+      net_wt: r3(net),
+      fine_plus_wastage: 0,
+      amount: r2(net * nn(line.rate)),
+      hallmark_amount: r2(nn(line.qty) * nn(line.hallmark_charges)),
+    }
+  }
   // Wastage is added to the touch, not levied on the fine weight: 91.6 + 8 = 99.6.
   const touch = nn(line.purity) + nn(line.wastage_pct)
   const fine_plus_wastage = r3(net * touch / 100)

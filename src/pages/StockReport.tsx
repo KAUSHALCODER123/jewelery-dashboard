@@ -118,6 +118,13 @@ export default function StockReport() {
     ? view.reduce((s: number, r: any) => s + num(r.cost_value), 0)
     : num(rep.data?.totals?.cost_value)
   const uncosted = num(rep.data?.totals?.uncosted)
+  // Loose lots (mani, fuli) are real stock with no tag to list, so they are
+  // reported on their own strip below rather than folded into the piece table —
+  // a bead has no fine weight, and mixing it in would corrupt both the piece
+  // count and the fine total this screen is reconciled against.
+  const loose = rep.data?.loose || []
+  const looseValue = num(rep.data?.looseTotals?.cost_value)
+  const looseWt = num(rep.data?.looseTotals?.balance_wt)
 
   /** What Export writes, in whichever format is chosen — see src/lib/export.ts. */
   const exportData = () =>
@@ -230,6 +237,11 @@ export default function StockReport() {
               {uncosted} of {rows.length} piece{uncosted === 1 ? '' : 's'} have no cost — excluded
             </div>
           )}
+          {looseValue > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>
+              + {money(looseValue)} in loose lots = {money(value + looseValue)} held
+            </div>
+          )}
         </div>
       </div>
 
@@ -334,6 +346,50 @@ export default function StockReport() {
           )}
         </div>
       </div>
+
+      {loose.length > 0 && (
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="card-head">
+            <span className="card-title">
+              Loose lots — stocked by weight ({wt(looseWt)} g)
+            </span>
+          </div>
+          <div className="card-body flush">
+            <div className="table-wrap">
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>Item</th><th>Group</th><th className="r">In</th><th className="r">Out</th>
+                    <th className="r">On Hand</th><th className="r">Cost/Gm</th>
+                    <th className="r">Cost Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loose.map((r: any) => (
+                    <tr key={r.id}>
+                      <td>{r.name}</td>
+                      <td className="muted">{r.group_name || '—'}</td>
+                      <td className="r num">{wt(r.in_wt)}</td>
+                      <td className="r num">{wt(r.out_wt)}</td>
+                      <td className="r num strong">{wt(r.balance_wt)}</td>
+                      <td className="r num">{num(r.cost_rate) > 0 ? money(r.cost_rate) : ''}</td>
+                      <td className="r num">{num(r.cost_value) > 0 ? money(r.cost_value) : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={4}>{loose.length} lot{loose.length === 1 ? '' : 's'}</td>
+                    <td className="r num strong">{wt(looseWt)}</td>
+                    <td />
+                    <td className="r num strong">{money(looseValue)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

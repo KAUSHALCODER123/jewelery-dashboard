@@ -115,6 +115,52 @@ app.whenReady().then(() => {
     // sale. If the old gold had double-counted, this would read 20 − 20 = 0.
     check('gold khata nets to 10 g owed (20 sold − 10 old gold)',
       api.party.metalBalance({ id: custId }).balance, 10)
+
+    head('7. An advance stays on the day the customer actually paid it')
+    // The invoice is raised weeks after the booking. The money reached the till
+    // on the booking day, so it must stay in that day's cash book — re-posting
+    // it onto the bill would move a receipt out of a month already closed.
+    const buyer = api.party.save({ name: 'Advance Payer', party_type: 'CUSTOMER' })
+    const adv = api.order.save({
+      head: {
+        prefix: 'NO', order_date: DAY, party_id: buyer, party_name: 'Advance Payer',
+        advance_amount: 20000,
+      },
+      items: [{
+        item_name: 'Kada', qty: 1, gross_wt: 25, net_wt: 25, purity: 91.6,
+        rate_per_gm: 6000, mkg_per_gm: 400,
+      }],
+    })
+    const cashOn = (d) => api.reports.cashBook({ from: '1900-01-01', to: d, account: 'Cash Account' }).closing
+    const tillAtBooking = cashOn(DAY)
+    check('the advance is in the till on the booking day', tillAtBooking >= 20000, true)
+    api.order.toInvoice({ id: adv.id, bill_date: '2026-09-30' })
+    check('and it is still there after the bill is raised', cashOn(DAY), tillAtBooking)
+    // Credited exactly once: they owe the bill less the advance, no more, no less.
+    const billed = api.sale.list({ search: 'Advance Payer' })[0]
+    check('customer is credited the advance exactly once',
+      api.party.balance({ id: buyer }).balance,
+      Number(billed.total_amount) - 20000)
+
+    head('8. Cancelling the bill re-opens the order')
+    // The advance lives on the order and the bill counts on it, so an invoiced
+    // order must never be deletable — that would take the money off the books and
+    // leave the customer owing it again.
+    let refused = false
+    try { api.order.remove({ id: adv.id }) } catch { refused = true }
+    check('deleting an order that has been invoiced is refused', refused, true)
+    // And cancelling the bill has to hand the order back, or it is a dead end:
+    // no bill, and toInvoice refusing to raise another one.
+    api.sale.remove({ id: billed.id })
+    check('the order is open again', api.order.read({ id: adv.id }).status, 'RECEIVED')
+    check('the advance is still in the till', cashOn(DAY), tillAtBooking)
+    check('and the customer is still credited it',
+      api.party.balance({ id: buyer }).balance, -20000)
+    const again = api.order.toInvoice({ id: adv.id, bill_date: '2026-10-05' })
+    check('it can be billed again', api.order.read({ id: adv.id }).status, 'DELIVERED')
+    check('still credited the advance exactly once',
+      api.party.balance({ id: buyer }).balance,
+      Number(api.sale.read({ id: again.id }).total_amount) - 20000)
   } catch (e) {
     fail++
     console.log('  ERROR', e && e.stack ? e.stack : e)

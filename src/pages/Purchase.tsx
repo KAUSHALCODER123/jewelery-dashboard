@@ -9,7 +9,10 @@ import { num, purchaseTotals } from '../lib/calc'
 import { dmy, money, monthStartISO, todayISO, wt } from '../lib/format'
 
 const blankLine = () => ({
-  direction: 'IN', item_id: null as number | null, item_name: '',
+  // A loose item (mani, fuli) is priced by the gram at a flat rate and carries no
+  // fine weight, so the line has to say which kind it is before the totals are
+  // taken — see purchaseLine in lib/calc.
+  direction: 'IN', item_id: null as number | null, is_loose: 0, item_name: '',
   qty: '', gross_wt: '', black_beads: '', stone_wt: '', net_wt: '',
   purity: '', rate: '', wastage_pct: '', hallmark_charges: '', huid: '',
 })
@@ -279,14 +282,19 @@ function PurchaseForm({ id, onDone }: { id: number | null; onDone: () => void })
                         onChange={(e) => {
                           const name = e.target.value
                           const match = (items.data || []).find((x: any) => x.name === name)
+                          const loose = match?.stock_mode === 'LOOSE_WT'
                           setLine(i, {
                             item_name: name,
                             item_id: match?.id ?? null,
-                            purity: match?.group_purity ?? r.purity,
+                            is_loose: loose ? 1 : 0,
+                            // Beads have no touch. Seeding the group's purity
+                            // onto one would price it off a metal basis and put
+                            // its grams on the supplier's gold khata.
+                            purity: loose ? 0 : (match?.group_purity ?? r.purity),
                           })
                           // Seed the wastage from the Wastage Master, but never
                           // over a figure already agreed with the supplier.
-                          if (match?.id && !num(r.wastage_pct)) {
+                          if (match?.id && !loose && !num(r.wastage_pct)) {
                             window.api.rateMaster.resolve({ itemId: match.id }).then((m: any) => {
                               if (num(m?.wastage_pct) > 0) setLine(i, { wastage_pct: m.wastage_pct })
                             })

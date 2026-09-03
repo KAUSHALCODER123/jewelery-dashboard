@@ -13,6 +13,10 @@ const OVER_SETTLED = 'Settling more metal than is owed — check the Balance Wei
 
 const blankItem = () => ({
   tag: '', tag_stock_id: null as number | null, item_id: null as number | null,
+  // Set when the line is a loose weight-wise item (mani, fuli). Such a line is
+  // priced in rupees per gram and settles no metal, so the totals treat it like
+  // a stone rather than like gold.
+  is_loose: 0,
   item_name: '', hsn: '', qty: '', gross_wt: '', purity: '', stone_wt: '',
   stone_rate: '', diamond_wt: '', diamond_rate: '',
   net_wt: '', rate_per_gm: '', mkg_per_gm: '', mkg_pct: '', hallmark_charges: '', huid: '',
@@ -267,6 +271,22 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
         if (num(m?.making_per_gram) > 0) setItem(i, { mkg_per_gm: m.making_per_gram })
       })
     }
+  }
+
+  /**
+   * Fill a line from a loose weight-wise item. There is no piece to scan — the
+   * shopkeeper types how many grams of the lot the customer is taking, so only
+   * the identity and the rate come from the master and the weight stays blank.
+   */
+  const applyLoose = (i: number, it: any) => {
+    setItem(i, {
+      tag: '', tag_stock_id: null, item_id: it.id, is_loose: 1,
+      item_name: it.name, hsn: it.hsn || '',
+      gross_wt: '', stone_wt: '', diamond_wt: '', net_wt: '',
+      // Beads carry no purity: their grams are not metal and must not become
+      // fine weight on a weight-wise bill.
+      purity: 0, mkg_per_gm: '', mkg_pct: '', hallmark_charges: '', huid: '', qty: '',
+    })
   }
 
   const pickCustomer = async (p: any) => {
@@ -557,7 +577,14 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
                         case 'item_name': return (
                           <td key={c.key} style={{ position: 'relative' }}>
                             <ItemCell row={r} onPick={(ts) => applyTag(i, ts)}
-                              onText={(s) => setItem(i, { item_name: s, tag: '', tag_stock_id: null })} />
+                              onPickLoose={(it) => applyLoose(i, it)}
+                              // Typing over a picked item unpicks it. item_id has
+                              // to go with the tag: a stale one left behind still
+                              // points at a real piece or lot.
+                              onText={(s) => setItem(i, {
+                                item_name: s, tag: '', tag_stock_id: null,
+                                item_id: null, is_loose: 0,
+                              })} />
                           </td>
                         )
                         // Weight changes invalidate the net weight so it re-derives.
@@ -1009,19 +1036,34 @@ function NumCell({ v, on }: { v: any; on: (v: string) => void }) {
 }
 
 /** Item name cell with stock-aware type-ahead. */
-function ItemCell({ row, onPick, onText }: { row: any; onPick: (ts: any) => void; onText: (s: string) => void }) {
+function ItemCell({ row, onPick, onPickLoose, onText }: {
+  row: any; onPick: (ts: any) => void; onPickLoose: (it: any) => void; onText: (s: string) => void
+}) {
   const [open, setOpen] = useState(false)
   const [list, setList] = useState<any[]>([])
   const [active, setActive] = useState(0)
   const box = useRef<HTMLDivElement>(null)
 
+  // Two kinds of thing can go on a line: a tagged piece, which is one physical
+  // ornament, and a loose item like mani, which is a lot the customer buys a few
+  // grams out of. They come from different tables but the shopkeeper types one
+  // name, so both are offered in the same list and tagged with `loose`.
   useEffect(() => {
     if (!open) return
     let alive = true
     const t = setTimeout(() => {
-      window.api.tagStock.search({ q: row.item_name || '' })
-        .then((r) => { if (alive) { setList(r); setActive(0) } })
-        .catch(() => {})
+      const q = row.item_name || ''
+      Promise.all([
+        window.api.tagStock.search({ q }).catch(() => []),
+        window.api.looseItem.balances({ search: q }).catch(() => []),
+      ]).then(([tags, loose]) => {
+        if (!alive) return
+        setList([
+          ...(loose || []).map((it: any) => ({ ...it, loose: true })),
+          ...(tags || []),
+        ])
+        setActive(0)
+      })
     }, 160)
     return () => { alive = false; clearTimeout(t) }
   }, [row.item_name, open])
@@ -1043,19 +1085,36 @@ function ItemCell({ row, onPick, onText }: { row: any; onPick: (ts: any) => void
           if (!open || !list.length) return
           if (e.key === 'ArrowDown') { e.preventDefault(); setActive((a) => Math.min(a + 1, list.length - 1)) }
           if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)) }
-          if (e.key === 'Enter') { e.preventDefault(); onPick(list[active]); setOpen(false) }
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            const hit = list[active]
+            if (hit) (hit.loose ? onPickLoose : onPick)(hit)
+            setOpen(false)
+          }
           if (e.key === 'Escape') setOpen(false)
         }}
       />
       {open && list.length > 0 && (
         <div className="ac-list">
           {list.map((ts, i) => (
-            <button key={ts.id} type="button" className="ac-item" data-active={i === active}
-              onMouseEnter={() => setActive(i)} onClick={() => { onPick(ts); setOpen(false) }}>
-              <b>{ts.item_name}</b>
-              <span className="muted"> · {ts.group_name}</span>
-              <span className="mono"> · {ts.tag}</span>
-              <span className="muted"> · {wt(ts.gross_wt)}g gross / {wt(ts.net_wt)}g net · {ts.purity}%</span>
+            <button key={`${ts.loose ? 'L' : 'T'}${ts.id}`} type="button" className="ac-item"
+              data-active={i === active} onMouseEnter={() => setActive(i)}
+              onClick={() => { (ts.loose ? onPickLoose : onPick)(ts); setOpen(false) }}>
+              {ts.loose ? (
+                <>
+                  <b>{ts.name}</b>
+                  <span className="muted"> · {ts.group_name}</span>
+                  <span className="badge badge-mute"> loose </span>
+                  <span className="muted"> · {wt(ts.balance_wt)}g in stock</span>
+                </>
+              ) : (
+                <>
+                  <b>{ts.item_name}</b>
+                  <span className="muted"> · {ts.group_name}</span>
+                  <span className="mono"> · {ts.tag}</span>
+                  <span className="muted"> · {wt(ts.gross_wt)}g gross / {wt(ts.net_wt)}g net · {ts.purity}%</span>
+                </>
+              )}
             </button>
           ))}
         </div>

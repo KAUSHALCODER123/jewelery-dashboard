@@ -419,7 +419,10 @@ const item = {
         `SELECT i.*, t.name AS type_name, g.name AS group_name, g.purity AS group_purity,
                 d.name AS design_name,
                 (SELECT COUNT(*) FROM tag_stock ts
-                  WHERE ts.item_id = i.id AND ts.status = 'IN_STOCK') AS in_stock_count
+                  WHERE ts.item_id = i.id AND ts.status = 'IN_STOCK') AS in_stock_count,
+                (SELECT COALESCE(SUM(CASE WHEN s.direction = 'IN' THEN s.gross_wt
+                                          ELSE -s.gross_wt END), 0)
+                   FROM item_stock s WHERE s.item_id = i.id) AS loose_wt
          FROM item i
          LEFT JOIN item_type  t ON t.id = i.item_type_id
          LEFT JOIN item_group g ON g.id = i.item_group_id
@@ -434,19 +437,38 @@ const item = {
     const db = get()
     const tag_prefix =
       (p.tag_prefix || p.name || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase()
-    const row = { reorder_level: 0, ...p, tag_prefix }
+    const row = { reorder_level: 0, stock_mode: 'TAG', ...p, tag_prefix }
+    if (row.stock_mode !== 'LOOSE_WT') row.stock_mode = 'TAG'
     if (p.id) {
+      // How an item is stocked decides where its stock LIVES — tag_stock for a
+      // tagged piece, item_stock for a lot. Flipping it once either table has
+      // rows would strand them: the pieces would vanish from the tag grid, or a
+      // lot's grams would stop being counted, with no document to explain it.
+      const was = db.prepare(`SELECT stock_mode FROM item WHERE id = ?`).get(p.id)?.stock_mode
+      if (was && was !== row.stock_mode) {
+        const held = db.prepare(`SELECT COUNT(*) c FROM tag_stock WHERE item_id = ?`).get(p.id).c
+          + db.prepare(`SELECT COUNT(*) c FROM item_stock WHERE item_id = ?`).get(p.id).c
+        if (held) {
+          throw new Error(
+            'Cannot change how this item is stocked: it already has stock against it. ' +
+            'Clear the stock first, or create a new item.'
+          )
+        }
+      }
       db.prepare(
         `UPDATE item SET name=@name, item_type_id=@item_type_id, item_group_id=@item_group_id,
-         design_id=@design_id, weight_mode=@weight_mode, uom=@uom, hsn=@hsn,
-         tag_prefix=@tag_prefix, image=@image, reorder_level=@reorder_level WHERE id=@id`
+         design_id=@design_id, weight_mode=@weight_mode, stock_mode=@stock_mode, uom=@uom,
+         hsn=@hsn, tag_prefix=@tag_prefix, image=@image, reorder_level=@reorder_level
+         WHERE id=@id`
       ).run(row)
       return p.id
     }
     return db
       .prepare(
-        `INSERT INTO item (name, item_type_id, item_group_id, design_id, weight_mode, uom, hsn, tag_prefix, image, reorder_level)
-         VALUES (@name, @item_type_id, @item_group_id, @design_id, @weight_mode, @uom, @hsn, @tag_prefix, @image, @reorder_level)`
+        `INSERT INTO item (name, item_type_id, item_group_id, design_id, weight_mode, stock_mode,
+         uom, hsn, tag_prefix, image, reorder_level)
+         VALUES (@name, @item_type_id, @item_group_id, @design_id, @weight_mode, @stock_mode,
+         @uom, @hsn, @tag_prefix, @image, @reorder_level)`
       )
       .run(row).lastInsertRowid
   },
@@ -457,6 +479,10 @@ const item = {
       .prepare(`SELECT COUNT(*) c FROM tag_stock WHERE item_id = ?`)
       .get(id).c
     if (used) throw new Error('Cannot delete: this item already has stock tags.')
+    const moved = db
+      .prepare(`SELECT COUNT(*) c FROM item_stock WHERE item_id = ?`)
+      .get(id).c
+    if (moved) throw new Error('Cannot delete: this item already has weight movements.')
     db.prepare(`DELETE FROM item WHERE id = ?`).run(id)
     return true
   },
@@ -703,6 +729,119 @@ const tagStock = {
          ORDER BY i.name, ts.tag LIMIT 50`
       )
       .all({ q: q ?? '', includeSold: includeSold ? 1 : 0 }),
+}
+
+/* ─────────────────────── Loose weight-wise items (mani, fuli) ───────────────────────
+   Goods the shop buys and sells by the gram out of a common lot rather than as
+   tagged pieces. 100 g of mani comes in, 10 g goes out on a bill, 90 g is left.
+
+   Kept apart from loose metal on purpose: these grams are beads, not gold, so
+   they must never reach a fine-weight khata or a metal valuation. */
+
+const looseItem = {
+  /**
+   * Every LOOSE_WT item with its running weight balance, whether or not it has
+   * ever moved — an item at zero still has to be visible, otherwise a shop that
+   * has sold out cannot tell the item apart from one it never created.
+   */
+  balances: ({ search } = {}) => {
+    const db = get()
+    const where = search ? `AND i.name LIKE '%' || @search || '%'` : ''
+    return db.prepare(
+      `SELECT i.id, i.name, i.uom, g.name AS group_name,
+              COALESCE(SUM(CASE WHEN s.direction = 'IN'  THEN s.gross_wt ELSE 0 END), 0) AS in_wt,
+              COALESCE(SUM(CASE WHEN s.direction = 'OUT' THEN s.gross_wt ELSE 0 END), 0) AS out_wt,
+              COALESCE(SUM(CASE WHEN s.direction = 'IN'  THEN s.gross_wt
+                                ELSE -s.gross_wt END), 0) AS balance_wt
+       FROM item i
+       LEFT JOIN item_group g ON g.id = i.item_group_id
+       LEFT JOIN item_stock s ON s.item_id = i.id
+       WHERE i.stock_mode = 'LOOSE_WT' ${where}
+       GROUP BY i.id
+       ORDER BY i.name`
+    ).all({ search: search ?? '' }).map((r) => ({
+      ...r,
+      in_wt: calc.r3(r.in_wt),
+      out_wt: calc.r3(r.out_wt),
+      balance_wt: calc.r3(r.balance_wt),
+    }))
+  },
+
+  /** Every movement of one loose item, oldest first, with a running balance. */
+  ledger: ({ item_id, from, to }) => {
+    const db = get()
+    const clauses = ['item_id = @item_id']
+    if (from) clauses.push('entry_date >= @from')
+    if (to) clauses.push('entry_date <= @to')
+    const rows = db.prepare(
+      `SELECT * FROM item_stock WHERE ${clauses.join(' AND ')}
+       ORDER BY entry_date, id`
+    ).all({ item_id, from: from ?? '', to: to ?? '' })
+    let bal = 0
+    return rows.map((r) => {
+      bal += r.direction === 'IN' ? r.gross_wt : -r.gross_wt
+      return { ...r, balance_wt: calc.r3(bal) }
+    })
+  },
+
+  /**
+   * Weight already on hand the day the shop starts using the software. Re-running
+   * it for an item replaces that item's opening rather than adding a second one,
+   * so a corrected figure does not double the lot.
+   */
+  opening: ({ item_id, gross_wt, rate, entry_date, remark }) => {
+    const db = get()
+    if (!isLooseItem(db, item_id)) {
+      throw new Error('Opening weight can only be set on a weight-wise (loose) item.')
+    }
+    const wt = num(gross_wt)
+    if (wt < 0) throw new Error('Opening weight cannot be negative.')
+    // Correcting the opening downwards must not leave the lot owing weight it has
+    // already billed out. 40 g opening with 30 g sold cannot be corrected to 25.
+    const opened = db.prepare(
+      `SELECT COALESCE(SUM(gross_wt),0) v FROM item_stock
+       WHERE doc_type = 'OPENING' AND item_id = ?`).get(item_id).v
+    const after = calc.r3(looseOnHand(db, item_id) - opened + wt)
+    if (after < 0) {
+      throw new Error(
+        `An opening of ${wt} g would leave ${after} g on hand — ` +
+        `more has already gone out on documents than that.`
+      )
+    }
+    db.prepare(`DELETE FROM item_stock WHERE doc_type = 'OPENING' AND item_id = ?`).run(item_id)
+    postItemStock(db, {
+      item_id, gross_wt: wt, rate: num(rate), amount: calc.r2(wt * num(rate)),
+      doc_type: 'OPENING', doc_no: 'OPENING', direction: 'IN',
+      remark: remark ?? '', entry_date: entry_date || today(),
+    })
+    return true
+  },
+
+  /**
+   * A manual correction after a physical count — the lot weighed 88 g when the
+   * books said 90 g. Booked as its own movement so the shortage stays visible
+   * instead of being edited into a purchase.
+   */
+  adjust: ({ item_id, gross_wt, remark, entry_date }) => {
+    const db = get()
+    if (!isLooseItem(db, item_id)) {
+      throw new Error('Only a weight-wise (loose) item can be adjusted by weight.')
+    }
+    const diff = num(gross_wt)
+    if (!diff) throw new Error('Enter how much weight to add or remove.')
+    // A count can find a shortage, but it cannot find less than nothing — a
+    // correction that takes the lot below zero is a typo, not a shortage.
+    const onHand = looseOnHand(db, item_id)
+    if (diff < 0 && Math.abs(diff) > onHand) {
+      throw new Error(`Only ${onHand} g is on hand — a shortage of ${Math.abs(diff)} g cannot be booked.`)
+    }
+    postItemStock(db, {
+      item_id, gross_wt: Math.abs(diff),
+      doc_type: 'ADJUST', doc_no: 'ADJUST', direction: diff > 0 ? 'IN' : 'OUT',
+      remark: remark ?? '', entry_date: entry_date || today(),
+    })
+    return true
+  },
 }
 
 /* ───────────────────────────── Loose (untagged) metal ─────────────────────────────
@@ -1106,6 +1245,7 @@ function clearPostings(db, docType, docId) {
   db.prepare(`DELETE FROM ledger_entry WHERE doc_type = ? AND doc_id = ?`).run(docType, docId)
   db.prepare(`DELETE FROM metal_entry  WHERE doc_type = ? AND doc_id = ?`).run(docType, docId)
   db.prepare(`DELETE FROM loose_stock  WHERE doc_type = ? AND doc_id = ?`).run(docType, docId)
+  db.prepare(`DELETE FROM item_stock   WHERE doc_type = ? AND doc_id = ?`).run(docType, docId)
 }
 
 const accountIdByName = (db, name) =>
@@ -1117,6 +1257,43 @@ const accountIdByName = (db, name) =>
  * behind it (a hand-typed row) so single-metal behaviour is unchanged.
  */
 const METAL_TYPES = new Set(['Gold', 'Silver', 'Platinum'])
+/**
+ * Is this item stocked by weight out of a common lot rather than tagged piece by
+ * piece? Mani, fuli and dori are bought as 100 g and sold as 10 g — they have no
+ * piece identity to tag, and their grams are beads, not metal.
+ */
+function isLooseItem(db, itemId) {
+  if (!itemId) return false
+  return db.prepare(`SELECT stock_mode FROM item WHERE id = ?`).get(itemId)?.stock_mode
+    === 'LOOSE_WT'
+}
+
+/** How many grams of a loose item are on hand right now. */
+function looseOnHand(db, itemId) {
+  return calc.r3(db.prepare(
+    `SELECT COALESCE(SUM(CASE WHEN direction = 'IN' THEN gross_wt ELSE -gross_wt END), 0) v
+     FROM item_stock WHERE item_id = ?`
+  ).get(itemId).v)
+}
+
+/**
+ * Move weight of a loose item in or out. One row per movement — the balance is
+ * always a sum over item_stock, so nothing has to keep a running total honest.
+ * Silently ignores a line with no weight so an empty grid row books nothing.
+ */
+function postItemStock(db, e) {
+  const gross = num(e.gross_wt)
+  if (!e.item_id || !gross) return
+  db.prepare(
+    `INSERT INTO item_stock (item_id, gross_wt, qty, rate, amount, doc_type, doc_id, doc_no,
+     direction, remark, entry_date)
+     VALUES (@item_id,@gross_wt,@qty,@rate,@amount,@doc_type,@doc_id,@doc_no,@direction,
+     @remark,@entry_date)`
+  ).run({
+    qty: 0, rate: 0, amount: 0, doc_id: null, doc_no: '', remark: '', ...e, gross_wt: gross,
+  })
+}
+
 function itemMetal(db, itemId) {
   if (!itemId) return 'Gold'
   const t = db.prepare(
@@ -1331,6 +1508,7 @@ const sale = {
     head.items = db
       .prepare(`SELECT * FROM sale_item WHERE sale_id = ? ORDER BY line_no`)
       .all(id)
+      .map((l) => ({ ...l, is_loose: isLooseItem(db, l.item_id) ? 1 : 0 }))
     head.urds = db
       .prepare(`SELECT * FROM sale_urd WHERE sale_id = ? ORDER BY line_no`)
       .all(id)
@@ -1355,9 +1533,24 @@ const sale = {
       // Stamp each line with its metal (from the item type) so weightwise
       // settlement and the metal ledger below split Gold / Silver / Platinum
       // correctly. A hand-typed line with no item resolves to Gold.
-      const items = (payload.items || []).map((l) => ({
-        ...l, metal: l.metal || itemMetal(db, l.item_id),
-      }))
+      const items = (payload.items || []).map((l) => {
+        // The item master has the only say. A caller may tell us a line IS loose
+        // (a hand-typed line with no item behind it cannot be), but it may not
+        // tell us one is NOT — a stale flag left behind by editing over a picked
+        // item would otherwise take beads off the shelf without moving the lot,
+        // and put their grams on the gold khata.
+        const is_loose = isLooseItem(db, l.item_id) || !!l.is_loose
+        return {
+          ...l,
+          is_loose: is_loose ? 1 : 0,
+          // A loose line is beads, not metal. Leaving it stamped 'Gold' would put
+          // its grams into the weightwise settlement and the metal khata — and so
+          // would a purity, which is what turns net weight into fine weight
+          // everywhere downstream. Beads have neither.
+          purity: is_loose ? 0 : l.purity,
+          metal: is_loose ? '' : (l.metal || itemMetal(db, l.item_id)),
+        }
+      })
 
       let id = head.id
 
@@ -1500,6 +1693,11 @@ const sale = {
         manual_no: '', due_date: '', party_id: null, party_name: '', address: '', mobile: '',
         area: '', state: 'Maharashtra', salesman: '', is_credit: 0, payment_mode: 'Cash',
         gst_not_required: 0, weightwise: 0, manual_urd_amount: 0, gss_id: null,
+        // Set only when the money on this bill reached the books on an EARLIER
+        // document — an order advance. The bill still shows it as received, so
+        // the customer's balance is right, but the cash leg is not posted again:
+        // it belongs to the day the customer actually paid, not to today.
+        advance_posted: 0,
         ...head,
         bill_no,
         prefix: head.prefix || 'COM',
@@ -1613,6 +1811,23 @@ const sale = {
           // Those are REAL columns, so coerce rather than store an empty string.
           mkg_per_gm: num(l.mkg_per_gm), mkg_pct: num(l.mkg_pct),
         })
+        // A loose item leaves the lot by weight — 10 g off the 100 g of mani.
+        // There is no tag to mark sold, so this row IS the stock movement.
+        if (l.is_loose) {
+          const onHand = looseOnHand(db, l.item_id)
+          if (num(l.gross_wt) > onHand) {
+            throw new Error(
+              `Line ${i + 1}: only ${onHand} g of ${l.item_name || 'this item'} is in stock — ` +
+              `the bill takes ${num(l.gross_wt)} g.`
+            )
+          }
+          postItemStock(db, {
+            item_id: l.item_id, gross_wt: num(l.gross_wt), qty: num(l.qty),
+            rate: num(l.rate_per_gm), amount: num(l.total_amount),
+            doc_type: 'SALE', doc_id: id, doc_no: bill_no, direction: 'OUT',
+            entry_date: row.bill_date,
+          })
+        }
         if (l.tag_stock_id) {
           // A physical piece can only be sold once. If it is no longer in stock the
           // UPDATE matches nothing — refuse the bill rather than silently double-sell.
@@ -1684,7 +1899,7 @@ const sale = {
             particulars: 'Sales Account', debit: netSale,
           })
         }
-        if (t.amount_received > 0) {
+        if (t.amount_received > 0 && !row.advance_posted) {
           postLedger(db, {
             entry_date: row.bill_date, party_id: row.party_id, doc_type: 'SALE', doc_id: id,
             doc_no: bill_no, particulars: 'Cash Account', credit: t.amount_received,
@@ -1702,7 +1917,7 @@ const sale = {
       // single leg on the bill's own payment_mode; a split posts one leg per
       // mode, so the cash drawer and the bank each move by what actually
       // reached them instead of the whole bill landing in one of them.
-      if (t.amount_received > 0) {
+      if (t.amount_received > 0 && !row.advance_posted) {
         for (const s of splits.length ? splits : [{ mode: row.payment_mode, amount: t.amount_received, ref: '' }]) {
           postLedger(db, {
             entry_date: row.bill_date, account_id: moneyAccountFor(db, s.mode),
@@ -1788,6 +2003,13 @@ const sale = {
       clearPostings(db, 'SALE', id)
       db.prepare(`UPDATE tag_stock SET status='IN_STOCK', sold_doc='' WHERE sold_doc = ?`)
         .run(`SALE:${id}`)
+      // Cancelling the bill an order became un-delivers the order, so it can be
+      // billed again. Its advance is untouched — that money was received on the
+      // order and never belonged to the bill. Left as DELIVERED the order would
+      // be a dead end: no bill, and toInvoice refusing to make another one.
+      db.prepare(
+        `UPDATE order_booking SET status='RECEIVED', sale_id=NULL WHERE sale_id = ?`
+      ).run(id)
       db.prepare(`DELETE FROM sale WHERE id = ?`).run(id)
       return true
     })
@@ -1830,9 +2052,13 @@ const purchase = {
     const db = get()
     const head = db.prepare(`SELECT * FROM purchase WHERE id = ?`).get(id)
     if (!head) return null
+    // is_loose is not stored — it belongs to the item master, which can only have
+    // one answer — but the screen needs it to price the line the same way the
+    // save did, so it is derived on the way out.
     head.items = db
       .prepare(`SELECT * FROM purchase_item WHERE purchase_id = ? ORDER BY line_no`)
       .all(id)
+      .map((l) => ({ ...l, is_loose: isLooseItem(db, l.item_id) ? 1 : 0 }))
     return head
   },
 
@@ -1840,7 +2066,14 @@ const purchase = {
     const db = get()
     const tx = db.transaction(() => {
       const { head } = payload
-      const computed = calc.purchaseTotals(head, payload.items || [])
+      // Stamp the loose lines before the totals are taken. The purchase screen
+      // seeds a line's purity from the item's group, so a bead line arrives
+      // carrying 91.6 unless it is marked here — and that purity is what would
+      // otherwise price it and push it onto the supplier's gold khata.
+      const lines = (payload.items || []).map((l) => ({
+        ...l, is_loose: isLooseItem(db, l.item_id) ? 1 : 0,
+      }))
+      const computed = calc.purchaseTotals(head, lines)
       const t = computed.totals
 
       let id = head.id
@@ -1897,11 +2130,24 @@ const purchase = {
           purity: 0, rate: 0, wastage_pct: 0, hallmark_charges: 0, hallmark_amount: 0, huid: '',
           ...l, purchase_id: id, line_no: i + 1,
         })
-        db.prepare(
-          `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
-           direction, entry_date) VALUES (?,?,?,?,'PURCHASE',?,?,?,?)`
-        ).run(row.metal, num(l.gross_wt), num(l.net_wt), num(l.fine_plus_wastage), id, invoice_no,
-              l.direction === 'OUT' ? 'OUT' : 'IN', row.invoice_date)
+        // Mani bought as a 100 g lot is stocked against the item, by weight. It is
+        // not metal, so it must not also land in loose_stock — that would add
+        // beads to the shop's gold position.
+        if (isLooseItem(db, l.item_id)) {
+          postItemStock(db, {
+            item_id: l.item_id, gross_wt: num(l.gross_wt), qty: num(l.qty),
+            rate: num(l.rate), amount: num(l.amount),
+            doc_type: 'PURCHASE', doc_id: id, doc_no: invoice_no,
+            direction: l.direction === 'OUT' ? 'OUT' : 'IN',
+            entry_date: row.invoice_date,
+          })
+        } else {
+          db.prepare(
+            `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
+             direction, entry_date) VALUES (?,?,?,?,'PURCHASE',?,?,?,?)`
+          ).run(row.metal, num(l.gross_wt), num(l.net_wt), num(l.fine_plus_wastage), id, invoice_no,
+                l.direction === 'OUT' ? 'OUT' : 'IN', row.invoice_date)
+        }
       })
 
       if (row.party_id) {
@@ -2282,6 +2528,14 @@ const order = {
   remove: ({ id }) => {
     const db = get()
     const tx = db.transaction(() => {
+      // Once it is invoiced the order still carries the advance receipt — the
+      // bill counts on it and never posted a copy. Deleting the order here would
+      // take that money off the books and leave the customer owing the advance
+      // all over again. Cancel the bill first.
+      const o = db.prepare(`SELECT status FROM order_booking WHERE id = ?`).get(id)
+      if (o && o.status === 'DELIVERED') {
+        throw new Error('This order has already been invoiced — delete the bill first.')
+      }
       clearPostings(db, 'ORDER', id)
       db.prepare(`DELETE FROM order_booking WHERE id = ?`).run(id)
       return true
@@ -2290,7 +2544,7 @@ const order = {
   },
 
   /** Turn a received order into a sales bill, carrying the advance across. */
-  toInvoice: ({ id }) => {
+  toInvoice: ({ id, bill_date }) => {
     const db = get()
     const o = order.read({ id })
     if (!o) throw new Error('Order not found')
@@ -2298,8 +2552,13 @@ const order = {
 
     const res = sale.save({
       head: {
-        prefix: 'COM', bill_date: today(), party_id: o.party_id, party_name: o.party_name,
+        prefix: 'COM', bill_date: bill_date || today(),
+        party_id: o.party_id, party_name: o.party_name,
         is_credit: 1, gst_pct: 3, amount_received: o.advance_amount,
+        // The advance is already on the books, dated the day it was taken. The
+        // bill shows it as received so the customer's balance comes out right,
+        // but it must not be booked into the till a second time.
+        advance_posted: 1,
         manual_no: `Order ${o.order_no}`,
       },
       items: o.items.map((l) => ({
@@ -2316,10 +2575,19 @@ const order = {
       })),
     })
 
-    // The advance was already credited on the order; drop that posting so the
-    // customer is not credited twice now that the invoice records it.
-    clearPostings(db, 'ORDER', id)
-    db.prepare(`UPDATE order_booking SET status='DELIVERED' WHERE id = ?`).run(id)
+    // Old gold taken at booking has been carried onto the bill as URD lines, and
+    // the bill has just booked it into stock and onto the customer's gold khata.
+    // The order's copies of those legs have to go, or the metal counts twice.
+    db.prepare(`DELETE FROM metal_entry WHERE doc_type = 'ORDER' AND doc_id = ?`).run(id)
+    db.prepare(`DELETE FROM loose_stock WHERE doc_type = 'ORDER' AND doc_id = ?`).run(id)
+    // The order's MONEY postings STAY. They carry the advance on the date the
+    // customer paid it; deleting them and letting the invoice re-post the same
+    // money would move a receipt from (say) July into September, quietly
+    // changing a cash book and a day book that were already closed and printed.
+    // The invoice does not credit it again — see `advance_posted` above — so the
+    // customer is credited exactly once, on the right day.
+    db.prepare(`UPDATE order_booking SET status='DELIVERED', sale_id=? WHERE id = ?`)
+      .run(res.id, id)
     return res
   },
 }
@@ -2674,6 +2942,19 @@ const karagir = {
  */
 function purchaseReturnLine(l, metal) {
   const net = l.net_wt != null && l.net_wt !== '' ? Math.max(0, num(l.net_wt)) : calc.netWeight(l)
+  // Beads go back priced by the gram, exactly as they came in, and carry no fine
+  // weight — see purchaseLine.
+  if (l.is_loose) {
+    return {
+      ...l,
+      net_wt: calc.r3(net), final_wt: 0, fine_plus_wastage: 0, purity: 0,
+      total_amount: calc.r2(
+        num(l.qty) > 0 && net === 0
+          ? num(l.qty) * Math.max(0, num(l.rate_per_gm))
+          : net * Math.max(0, num(l.rate_per_gm))),
+      mkg_amount: calc.r2(Math.max(0, num(l.mkg_amount))),
+    }
+  }
   const fine = calc.fineWeight(net, l.purity)
   const touch = Math.max(0, num(l.purity)) + Math.max(0, num(l.wastage_pct))
   const fine_plus_wastage = calc.r3(net * touch / 100)
@@ -2734,7 +3015,17 @@ const saleReturn = {
     const tx = db.transaction(() => {
       const h = p.head || {}
       const lines = (p.items || []).map(returnLine)
-        .map((l) => ({ ...l, metal: l.metal || itemMetal(db, l.item_id) }))
+        .map((l) => {
+          // Beads coming back are beads, not metal. Stamping one 'Gold' would
+          // credit the customer's fine-weight khata and drop the grams into the
+          // loose metal pool, neither of which ever happened.
+          const is_loose = isLooseItem(db, l.item_id)
+          return {
+            ...l, is_loose: is_loose ? 1 : 0,
+            purity: is_loose ? 0 : l.purity, final_wt: is_loose ? 0 : l.final_wt,
+            metal: is_loose ? '' : (l.metal || itemMetal(db, l.item_id)),
+          }
+        })
 
       const goods_amount = calc.r2(lines.reduce((s, l) => s + num(l.total_amount), 0))
       const making_amount = calc.r2(lines.reduce((s, l) => s + num(l.mkg_amount), 0))
@@ -2807,12 +3098,23 @@ const saleReturn = {
           db.prepare(`UPDATE tag_stock SET status='IN_STOCK', sold_doc='' WHERE id = ?`)
             .run(l.tag_stock_id)
         }
+        // A loose item has no tag to flip back — the weight itself is the stock,
+        // so the grams have to go back into the lot or they are lost for good.
+        if (l.is_loose) {
+          postItemStock(db, {
+            item_id: l.item_id, gross_wt: num(l.gross_wt), qty: num(l.qty),
+            rate: num(l.rate_per_gm), amount: num(l.total_amount),
+            doc_type: 'SALERET', doc_id: id, doc_no: return_no, direction: 'IN',
+            entry_date: row.return_date,
+          })
+        }
         fineBack += num(l.final_wt)
       })
 
       // Stock: the metal is physically back on the shelf, split by its metal.
       const retByMetal = new Map()
       for (const l of lines) {
+        if (l.is_loose) continue
         const m = retByMetal.get(l.metal || 'Gold') ||
           { gross: 0, net: 0, fine: 0 }
         m.gross += num(l.gross_wt); m.net += num(l.net_wt); m.fine += num(l.final_wt)
@@ -2910,7 +3212,9 @@ const purchaseReturn = {
     const db = get()
     const tx = db.transaction(() => {
       const h = p.head || {}
-      const lines = (p.items || []).map((l) => purchaseReturnLine(l, h.metal))
+      const lines = (p.items || [])
+        .map((l) => ({ ...l, is_loose: isLooseItem(db, l.item_id) ? 1 : 0 }))
+        .map((l) => purchaseReturnLine(l, h.metal))
 
       const goods_amount = calc.r2(lines.reduce((s, l) => s + num(l.total_amount), 0))
       const bill_amount = goods_amount
@@ -2962,29 +3266,49 @@ const purchaseReturn = {
       }
 
       const insItem = db.prepare(
-        `INSERT INTO purchase_return_item (return_id, line_no, item_name, qty, gross_wt,
+        `INSERT INTO purchase_return_item (return_id, line_no, item_id, item_name, qty, gross_wt,
          stone_wt, net_wt, purity, final_wt, rate_per_gm, total_amount)
-         VALUES (@return_id,@line_no,@item_name,@qty,@gross_wt,@stone_wt,@net_wt,@purity,
+         VALUES (@return_id,@line_no,@item_id,@item_name,@qty,@gross_wt,@stone_wt,@net_wt,@purity,
          @final_wt,@rate_per_gm,@total_amount)`
       )
       let fineOut = 0
       lines.forEach((l, i) => {
         insItem.run({
-          item_name: '', qty: 0, gross_wt: 0, stone_wt: 0, purity: 0, rate_per_gm: 0,
-          ...l, return_id: id, line_no: i + 1,
+          item_id: null, item_name: '', qty: 0, gross_wt: 0, stone_wt: 0, purity: 0,
+          rate_per_gm: 0, ...l, return_id: id, line_no: i + 1,
         })
+        // Beads going back to the supplier leave the lot by weight. There is no
+        // tag to retire, so this row IS the stock movement — and the shop cannot
+        // send back more than it is holding.
+        if (l.is_loose) {
+          const onHand = looseOnHand(db, l.item_id)
+          if (num(l.gross_wt) > onHand) {
+            throw new Error(
+              `Line ${i + 1}: only ${onHand} g of ${l.item_name || 'this item'} is in stock — ` +
+              `the return sends back ${num(l.gross_wt)} g.`
+            )
+          }
+          postItemStock(db, {
+            item_id: l.item_id, gross_wt: num(l.gross_wt), qty: num(l.qty),
+            rate: num(l.rate_per_gm), amount: num(l.total_amount),
+            doc_type: 'PURRET', doc_id: id, doc_no: return_no, direction: 'OUT',
+            entry_date: row.return_date,
+          })
+        }
         fineOut += num(l.final_wt)
       })
 
-      // Stock: the metal leaves the shop.
+      // Stock: the metal leaves the shop. Loose lines are excluded — their grams
+      // are beads and were never in the metal pool to begin with.
+      const metalLines = lines.filter((l) => !l.is_loose)
       if (fineOut > 0) {
         db.prepare(
           `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
            direction, entry_date) VALUES (?,?,?,?,'PURRET',?,?,'OUT',?)`
         ).run(
           row.metal,
-          calc.r3(lines.reduce((s, l) => s + num(l.gross_wt), 0)),
-          calc.r3(lines.reduce((s, l) => s + num(l.net_wt), 0)),
+          calc.r3(metalLines.reduce((s, l) => s + num(l.gross_wt), 0)),
+          calc.r3(metalLines.reduce((s, l) => s + num(l.net_wt), 0)),
           calc.r3(fineOut), id, return_no, row.return_date
         )
       }
@@ -3603,6 +3927,7 @@ const gss = {
 const reports = {
   /** Tag-wise stock, optionally grouped. Mirrors "Loose And Tag Item Stock Report". */
   stock: ({ status = 'IN_STOCK', groupBy = 'none', search } = {}) => {
+    const db = get()
     // Valuation is at COST: fine weight × what we paid per fine gram. A piece with
     // no purchase_rate recorded contributes 0 and is counted in `uncosted`, so the
     // screen can say the total is partial instead of quietly understating it.
@@ -3613,14 +3938,53 @@ const reports = {
       diamond_amount: calc.r2(num(r.diamond_wt) * num(r.diamond_rate)),
     }))
     const uncosted = rows.filter((r) => num(r.purchase_rate) <= 0).length
+
+    // Loose lots (mani, fuli) hold real stock that no tag can represent, so they
+    // are reported alongside the trays rather than inside them — a bead has no
+    // fine weight and no tag, and folding it into the piece list would corrupt
+    // both the count and the fine total the shop reconciles against.
+    //
+    // Costed at moving average: what the lot has cost in total, over what has
+    // come into it. A lot bought at two prices values at the blend, which is what
+    // is actually sitting in the box.
+    //
+    // Only what the shop ACQUIRED sets the cost. Goods coming back off a bill are
+    // an inflow too, but at the price they were sold for — letting a return in
+    // here would revalue the whole lot at retail. A correction carries no price
+    // at all and would drag the average to nothing.
+    // A lot is either on hand or it is not — there is no "sold" row to list, so
+    // it only belongs on a view that is asking what the shop is holding.
+    const loose = (status === 'SOLD' ? [] : looseItem.balances({ search }))
+      .map((r) => {
+        const paid = db.prepare(
+          `SELECT COALESCE(SUM(amount),0) amt, COALESCE(SUM(gross_wt),0) wt
+           FROM item_stock
+           WHERE item_id = ? AND direction = 'IN'
+             AND doc_type IN ('OPENING','PURCHASE')`
+        ).get(r.id)
+        const rate = num(paid.wt) > 0 ? num(paid.amt) / num(paid.wt) : 0
+        return { ...r, cost_rate: calc.r2(rate), cost_value: calc.r2(num(r.balance_wt) * rate) }
+      })
+      .filter((r) => num(r.balance_wt) !== 0 || num(r.in_wt) !== 0)
+    const looseTotals = {
+      balance_wt: calc.r3(loose.reduce((s, r) => s + num(r.balance_wt), 0)),
+      cost_value: calc.r2(loose.reduce((s, r) => s + num(r.cost_value), 0)),
+      uncosted: loose.filter((r) => num(r.cost_rate) <= 0).length,
+      count: loose.length,
+    }
+
     const totals = {
       cost_value: calc.r2(rows.reduce((s, r) => s + r.cost_value, 0)),
       stone_amount: calc.r2(rows.reduce((s, r) => s + r.stone_amount, 0)),
       diamond_amount: calc.r2(rows.reduce((s, r) => s + r.diamond_amount, 0)),
       uncosted,
       count: rows.length,
+      // What the shop is holding in total, trays and lots together. Kept as its
+      // own figure so the piece valuation above still means only pieces.
+      total_cost_value: calc.r2(
+        rows.reduce((s, r) => s + r.cost_value, 0) + looseTotals.cost_value),
     }
-    if (groupBy === 'none') return { rows, groups: [], totals }
+    if (groupBy === 'none') return { rows, groups: [], totals, loose, looseTotals }
 
     const key = {
       item: 'item_name', group: 'group_name', location: 'location',
@@ -3653,7 +4017,7 @@ const reports = {
       stone_amount: calc.r2(g.stone_amount), diamond_amount: calc.r2(g.diamond_amount),
       purity: g.net_wt > 0 ? calc.r3((g.final_wt / g.net_wt) * 100) : 0,
     }))
-    return { rows, groups, totals }
+    return { rows, groups, totals, loose, looseTotals }
   },
 
   /**
@@ -4375,6 +4739,34 @@ const reports = {
     const urdGold = urdMetals.find((m) => m.metal === 'Gold')
 
     /**
+     * Loose lots — mani, fuli, dori — opened and closed for the day, in grams.
+     *
+     * They cannot ride in the metal block above: that block is per metal and
+     * every column of it is a metal weight, and beads have no fine weight to put
+     * in the one column that matters there. So they get their own strip, per
+     * item, which is the only way a shop counting its bead boxes can check the
+     * day book against what is in front of it.
+     */
+    const looseAt = (cutoff, cmp) => new Map(db.prepare(
+      `SELECT item_id, COALESCE(SUM(CASE WHEN direction='IN' THEN gross_wt
+                                         ELSE -gross_wt END),0) wt
+       FROM item_stock WHERE entry_date ${cmp} @cutoff GROUP BY item_id`
+    ).all({ cutoff }).map((r) => [r.item_id, r.wt]))
+    const looseOpen = looseAt(range.from, '<')
+    const looseClose = looseAt(range.to, '<=')
+    const looseItems = db
+      .prepare(`SELECT id, name, uom FROM item WHERE stock_mode = 'LOOSE_WT' ORDER BY name`)
+      .all()
+      .map((i) => ({
+        item_id: i.id, name: i.name, uom: i.uom,
+        opening: calc.r3(looseOpen.get(i.id) || 0),
+        closing: calc.r3(looseClose.get(i.id) || 0),
+      }))
+      // A lot that was empty all day tells the shopkeeper nothing and pushes the
+      // rows that matter off the strip.
+      .filter((r) => r.opening !== 0 || r.closing !== 0)
+
+    /**
      * Every cash and bank account, not just "Cash Account". A shop with an SBI
      * terminal and a cash drawer needs both balances side by side; folding them
      * into one figure hides which of the two is actually short.
@@ -4455,7 +4847,7 @@ const reports = {
       // Gross / net / fine opening and closing, one row per metal, plus the same
       // for old gold taken in. `stock.gold_*` below stays as the single fine pair
       // it always was, so anything already reading it keeps working.
-      metals, urdMetals, receivedBy, accounts: moneyAccounts,
+      metals, urdMetals, looseItems, receivedBy, accounts: moneyAccounts,
       stock: {
         gold_opening: calc.r3(stockOpening), gold_closing: calc.r3(stockClosing),
         urd_opening: calc.r3(urdOpening), urd_closing: calc.r3(urdClosing),
@@ -4890,7 +5282,7 @@ const reports = {
 module.exports = {
   company, settings,
   itemType, itemGroup, design, item, rateMaster, gridPref, branch, stockTransfer,
-  tagStock, looseStock, party, account, series,
+  tagStock, looseStock, looseItem, party, account, series,
   sale, purchase, refinery, order, voucher, stockSettlement,
   saleReturn, purchaseReturn, karagir, gss, reports,
   calc: {

@@ -36,6 +36,11 @@ export default function DayBook() {
     }
     weights('Stock Details', d.metals)
     weights('URD Stock Details', d.urdMetals)
+    if ((d.looseItems || []).length) {
+      rows.push(['Loose Lot Details', 'Opening', 'Closing'])
+      for (const l of d.looseItems) rows.push([l.name, wt(l.opening), wt(l.closing)])
+      rows.push(['', '', ''])
+    }
     rows.push(['Cash And Bank Accounts', 'Opening', 'Closing'])
     for (const a of d.accounts || []) rows.push([a.name, money(a.opening), money(a.closing)])
     rows.push(['', '', ''])
@@ -99,6 +104,24 @@ export default function DayBook() {
                         the number that can actually be checked against a count. */}
                     <MetalBlock title="Stock Details" rows={d.metals} />
                     <MetalBlock title="URD Stock Details" rows={d.urdMetals} />
+
+                    {/* Loose lots — mani, fuli — are grams but not metal, so they
+                        cannot ride in the blocks above: those are per metal and
+                        their key column is fine weight, which a bead has none of.
+                        They get a strip of their own, per item, which is what a
+                        shop counting its bead boxes can actually check. */}
+                    {!!(d.looseItems || []).length && (
+                      <>
+                        <Head>Loose Lot Details</Head>
+                        {d.looseItems.map((l: any) => (
+                          <tr key={l.item_id}>
+                            <td>{l.name}</td>
+                            <td className="r num">{wt(l.opening)}</td>
+                            <td className="r num strong">{wt(l.closing)}</td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
 
                     <Head>Cash And Bank Accounts</Head>
                     {(d.accounts || []).map((a: any) => (

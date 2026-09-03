@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
     'markPrinted', 'clearPrinted',
   ]),
   looseStock: group('looseStock', ['summary', 'ledger', 'convert', 'opening', 'openingBalances']),
+  looseItem: group('looseItem', ['balances', 'ledger', 'opening', 'adjust']),
   party: group('party', ['list', 'read', 'balance', 'metalBalance', 'loyaltyBalance', 'save', 'remove']),
   account: group('account', ['list', 'save', 'nextCode']),
   series: group('series', ['list', 'peek', 'save']),

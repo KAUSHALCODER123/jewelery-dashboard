@@ -12,6 +12,7 @@ const BLANK = {
   item_group_id: '',
   design_id: '',
   weight_mode: 'WEIGHT',
+  stock_mode: 'TAG',
   uom: 'GRAM',
   hsn: '7113',
   reorder_level: 0,
@@ -24,6 +25,7 @@ export default function Items() {
   const [editing, setEditing] = useState<any>(null)
   const [confirming, setConfirming] = useState<any>(null)
   const [masterOpen, setMasterOpen] = useState<null | 'item_type' | 'item_group' | 'design'>(null)
+  const [stockFor, setStockFor] = useState<any>(null)
 
   const run = useAction()
   const items = useAsync(() => window.api.item.list({ search: q }), [q])
@@ -87,7 +89,8 @@ export default function Items() {
                 <thead>
                   <tr>
                     <th>Item Name</th><th>Type</th><th>Group</th><th>Design</th>
-                    <th>Mode</th><th>UOM</th><th className="r">In Stock</th><th></th>
+                    <th>Mode</th><th>Stocked As</th><th>UOM</th>
+                    <th className="r">In Stock</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -102,11 +105,27 @@ export default function Items() {
                           {it.weight_mode === 'WEIGHT' ? 'Weight-wise' : 'Quantity-wise'}
                         </span>
                       </td>
+                      <td>
+                        <span className="badge badge-mute">
+                          {it.stock_mode === 'LOOSE_WT' ? 'Loose (by weight)' : 'Tagged pieces'}
+                        </span>
+                      </td>
                       <td>{it.uom}</td>
+                      {/* A tagged item is counted in pieces; a loose one only ever has
+                          a weight, so a piece count there would always read 0. */}
                       <td className="r num">
-                        {it.in_stock_count > 0
-                          ? <span className="badge badge-ok">{it.in_stock_count}</span>
-                          : <span className="muted">0</span>}
+                        {it.stock_mode === 'LOOSE_WT'
+                          ? (
+                            <button className="btn btn-ghost btn-sm" onClick={() => setStockFor(it)}
+                              title="Weight ledger — opening, purchases, sales">
+                              {Number(it.loose_wt) > 0
+                                ? <span className="badge badge-ok">{Number(it.loose_wt).toFixed(3)} g</span>
+                                : <span className="muted">0.000 g</span>}
+                            </button>
+                          )
+                          : (it.in_stock_count > 0
+                              ? <span className="badge badge-ok">{it.in_stock_count}</span>
+                              : <span className="muted">0</span>)}
                       </td>
                       <td className="r">
                         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setEditing({
@@ -114,6 +133,7 @@ export default function Items() {
                           item_type_id: it.item_type_id ?? '',
                           item_group_id: it.item_group_id ?? '',
                           design_id: it.design_id ?? '',
+                          stock_mode: it.stock_mode || 'TAG',
                         })} aria-label="Edit"><Icon.edit /></button>
                         <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirming(it)} aria-label="Delete"><Icon.trash /></button>
                       </td>
@@ -125,6 +145,11 @@ export default function Items() {
           )}
         </div>
       </div>
+
+      {stockFor && (
+        <LooseStockModal item={stockFor} onClose={() => setStockFor(null)}
+          onChanged={() => items.reload()} />
+      )}
 
       {editing && (
         <Modal
@@ -171,6 +196,16 @@ export default function Items() {
                 ]} />
             </Field>
 
+            <Field label="Stocked As" required
+              hint="Mani, fuli and dori are bought and sold by weight out of one lot — no barcode per piece">
+              <Select value={editing.stock_mode}
+                onChange={(v) => setEditing({ ...editing, stock_mode: v })}
+                options={[
+                  { value: 'TAG', label: 'Tagged pieces (barcode each)' },
+                  { value: 'LOOSE_WT', label: 'Loose — by weight (mani, fuli)' },
+                ]} />
+            </Field>
+
             <Field label="UOM" required>
               <Select value={editing.uom} onChange={(v) => setEditing({ ...editing, uom: v })}
                 options={['GRAM', 'CARAT', 'PCS', 'TOLA'].map((u) => ({ value: u, label: u }))} />
@@ -186,14 +221,22 @@ export default function Items() {
                 onChange={(e) => setEditing({ ...editing, reorder_level: e.target.value })} />
             </Field>
 
-            <div className="span-2 hint">
-              Tag prefix will be <span className="mono strong">
-                {(editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'}
-              </span> — tags generate as e.g.{' '}
-              <span className="mono">
-                {((editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM')}00001
-              </span>
-            </div>
+            {editing.stock_mode === 'LOOSE_WT' ? (
+              <div className="span-2 hint">
+                This item is not tagged. Weight comes in on a purchase and goes out on a
+                bill, and the balance is kept in grams — it does not count towards gold
+                or silver stock.
+              </div>
+            ) : (
+              <div className="span-2 hint">
+                Tag prefix will be <span className="mono strong">
+                  {(editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'}
+                </span> — tags generate as e.g.{' '}
+                <span className="mono">
+                  {((editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM')}00001
+                </span>
+              </div>
+            )}
           </div>
         </Modal>
       )}
@@ -279,6 +322,113 @@ function MasterModal({ kind, onClose }: { kind: 'item_type' | 'item_group' | 'de
             ))}
           </tbody>
         </table>
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * The weight ledger behind a loose item — every gram that came in or went out,
+ * with the running balance. Opening weight and a physical-count correction are
+ * entered here because there is no tag grid to hang them off, the way there is
+ * for a piece.
+ */
+function LooseStockModal({ item, onClose, onChanged }: {
+  item: any; onClose: () => void; onChanged: () => void
+}) {
+  const run = useAction()
+  const rows = useAsync(() => window.api.looseItem.ledger({ item_id: item.id }), [item.id])
+  const [opening, setOpening] = useState('')
+  const [rate, setRate] = useState('')
+  const [adjust, setAdjust] = useState('')
+  const [remark, setRemark] = useState('')
+
+  const balance = rows.data?.length ? Number(rows.data[rows.data.length - 1].balance_wt) : 0
+  const g = (v: any) => Number(v || 0).toFixed(3)
+
+  const after = (ok: any) => { if (ok !== undefined) { rows.reload(); onChanged() } }
+
+  const saveOpening = async () => after(await run(
+    () => window.api.looseItem.opening({
+      item_id: item.id, gross_wt: Number(opening) || 0, rate: Number(rate) || 0,
+    }),
+    'Opening weight saved'
+  ))
+
+  // A correction is signed: +5 found, -2 short. Zero is not a correction, and
+  // the API refuses it rather than writing a movement that changes nothing.
+  const saveAdjust = async () => {
+    const ok = await run(
+      () => window.api.looseItem.adjust({
+        item_id: item.id, gross_wt: Number(adjust) || 0, remark,
+      }),
+      'Adjustment booked'
+    )
+    if (ok !== undefined) { setAdjust(''); setRemark('') }
+    after(ok)
+  }
+
+  return (
+    <Modal title={`${item.name} — weight ledger`} onClose={onClose}
+      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Close</button></>}>
+      <div className="form-grid cols-2">
+        <div className="span-2">
+          <span className="muted">On hand </span>
+          <span className="strong num">{g(balance)} g</span>
+        </div>
+
+        <Field label="Opening Weight" hint="Weight already in the shop before billing started. Re-entering replaces it.">
+          <Input className="right" inputMode="decimal" value={opening}
+            onChange={(e) => setOpening(e.target.value)} />
+        </Field>
+        <Field label="Opening Rate / g">
+          <Input className="right" inputMode="decimal" value={rate}
+            onChange={(e) => setRate(e.target.value)} />
+        </Field>
+        <div className="span-2">
+          <button className="btn btn-sm" onClick={saveOpening}>Save opening</button>
+        </div>
+
+        <Field label="Correction (+/-)" hint="After a physical count. +5 found, -2 short.">
+          <Input className="right" inputMode="decimal" value={adjust}
+            onChange={(e) => setAdjust(e.target.value)} />
+        </Field>
+        <Field label="Reason">
+          <Input value={remark} placeholder="counted short"
+            onChange={(e) => setRemark(e.target.value)} />
+        </Field>
+        <div className="span-2">
+          <button className="btn btn-sm" onClick={saveAdjust}>Book correction</button>
+        </div>
+      </div>
+
+      <div className="table-wrap" style={{ marginTop: 12 }}>
+        {rows.loading ? <Loading /> : !rows.data?.length ? (
+          <Empty icon={Icon.item} title="No movement yet">
+            Weight arrives on a purchase and leaves on a bill.
+          </Empty>
+        ) : (
+          <table className="data">
+            <thead>
+              <tr>
+                <th>Date</th><th>Document</th><th className="r">In</th>
+                <th className="r">Out</th><th className="r">Balance</th><th>Remark</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.data.map((r: any) => (
+                <tr key={r.id}>
+                  <td>{r.entry_date}</td>
+                  <td className="mono">{r.doc_no || r.doc_type}</td>
+                  <td className="r num">{r.direction === 'IN' ? g(r.gross_wt) : ''}</td>
+                  <td className="r num">{r.direction === 'OUT' ? g(r.gross_wt) : ''}</td>
+                  <td className="r num strong">{g(r.balance_wt)}</td>
+                  <td className="muted">{r.remark}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </Modal>
   )

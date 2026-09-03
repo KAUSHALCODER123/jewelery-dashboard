@@ -64,6 +64,12 @@ declare global {
         opening(p: any): Promise<any>
         openingBalances(): Promise<any[]>
       }
+      looseItem: {
+        balances(p?: any): Promise<any[]>
+        ledger(p: any): Promise<any[]>
+        opening(p: any): Promise<any>
+        adjust(p: any): Promise<any>
+      }
       party: {
         list(p?: any): Promise<any[]>
         read(p: any): Promise<any>

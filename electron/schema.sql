@@ -112,6 +112,13 @@ CREATE TABLE IF NOT EXISTS item (
   item_group_id INTEGER REFERENCES item_group(id),
   design_id     INTEGER REFERENCES design(id),
   weight_mode   TEXT NOT NULL DEFAULT 'WEIGHT'  CHECK (weight_mode IN ('WEIGHT','QTY')),
+  -- How the item is stocked.
+  --   TAG      one barcode per physical piece (a ring, a payal) - see tag_stock.
+  --   LOOSE_WT bought and sold by weight out of a common lot (mani, fuli, dori).
+  --            No tag, no piece identity: 100 g comes in, 10 g goes out, 90 g is
+  --            left. The running balance lives in item_stock, and the weight is
+  --            NOT metal - it never touches loose_stock or a fine-weight khata.
+  stock_mode    TEXT NOT NULL DEFAULT 'TAG'     CHECK (stock_mode IN ('TAG','LOOSE_WT')),
   uom           TEXT NOT NULL DEFAULT 'GRAM',
   hsn           TEXT DEFAULT '7113',
   tag_prefix    TEXT DEFAULT '',   -- auto-derived from first 3 letters of name
@@ -184,6 +191,31 @@ CREATE TABLE IF NOT EXISTS loose_stock (
   is_tagged     INTEGER NOT NULL DEFAULT 0,
   entry_date    TEXT NOT NULL DEFAULT (date('now','localtime'))
 );
+
+-- Weight ledger for LOOSE_WT items (mani, fuli, dori). One row per movement, so
+-- the balance is a sum and no document has to update a running total.
+--
+-- Deliberately separate from loose_stock: that table is *metal* - its grams roll
+-- into the gold and silver khata and are valued at a fine rate. These items are
+-- bought by weight but they are not metal, so mixing them there would inflate
+-- the shop's fine-weight position with beads.
+CREATE TABLE IF NOT EXISTS item_stock (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id    INTEGER NOT NULL REFERENCES item(id),
+  gross_wt   REAL NOT NULL DEFAULT 0,
+  qty        REAL NOT NULL DEFAULT 0,   -- pieces, when the shop also counts them
+  rate       REAL NOT NULL DEFAULT 0,   -- per gram, on the document that moved it
+  amount     REAL NOT NULL DEFAULT 0,
+  doc_type   TEXT NOT NULL,             -- OPENING | PURCHASE | SALE | SALE_RETURN | ...
+  doc_id     INTEGER,
+  doc_no     TEXT DEFAULT '',
+  direction  TEXT NOT NULL CHECK (direction IN ('IN','OUT')),
+  remark     TEXT DEFAULT '',
+  entry_date TEXT NOT NULL DEFAULT (date('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_item_stock_item ON item_stock(item_id);
+CREATE INDEX IF NOT EXISTS idx_item_stock_doc  ON item_stock(doc_type, doc_id);
+
 
 -- ─────────────────────────── Parties (CRM) ───────────────────────────
 CREATE TABLE IF NOT EXISTS party (
@@ -525,6 +557,10 @@ CREATE TABLE IF NOT EXISTS purchase_return_item (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   return_id    INTEGER REFERENCES purchase_return(id) ON DELETE CASCADE,
   line_no      INTEGER NOT NULL DEFAULT 1,
+  -- Which master item went back. Only a name was kept before, which was enough
+  -- for metal (the weight is metal whatever it is called) but not for a loose
+  -- item, whose weight has to come off that item's own lot.
+  item_id      INTEGER REFERENCES item(id),
   item_name    TEXT DEFAULT '',
   qty          REAL NOT NULL DEFAULT 0,
   gross_wt     REAL NOT NULL DEFAULT 0,
@@ -771,6 +807,10 @@ CREATE TABLE IF NOT EXISTS order_booking (
   remark        TEXT DEFAULT '',
   status        TEXT NOT NULL DEFAULT 'BOOKED'
                 CHECK (status IN ('BOOKED','ISSUED','RECEIVED','DELIVERED','CANCELLED')),
+  -- The bill this order became, once it was delivered. It is the ONLY link back:
+  -- the advance lives on the order and the bill counts on it, so if that bill is
+  -- ever cancelled the order has to be found and re-opened.
+  sale_id       INTEGER REFERENCES sale(id),
   total_amount  REAL NOT NULL DEFAULT 0,
   advance_amount REAL NOT NULL DEFAULT 0,
   balance_amount REAL NOT NULL DEFAULT 0,
