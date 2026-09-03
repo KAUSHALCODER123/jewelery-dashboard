@@ -28,3 +28,7 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Rendered demo films — large binaries, regenerate with scripts/demo/make.mjs.
+# Anchored: an unanchored 'demo/' would also swallow scripts/demo/, which is source.
+/demo/
