@@ -23,16 +23,18 @@ const blankHead = () => ({
   party_id: null as number | null, party_name: '', remark: '', state: 'Maharashtra',
   metal: 'Gold', is_credit: 1, gst_not_required: 0,
   gst_pct: 3, discount: 0, return_amount: 0, sub_tax: 0, tcs_pct: 0, paid_amount: 0,
+  // Settled in fine metal rather than rupees — grams at a per-gram rate.
+  paid_fine_wt: 0, paid_fine_rate: 0,
 })
 
 const METALS = ['Gold', 'Silver', 'Platinum']
 
-export default function Purchase() {
+export default function Purchase({ go }: { go?: (name: string, params?: any) => void } = {}) {
   const [mode, setMode] = useState<'list' | 'edit'>('list')
   const [editId, setEditId] = useState<number | null>(null)
 
   if (mode === 'edit') {
-    return <PurchaseForm id={editId} onDone={() => { setMode('list'); setEditId(null) }} />
+    return <PurchaseForm id={editId} go={go} onDone={() => { setMode('list'); setEditId(null) }} />
   }
   return <PurchaseList onNew={() => { setEditId(null); setMode('edit') }}
     onOpen={(id) => { setEditId(id); setMode('edit') }} />
@@ -44,6 +46,7 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
   const list = useAsync(() => window.api.purchase.list({ from, to }), [from, to])
   const rows = list.data || []
   const total = rows.reduce((s: number, r: any) => s + num(r.bill_amount), 0)
+  const sumW = (k: string) => rows.reduce((s: number, r: any) => s + num(r[k]), 0)
 
   return (
     <div>
@@ -71,7 +74,8 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
               <table className="data">
                 <thead>
                   <tr><th>Invoice</th><th>Date</th><th>Supplier</th><th>Mode</th>
-                    <th className="r">Purchase</th><th className="r">GST</th>
+                    <th className="r">Gross</th><th className="r">Net</th><th className="r">Fine</th>
+                    <th>Labels</th>
                     <th className="r">Bill Amt</th><th className="r">Balance</th></tr>
                 </thead>
                 <tbody>
@@ -79,11 +83,13 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
                     <tr key={r.id} className="clickable" onClick={() => onOpen(r.id)}>
                       <td className="mono strong">{r.invoice_no}</td>
                       <td>{dmy(r.invoice_date)}</td>
-                      <td>{r.party_name || '—'}</td>
+                      <td>{r.party_name || '—'}<span className="muted small"> · {r.metal}</span></td>
                       <td><span className={`badge ${r.is_credit ? 'badge-warn' : 'badge-ok'}`}>
                         {r.is_credit ? 'Credit' : 'Cash'}</span></td>
-                      <td className="r num">{money(r.purchase_amount)}</td>
-                      <td className="r num">{money(r.gst_amount)}</td>
+                      <td className="r num">{wt(r.in_gross_wt)}</td>
+                      <td className="r num">{wt(r.in_net_wt)}</td>
+                      <td className="r num gold">{wt(r.in_fine_wt)}</td>
+                      <td><TallyBadge t={r.tally} /></td>
                       <td className="r num strong">₹{money(r.bill_amount)}</td>
                       <td className="r num">{num(r.net_balance) > 0
                         ? <span className="danger">{money(r.net_balance)}</span>
@@ -91,6 +97,17 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={4} className="strong">Total</td>
+                    <td className="r num strong">{wt(sumW('in_gross_wt'))}</td>
+                    <td className="r num strong">{wt(sumW('in_net_wt'))}</td>
+                    <td className="r num strong gold">{wt(sumW('in_fine_wt'))}</td>
+                    <td></td>
+                    <td className="r num strong">₹{money(total)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
@@ -100,7 +117,22 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
   )
 }
 
-function PurchaseForm({ id, onDone }: { id: number | null; onDone: () => void }) {
+/**
+ * Purchase ↔ labels. Green when every gram bought has been tagged, amber while
+ * some is still loose, red if more was tagged than was ever bought.
+ */
+function TallyBadge({ t }: { t: any }) {
+  if (!t || t.status === 'NONE') return <span className="badge badge-mute">—</span>
+  if (t.status === 'TALLIED') return <span className="badge badge-ok">Tallied · {t.tagged_pieces} pcs</span>
+  if (t.status === 'PENDING') {
+    return <span className="badge badge-warn">{wt(t.pending_net)} g to label</span>
+  }
+  return <span className="badge badge-danger">Over by {wt(Math.abs(t.pending_net))} g</span>
+}
+
+function PurchaseForm({ id, onDone, go }: {
+  id: number | null; onDone: () => void; go?: (name: string, params?: any) => void
+}) {
   const run = useAction()
   const [head, setHead] = useState<any>(blankHead())
   const [lines, setLines] = useState<any[]>([blankLine()])
@@ -110,6 +142,9 @@ function PurchaseForm({ id, onDone }: { id: number | null; onDone: () => void })
   const [dir, setDir] = useState<'IN' | 'OUT'>('IN')
   const [newSupp, setNewSupp] = useState<any>(null)
   const items = useAsync(() => window.api.item.list(), [])
+  // The tally only exists once the invoice is saved: what came in against the
+  // pieces that were labelled out of it.
+  const tally = useAsync(() => (id ? window.api.purchase.tally({ id }) : Promise.resolve(null)), [id])
 
   const pickSupplier = (p: any) => {
     setSupplierQuery(p.name)
@@ -357,6 +392,22 @@ function PurchaseForm({ id, onDone }: { id: number | null; onDone: () => void })
                 onChange={(e) => setHead({ ...head, tcs_pct: e.target.value })} /></Field>
               <Field label="Paid Amount (₹)"><Input className="right" value={head.paid_amount || ''}
                 onChange={(e) => setHead({ ...head, paid_amount: e.target.value })} /></Field>
+              {/* Settling in metal instead of money: the supplier is handed
+                  fine grams at an agreed rate, and that value comes off the
+                  balance the way cash does. The grams go OUT of the loose pool
+                  and onto the supplier's gold khata. */}
+              <Field label="Paid in Fine (g)" hint="Fine metal handed to the supplier">
+                <Input className="right" inputMode="decimal" value={head.paid_fine_wt || ''}
+                  onChange={(e) => setHead({ ...head, paid_fine_wt: e.target.value })} />
+              </Field>
+              <Field label="Fine Rate (₹/10 g)">
+                <Input className="right" inputMode="decimal"
+                  value={num(head.paid_fine_rate) ? String(Math.round(num(head.paid_fine_rate) * 1000) / 100) : ''}
+                  onChange={(e) => setHead({ ...head, paid_fine_rate: num(e.target.value) / 10 })} />
+              </Field>
+              <Field label="Fine Value (₹)">
+                <Input className="right" readOnly value={t.paid_fine_amount ? money(t.paid_fine_amount) : ''} />
+              </Field>
               <div className="span-3">
                 <Check label="GST not required" checked={!!head.gst_not_required}
                   onChange={(b) => setHead({ ...head, gst_not_required: b ? 1 : 0 })} />
@@ -379,6 +430,10 @@ function PurchaseForm({ id, onDone }: { id: number | null; onDone: () => void })
               {t.gst_amount > 0 && <div className="total-row"><span className="k">GST @ {t.gst_pct}%</span><span className="v num">{money(t.gst_amount)}</span></div>}
               <div className="total-row grand"><span className="k">Bill Amount</span><span className="v num">₹{money(t.bill_amount)}</span></div>
               {t.paid_amount > 0 && <div className="total-row credit"><span className="k">Paid</span><span className="v num">− {money(t.paid_amount)}</span></div>}
+              {t.paid_fine_amount > 0 && (
+                <div className="total-row credit"><span className="k">Paid in fine ({wt(t.paid_fine_wt)} g)</span>
+                  <span className="v num">− {money(t.paid_fine_amount)}</span></div>
+              )}
               <div className="total-row grand debit"><span className="k">Balance</span><span className="v num">₹{money(t.net_balance)}</span></div>
             </div>
             <div className="divider" />
@@ -389,6 +444,73 @@ function PurchaseForm({ id, onDone }: { id: number | null; onDone: () => void })
           </div>
         </div>
       </div>
+
+      {head.id && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div className="card-head">
+            <span className="card-title">Labels Tally</span>
+            {tally.data && <TallyBadge t={tally.data} />}
+            <span className="hint" style={{ marginLeft: 'auto' }}>
+              Net weight bought on this invoice against the tagged pieces made from it
+            </span>
+          </div>
+          <div className="card-body">
+            {tally.loading || !tally.data ? <Loading /> : (
+              <>
+                <div className="row wrap" style={{ gap: 22, marginBottom: 12 }}>
+                  <W label="Bought — Gross" v={tally.data.bought_gross} />
+                  <W label="Bought — Net" v={tally.data.bought_net} />
+                  <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)' }} />
+                  <W label={`Labelled — ${tally.data.tagged_pieces} pcs`} v={tally.data.tagged_net} gold />
+                  <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)' }} />
+                  <W label={tally.data.pending_net >= 0 ? 'Still to label (net)' : 'Over the purchase (net)'}
+                    v={Math.abs(tally.data.pending_net)} bold />
+                  <span className="spacer" />
+                  {tally.data.status !== 'NONE' && go && (
+                    <button className="btn btn-primary" style={{ alignSelf: 'center' }}
+                      onClick={() => go('tags', { purchaseId: head.id })}>
+                      <Icon.tag /> Make labels from this purchase
+                    </button>
+                  )}
+                </div>
+                {tally.data.status === 'NONE' ? (
+                  <p className="small muted" style={{ margin: 0 }}>
+                    Nothing on this invoice needs a label — loose weight-wise items are sold by the gram.
+                  </p>
+                ) : tally.data.tags?.length ? (
+                  <div className="table-wrap" style={{ maxHeight: 220 }}>
+                    <table className="data">
+                      <thead><tr><th>Tag</th><th>Item</th><th className="r">Gross</th>
+                        <th className="r">Net</th><th className="r">Purity</th><th className="r">Fine</th>
+                        <th>Status</th><th>Date</th></tr></thead>
+                      <tbody>
+                        {tally.data.tags.map((x: any) => (
+                          <tr key={x.id}>
+                            <td className="mono strong">{x.tag}</td>
+                            <td>{x.item_name}</td>
+                            <td className="r num">{wt(x.gross_wt)}</td>
+                            <td className="r num">{wt(x.net_wt)}</td>
+                            <td className="r num">{x.purity}</td>
+                            <td className="r num gold">{wt(x.final_wt)}</td>
+                            <td><span className={`badge ${x.status === 'IN_STOCK' ? 'badge-ok' : 'badge-mute'}`}>
+                              {x.status === 'IN_STOCK' ? 'In stock' : x.status.toLowerCase()}</span></td>
+                            <td>{dmy(x.entry_date)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="small muted" style={{ margin: 0 }}>
+                    No labels made from this purchase yet. The metal is still in the loose pool —
+                    it can be sold by weight as it is, or tagged from Tag &amp; Barcode → From loose metal.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="sticky-actions">
         <span className="spacer" />

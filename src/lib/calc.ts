@@ -301,12 +301,17 @@ export function purchaseTotals(head: any, items: any[]) {
   const tcs_amount = r2((taxable + gst_amount) * (tcs_pct / 100))
   const bill_amount = r2(taxable + gst_amount + num(head.sub_tax) + tcs_amount)
   const paid_amount = num(head.paid_amount)
+  // Settled in fine metal: grams handed over at a rate, valued like cash paid.
+  const paid_fine_wt = r3(nn(head.paid_fine_wt))
+  const paid_fine_rate = nn(head.paid_fine_rate)
+  const paid_fine_amount = r2(paid_fine_wt * paid_fine_rate)
   return {
     items: lines,
     totals: {
       purchase_amount, discount, return_amount, gst_pct, gst_amount,
       tcs_pct, tcs_amount, sub_tax: num(head.sub_tax), bill_amount, paid_amount,
-      net_balance: r2(bill_amount - paid_amount),
+      paid_fine_wt, paid_fine_rate, paid_fine_amount,
+      net_balance: r2(bill_amount - paid_amount - paid_fine_amount),
       total_gross_wt: r3(in_gross + out_gross),
       total_net_wt: r3(in_net + out_net),
       total_fine_wt: in_fine,

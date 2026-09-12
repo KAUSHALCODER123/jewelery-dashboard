@@ -75,6 +75,12 @@ function migrate() {
   addCol('sale_item', 'diamond_wt', 'REAL NOT NULL DEFAULT 0')
   addCol('sale_item', 'diamond_rate', 'REAL NOT NULL DEFAULT 0')
   addCol('sale_item', 'diamond_amount', 'REAL NOT NULL DEFAULT 0')
+  // A purchase settled in fine metal rather than rupees, and the link from a
+  // tagged piece back to the purchase it was made from (purchase ↔ label tally).
+  addCol('purchase', 'paid_fine_wt', 'REAL NOT NULL DEFAULT 0')
+  addCol('purchase', 'paid_fine_rate', 'REAL NOT NULL DEFAULT 0')
+  addCol('purchase', 'paid_fine_amount', 'REAL NOT NULL DEFAULT 0')
+  addCol('tag_stock', 'purchase_id', 'INTEGER REFERENCES purchase(id)')
   addCol('tag_stock', 'stone_rate', 'REAL NOT NULL DEFAULT 0')
   addCol('tag_stock', 'diamond_wt', 'REAL NOT NULL DEFAULT 0')
   addCol('tag_stock', 'diamond_rate', 'REAL NOT NULL DEFAULT 0')

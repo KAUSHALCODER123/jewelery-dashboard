@@ -90,15 +90,23 @@ const escapeXml = (s: string) =>
 
 /* ───────────────────────────── label sheets ───────────────────────────── */
 
-export type LabelSize = 'roll' | 'a4-65' | 'a4-24'
+export type LabelSize = 'tsc-100x15' | 'roll' | 'a4-65' | 'a4-24'
 
 export const LABEL_SIZES: { value: LabelSize; label: string; hint: string }[] = [
+  {
+    value: 'tsc-100x15', label: 'TSC TL240 — 100 × 15 mm tag',
+    hint: 'Jewellery tag roll, one per label. Barcode on the left flap, weights on the right; the middle wraps around the piece.',
+  },
   { value: 'roll', label: 'Jewellery tag roll', hint: '50 × 12 mm, one per row — dumbbell tags' },
   { value: 'a4-65', label: 'A4 sheet — 65 labels', hint: '38 × 21 mm, 5 across × 13 down' },
   { value: 'a4-24', label: 'A4 sheet — 24 labels', hint: '64 × 34 mm, 3 across × 8 down' },
 ]
 
 const SHEET = {
+  // One label per page, so the printer's own gap sensor does the feeding. No
+  // margin: the TL240 is told the label is exactly 100 × 15 and positions
+  // itself; any page margin would shift every label by that much.
+  'tsc-100x15': { cols: 1, w: 100, h: 15, gapX: 0, gapY: 0, padX: 0, padY: 0, page: '@page { size: 100mm 15mm; margin: 0; }' },
   roll:    { cols: 1, w: 50, h: 12, gapX: 0, gapY: 2, padX: 1, padY: 1, page: '@page { size: 50mm 14mm; margin: 1mm; }' },
   'a4-65': { cols: 5, w: 38, h: 21, gapX: 2, gapY: 0, padX: 1, padY: 1, page: '@page { size: A4; margin: 11mm 5mm; }' },
   'a4-24': { cols: 3, w: 64, h: 34, gapX: 2, gapY: 1, padX: 2, padY: 2, page: '@page { size: A4; margin: 13mm 6mm; }' },
@@ -127,17 +135,88 @@ export type LabelOptions = {
 
 const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
 
+/**
+ * The 100 × 15 mm jewellery tag the shop runs on its TSC TL240.
+ *
+ * A dumbbell tag: two printable flaps joined by a thin strip that wraps around
+ * the ring or chain, so nothing may be printed across the middle. The barcode
+ * and tag number go on one flap, the item and weights on the other, and each
+ * flap is laid out so it reads once the tag is folded on the piece.
+ *
+ *   ┌────────────┬──────────────┬────────────┐
+ *   │ ▌▌▌▌▌▌▌▌▌  │              │ Ring 91.6% │
+ *   │  RIN00012  │   (strip)    │ G 5.120    │
+ *   └────────────┴──────────────┴────────────┘
+ *        34 mm          32 mm          34 mm
+ */
+function tscTagHtml(tags: (LabelTag | null)[], o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies'>>): string {
+  const cells = tags.map((t) => {
+    if (!t) return `<div class="tag blank"></div>`
+    const l1 = [
+      o.showItem && (t.item_name || ''),
+      o.showPurity && t.purity ? `${Number(t.purity).toFixed(1)}%` : '',
+    ].filter(Boolean).join(' · ')
+    const l2 = [
+      o.showGross ? `G ${wt3(t.gross_wt)}` : '',
+      o.showNet ? `N ${wt3(t.net_wt)}` : '',
+    ].filter(Boolean).join('  ')
+    return `<div class="tag">
+      <div class="flap left">
+        <div class="bc">${barcodeSvg(t.tag, { moduleWidth: 1, height: 26, fontSize: 7, showText: true })}</div>
+      </div>
+      <div class="strip"></div>
+      <div class="flap right">
+        ${o.shopName ? `<div class="shop">${escapeXml(o.shopName)}</div>` : ''}
+        ${l1 ? `<div class="l1">${escapeXml(l1)}</div>` : ''}
+        ${l2 ? `<div class="l2">${escapeXml(l2)}</div>` : ''}
+        <div class="l3">${escapeXml(t.tag)}</div>
+      </div>
+    </div>`
+  }).join('')
+
+  return `<!doctype html>
+<meta charset="utf-8"><title>Barcode labels</title>
+<style>
+  @page { size: 100mm 15mm; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "Segoe UI", Arial, sans-serif; -webkit-print-color-adjust: exact; }
+  .tag {
+    width: 100mm; height: 15mm; display: flex; align-items: stretch;
+    overflow: hidden; break-after: page; page-break-after: always;
+  }
+  .tag:last-child { break-after: auto; page-break-after: auto; }
+  .tag.blank { visibility: hidden; }
+  .flap { width: 34mm; padding: 1mm 1.2mm; display: flex; flex-direction: column;
+          justify-content: center; overflow: hidden; }
+  .flap.left { align-items: center; }
+  .flap.right { align-items: flex-start; }
+  .strip { width: 32mm; }
+  .bc { line-height: 0; }
+  .bc svg { width: 31mm; height: auto; display: block; }
+  .shop { font-size: 5pt; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; max-width: 100%; }
+  .l1 { font-size: 6pt; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; max-width: 100%; }
+  .l2 { font-size: 6.5pt; font-weight: 700; line-height: 1.1; font-family: Consolas, monospace; white-space: nowrap; }
+  .l3 { font-size: 5.5pt; line-height: 1.1; font-family: Consolas, monospace; letter-spacing: .3px; }
+</style>
+${cells}`
+}
+
 /** Build a printable page of barcode labels. */
 export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): string {
   const {
-    size = 'a4-65', showItem = true, showGross = true, showNet = false,
+    size = 'tsc-100x15', showItem = true, showGross = true, showNet = false,
     showPurity = true, shopName = '', skip = 0, copies = 1,
   } = opts
-  const S = SHEET[size] ?? SHEET['a4-65']
+  const S = SHEET[size] ?? SHEET['tsc-100x15']
 
   const expanded: (LabelTag | null)[] = []
   for (let i = 0; i < skip; i++) expanded.push(null)
   for (const t of tags) for (let c = 0; c < copies; c++) expanded.push(t)
+
+  if (size === 'tsc-100x15') {
+    return tscTagHtml(expanded, { showItem, showGross, showNet, showPurity, shopName })
+  }
 
   // Smaller labels cannot carry as much text.
   const compact = size === 'roll' || size === 'a4-65'

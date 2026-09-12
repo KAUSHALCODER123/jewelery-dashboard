@@ -164,6 +164,9 @@ CREATE TABLE IF NOT EXISTS tag_stock (
   size              TEXT DEFAULT '',   -- ring / bangle size, free text
   source            TEXT NOT NULL DEFAULT 'OPENING'
                     CHECK (source IN ('OPENING','PURCHASE','ORDER','REFINERY','URD')),
+  -- Which purchase invoice this piece was made from, when it was tagged out of
+  -- bought metal. Lets a purchase tally its weight against the labels made.
+  purchase_id       INTEGER REFERENCES purchase(id),
   status            TEXT NOT NULL DEFAULT 'IN_STOCK'
                     CHECK (status IN ('IN_STOCK','SOLD','ISSUED','MELTED')),
   sold_doc          TEXT DEFAULT '',
@@ -669,6 +672,12 @@ CREATE TABLE IF NOT EXISTS purchase (
   tcs_amount       REAL NOT NULL DEFAULT 0,
   bill_amount      REAL NOT NULL DEFAULT 0,
   paid_amount      REAL NOT NULL DEFAULT 0,
+  -- Settled in fine metal instead of money: grams handed to the supplier at an
+  -- agreed rate. The value comes off the balance like cash; the grams go OUT of
+  -- the loose pool and onto the supplier's gold khata.
+  paid_fine_wt     REAL NOT NULL DEFAULT 0,
+  paid_fine_rate   REAL NOT NULL DEFAULT 0,   -- per gram
+  paid_fine_amount REAL NOT NULL DEFAULT 0,
   net_balance      REAL NOT NULL DEFAULT 0,
   created_at       TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   UNIQUE (prefix, invoice_no)

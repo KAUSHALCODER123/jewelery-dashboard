@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import {
   Check, Confirm, Empty, Field, Input, Loading, Modal, Segmented, Select,
-  useAction, useAsync, useDebounced,
+  useAction, useAsync, useDebounced, useToast,
 } from '../lib/ui'
 import { fineWeight, netWeight, num, r3 } from '../lib/calc'
 import { money, toCsv, wt } from '../lib/format'
@@ -61,8 +61,9 @@ const CSV_COLS: (keyof Row)[] = [
   'bag_wt',
 ]
 
-export default function TagStock() {
+export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
   const run = useAction()
+  const { push } = useToast()
   const grid = useGridCols('tagstock.entry', COLS)
   const cols = grid.cols
   const items = useAsync(() => window.api.item.list(), [])
@@ -73,8 +74,11 @@ export default function TagStock() {
   const [importing, setImporting] = useState(false)
   // 'new'   — first-time stock entry; the pieces simply exist
   // 'loose' — made from bar or scrap already on hand, so that weight must come out
-  const [mode, setMode] = useState<'new' | 'loose'>('new')
-  const loose = useAsync(() => window.api.looseStock.summary({ metal: 'Gold' }), [])
+  const [mode, setMode] = useState<'new' | 'loose'>(purchaseId ? 'loose' : 'new')
+  // Which purchase invoice the pieces are being made from — optional, but it is
+  // what lets the invoice tally its bought weight against the labels made.
+  const [fromPurchase, setFromPurchase] = useState<string>(purchaseId ? String(purchaseId) : '')
+  const openPurchases = useAsync(() => window.api.purchase.openForTagging(), [])
 
   const [search, setSearch] = useState('')
   const q = useDebounced(search, 250)
@@ -102,6 +106,14 @@ export default function TagStock() {
     [items.data, itemId]
   )
   const groupPurity = num(selectedItem?.group_purity) || 91.6
+  // The loose pool is per metal — silver payal come out of the silver pool.
+  const metal = ['Gold', 'Silver', 'Platinum'].includes(selectedItem?.type_name)
+    ? selectedItem.type_name : 'Gold'
+  const loose = useAsync(() => window.api.looseStock.summary({ metal }), [metal])
+  const purchasePick = useMemo(
+    () => (openPurchases.data || []).find((p: any) => String(p.id) === fromPurchase),
+    [openPurchases.data, fromPurchase]
+  )
 
   const [defaults, setDefaults] = useState<Defaults>({
     purity: 91.6, mkg_per_gm: '', hallmark_charges: '', purchase_rate: '',
@@ -199,6 +211,7 @@ export default function TagStock() {
 
   const payload = () => ({
     itemId: Number(itemId),
+    purchaseId: mode === 'loose' && fromPurchase ? Number(fromPurchase) : null,
     rows: filled.map((r) => ({
       // Category / salesman / shelf / size are set once for the whole batch and
       // carried onto every piece; a row that already has its own keeps it.
@@ -218,8 +231,23 @@ export default function TagStock() {
     setSaving(true)
     const ok = mode === 'loose'
       ? await run(
-          () => window.api.looseStock.convert(payload()),
-          `${filled.length} tag${filled.length === 1 ? '' : 's'} made from loose stock`
+          async () => {
+            const res = await window.api.looseStock.convert(payload())
+            // Say where the invoice now stands, so a short batch is noticed at
+            // once rather than at month end.
+            const t = res?.tally
+            if (t && purchasePick) {
+              const msg = t.status === 'TALLIED'
+                ? `${purchasePick.invoice_no} tallies — all ${wt(t.bought_net)} g labelled`
+                : t.status === 'PENDING'
+                  ? `${purchasePick.invoice_no}: ${wt(t.pending_net)} g still to label`
+                  : `${purchasePick.invoice_no}: labels are ${wt(Math.abs(t.pending_net))} g OVER the purchase`
+              push('ok', `${res.created} tag${res.created === 1 ? '' : 's'} made · ${msg}`)
+            } else {
+              push('ok', `${res.created} tag${res.created === 1 ? '' : 's'} made from loose stock`)
+            }
+            return res
+          }
         )
       : await run(
           () => window.api.tagStock.saveBatch(payload()),
@@ -228,6 +256,7 @@ export default function TagStock() {
     setSaving(false)
     if (ok !== undefined) {
       setRows([blankRow(defaults)]); existing.reload(); items.reload(); loose.reload()
+      openPurchases.reload()
     }
   }
 
@@ -308,7 +337,42 @@ export default function TagStock() {
                 Prefix {selectedItem.tag_prefix || '—'}
               </span>
             )}
+            {mode === 'loose' && (
+              <div style={{ minWidth: 320 }}>
+                <Field label="From purchase" hint="Optional — ties these labels to the invoice so it can tally">
+                  <Select value={fromPurchase} placeholder="Not from a particular purchase"
+                    onChange={setFromPurchase}
+                    options={(openPurchases.data || []).map((p: any) => ({
+                      value: String(p.id),
+                      label: `${p.invoice_no} · ${p.party_name || '—'} · ${wt(p.pending_net)} g to label`,
+                    }))} />
+                </Field>
+              </div>
+            )}
           </div>
+
+          {mode === 'loose' && purchasePick && (
+            <div className="row wrap" style={{
+              gap: 20, padding: '11px 14px', marginBottom: 14,
+              background: 'var(--surface-2)', border: '1px solid var(--line)',
+              borderRadius: 'var(--radius)',
+            }}>
+              <Tot label={`${purchasePick.invoice_no} bought (net)`} v={`${wt(purchasePick.bought_net)} g`} />
+              <Tot label="Already labelled" v={`${wt(purchasePick.tagged_net)} g · ${purchasePick.tagged_pieces} pcs`} />
+              <Tot label="Still to label" v={`${wt(purchasePick.pending_net)} g`} gold />
+              <Tot label="These pieces (net)" v={`${wt(totals.net)} g`} />
+              <Tot label={totals.net > purchasePick.pending_net + 0.005 ? 'Over by' : 'Left after'}
+                v={`${wt(Math.abs(purchasePick.pending_net - totals.net))} g`} />
+              {Math.abs(purchasePick.pending_net - totals.net) <= 0.005 && totals.net > 0 && (
+                <span className="badge badge-ok" style={{ alignSelf: 'center' }}>Will tally</span>
+              )}
+              {purchasePick.metal !== metal && selectedItem && (
+                <span className="badge badge-danger" style={{ alignSelf: 'center' }}>
+                  {purchasePick.metal} purchase — pick a {purchasePick.metal} item
+                </span>
+              )}
+            </div>
+          )}
 
           {mode === 'loose' && loose.data && (
             <div className="row wrap" style={{
@@ -317,7 +381,7 @@ export default function TagStock() {
               border: `1px solid ${shortfall > 0 ? 'var(--danger)' : 'var(--gold-line)'}`,
               borderRadius: 'var(--radius)',
             }}>
-              <Tot label="Loose metal on hand" v={`${wt(loose.data.loose_fine)} g`} />
+              <Tot label={`Loose ${metal.toLowerCase()} on hand`} v={`${wt(loose.data.loose_fine)} g`} />
               <button className="btn btn-sm" style={{ alignSelf: 'center' }}
                 onClick={() => setOpeningMetal(true)}>
                 Opening metal
@@ -871,7 +935,7 @@ function PrintLabels({ tags, onClose, onPrinted }: {
   tags: any[]; onClose: () => void; onPrinted: () => void
 }) {
   const company = useAsync(() => window.api.company.read(), [])
-  const [size, setSize] = useState<LabelSize>('a4-65')
+  const [size, setSize] = useState<LabelSize>('tsc-100x15')
   const [copies, setCopies] = useState(1)
   const [skip, setSkip] = useState(0)
   const [opts, setOpts] = useState({

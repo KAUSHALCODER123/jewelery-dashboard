@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld('api', {
   series: group('series', ['list', 'peek', 'save']),
 
   sale: group('sale', ['list', 'read', 'save', 'remove', 'forPrint']),
-  purchase: group('purchase', ['list', 'read', 'save', 'remove']),
+  purchase: group('purchase', ['list', 'read', 'save', 'remove', 'tally', 'openForTagging']),
   refinery: group('refinery', ['list', 'read', 'save', 'remove']),
   order: group('order', ['list', 'read', 'save', 'setStatus', 'remove', 'toInvoice']),
   voucher: group('voucher', ['list', 'save', 'remove']),

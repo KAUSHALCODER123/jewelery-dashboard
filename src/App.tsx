@@ -294,13 +294,13 @@ function Page({ route, go }: { route: Route; go: (n: string, p?: any) => void })
   switch (route.name) {
     case 'dashboard': return <Dashboard go={go} />
     case 'items': return <Items />
-    case 'tags': return <TagStock />
+    case 'tags': return <TagStock purchaseId={route.params?.purchaseId} />
     case 'customers': return <Parties type="CUSTOMER" key="cust" />
     case 'suppliers': return <Parties type="SUPPLIER" key="supp" />
     case 'sales': return <SalesList go={go} />
     case 'returns': return <Returns />
     case 'sales.new': return <SalesInvoice go={go} saleId={route.params?.id} />
-    case 'purchase': return <Purchase />
+    case 'purchase': return <Purchase go={go} />
     case 'receipts': return <Receipts />
     case 'orders': return <Orders go={go} />
     case 'refining': return <Refining />

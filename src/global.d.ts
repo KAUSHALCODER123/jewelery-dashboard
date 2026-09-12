@@ -94,6 +94,8 @@ declare global {
         read(p: any): Promise<any>
         save(p: any): Promise<any>
         remove(p: any): Promise<any>
+        tally(p: any): Promise<any>
+        openForTagging(p?: any): Promise<any[]>
       }
       refinery: {
         list(p?: any): Promise<any[]>

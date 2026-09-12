@@ -96,6 +96,7 @@ npm run test:all
 | `npm run test:backup` | Backup inspection, restore, rollback and bad-file refusal | 22 |
 | `npm run test:weightwise` | Metal-basis billing, pending weight, making on top | 33 |
 | `npm run test:acstock` | Combined statement + metal-for-cash settlement | 46 |
+| `npm run test:purchasetally` | Purchase register weights, paid-in-fine, purchase ↔ label tally, loose sale before labelling | 43 |
 | `npm run test:returns` | Returns across stock, money and metal; shop expenses | 31 |
 | `npm run test:karagir` | Job-work metal reconciliation, TDS, order tracking | 37 |
 | `npm run test:books` | Trial Balance foots, P&L, Balance Sheet balances | 24 |
@@ -292,6 +293,48 @@ Dr — Metal we gave them          Cr — Metal they gave us
 
 Sales, purchases and refining all post to it. Old gold taken on a sale still settles in
 rupees (the video's URD flow), not as metal.
+
+### Paying a purchase in fine
+
+A supplier is not always paid in rupees. Alongside **Paid Amount** the purchase has
+**Paid in Fine (g)** at a **Fine Rate**: the grams handed over are valued at that rate and
+come off the balance exactly as cash would. The grams themselves leave the loose pool and
+post as their own *Paid in fine* line on the supplier's gold khata, so the statement reads
+"purchase 100 g, paid 60 g" instead of a single net figure.
+
+### Purchase ↔ labels tally
+
+The purchase register shows **gross, net and fine** for every invoice, and a **Labels**
+column that says whether the metal bought has been tagged:
+
+```
+Tallied · 5 pcs      every gram of net weight bought is on a label
+20.000 g to label    some is still loose
+Over by 3.000 g      more was tagged against this invoice than it brought in
+```
+
+The link is made on **Tag & Barcode → From loose metal → From purchase**: pick the invoice
+the pieces came from and each tag remembers it. The strip above the grid shows what the
+invoice bought, what is already labelled, and what these pieces will leave. The purchase
+screen has the same tally with the list of tags, and a **Make labels from this purchase**
+button that opens the tag screen with the invoice preselected.
+
+The decision is taken on **net** weight: gross carries stones and beads, and fine carries
+the supplier's wastage, which the tags never do. Loose weight-wise items (mani, fuli) are
+left out — they are never labelled, they are sold by the gram.
+
+Until it is labelled the metal is still sellable: a hand-typed line on a bill (no tag) now
+takes its fine weight **out of the loose pool**, and a return of such a line puts it back
+there rather than on the tagged side. Before this, untagged sales left the pool overstated.
+
+### Barcode stickers on the TSC TL240
+
+The default label size is the shop's **100 × 15 mm** jewellery tag on a TSC TL240: one
+label per page with no margin, so the printer's own gap sensor feeds them. It is a dumbbell
+tag, so nothing is printed across the 32 mm strip that wraps around the piece — the barcode
+and tag number go on the left flap, shop, item, purity and weights on the right. In the
+printer driver set the paper size to 100 × 15 mm (or *User defined*) and let the app's page
+size through; print one on plain stock first to check the two flaps land where they should.
 
 ### Loyalty points
 

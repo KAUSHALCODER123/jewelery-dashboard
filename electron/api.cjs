@@ -518,10 +518,12 @@ const tagStock = {
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
     return get()
       .prepare(
-        `SELECT ts.*, i.name AS item_name, g.name AS group_name, i.uom
+        `SELECT ts.*, i.name AS item_name, g.name AS group_name, i.uom,
+                pu.invoice_no AS purchase_no
          FROM tag_stock ts
          JOIN item i ON i.id = ts.item_id
          LEFT JOIN item_group g ON g.id = i.item_group_id
+         LEFT JOIN purchase pu ON pu.id = ts.purchase_id
          ${where}
          ORDER BY ts.tag`
       )
@@ -948,14 +950,27 @@ const looseStock = {
    * Creates the tags and books the same fine weight OUT of the loose pool, so the
    * shop's total metal is unchanged — it has only changed form.
    */
-  convert: ({ itemId, rows, entry_date, allowOverdraw = false }) => {
+  convert: ({ itemId, rows, entry_date, allowOverdraw = false, purchaseId = null }) => {
     const db = get()
     const tx = db.transaction(() => {
       if (!itemId) throw new Error('Choose which item these pieces are')
       const filled = (rows || []).filter((r) => num(r.gross_wt) > 0 || num(r.qty) > 0)
       if (!filled.length) throw new Error('Enter at least one piece')
 
-      const before = looseStock.summary({ metal: 'Gold' })
+      // The pool is per metal: silver payal come out of the silver pool, not
+      // the gold one.
+      const metal = itemMetal(db, itemId)
+      const purchase = purchaseId
+        ? db.prepare(`SELECT id, invoice_no, metal FROM purchase WHERE id = ?`).get(purchaseId)
+        : null
+      if (purchaseId && !purchase) throw new Error('That purchase no longer exists')
+      if (purchase && purchase.metal !== metal) {
+        throw new Error(
+          `${purchase.invoice_no} is a ${purchase.metal} purchase — these pieces are ${metal}.`
+        )
+      }
+
+      const before = looseStock.summary({ metal })
       const needed = calc.r3(
         filled.reduce((s, r) => s + calc.fineWeight(calc.netWeight(r), r.purity), 0)
       )
@@ -974,9 +989,12 @@ const looseStock = {
         itemId, rows: filled.map((r) => ({ ...r, entry_date: r.entry_date || date })),
       })
 
-      // Mark the new tags as having come from loose stock.
-      const mark = db.prepare(`UPDATE tag_stock SET source = 'PURCHASE' WHERE id = ?`)
-      for (const id of ids) mark.run(id)
+      // Mark the new tags as having come from loose stock — and from which
+      // purchase, so the invoice can tally its weight against its labels.
+      const mark = db.prepare(
+        `UPDATE tag_stock SET source = 'PURCHASE', purchase_id = ? WHERE id = ?`
+      )
+      for (const id of ids) mark.run(purchase ? purchase.id : null, id)
 
       // Take the same weight out of the loose pool.
       const gross = calc.r3(filled.reduce((s, r) => s + num(r.gross_wt), 0))
@@ -984,12 +1002,15 @@ const looseStock = {
       db.prepare(
         `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
          direction, is_tagged, entry_date)
-         VALUES ('Gold',?,?,?,'CONVERT',?,?,'OUT',0,?)`
-      ).run(gross, net, needed, ids[0] ?? null, `${ids.length} tags`, date)
+         VALUES (?,?,?,?,'CONVERT',?,?,'OUT',0,?)`
+      ).run(metal, gross, net, needed, ids[0] ?? null,
+            purchase ? `${ids.length} tags · ${purchase.invoice_no}` : `${ids.length} tags`, date)
 
-      const after = looseStock.summary({ metal: 'Gold' })
+      const after = looseStock.summary({ metal })
       return {
         created: ids.length,
+        metal,
+        tally: purchase ? purchaseTally(db, purchase.id) : null,
         fine_converted: needed,
         loose_before: before.available_fine,
         loose_after: after.available_fine,
@@ -1828,6 +1849,17 @@ const sale = {
             entry_date: row.bill_date,
           })
         }
+        // Metal sold before it was ever tagged — a piece billed by hand out of
+        // bought stock. It has no tag to flip, so this row is the stock
+        // movement: the grams leave the loose pool, or the pool would go on
+        // showing them on the shelf after they walked out with the customer.
+        if (!l.tag_stock_id && !l.is_loose && num(l.net_wt) > 0) {
+          db.prepare(
+            `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
+             direction, is_tagged, entry_date) VALUES (?,?,?,?,'SALE',?,?,'OUT',0,?)`
+          ).run(l.metal || 'Gold', num(l.gross_wt), num(l.net_wt),
+                calc.fineWeight(num(l.net_wt), l.purity), id, bill_no, row.bill_date)
+        }
         if (l.tag_stock_id) {
           // A physical piece can only be sold once. If it is no longer in stock the
           // UPDATE matches nothing — refuse the bill rather than silently double-sell.
@@ -2036,22 +2068,113 @@ const sale = {
 
 /* ───────────────────────────── Purchase ───────────────────────────── */
 
+/**
+ * Purchase ↔ label tally.
+ *
+ * What the invoice brought in (the Material-In metal lines) against the tagged
+ * pieces that were made from it. Loose weight-wise items (mani, fuli) are left
+ * out of the bought side: they are never labelled, they are sold by the gram.
+ *
+ * The decision is taken on NET weight — gross carries stones and beads that a
+ * piece may or may not be weighed with, and fine carries the supplier's
+ * wastage, which the tags never do.
+ */
+function purchaseTally(db, id) {
+  const bought = db.prepare(
+    `SELECT COUNT(*) lines,
+            COALESCE(SUM(pi.gross_wt),0) gross, COALESCE(SUM(pi.net_wt),0) net,
+            COALESCE(SUM(pi.fine_plus_wastage),0) fine
+     FROM purchase_item pi LEFT JOIN item i ON i.id = pi.item_id
+     WHERE pi.purchase_id = ? AND pi.direction = 'IN'
+       AND COALESCE(i.stock_mode, 'TAG') <> 'LOOSE_WT'`
+  ).get(id)
+  const tagged = db.prepare(
+    `SELECT COUNT(*) pieces,
+            COALESCE(SUM(gross_wt),0) gross, COALESCE(SUM(net_wt),0) net,
+            COALESCE(SUM(final_wt),0) fine,
+            COALESCE(SUM(CASE WHEN status = 'SOLD' THEN 1 ELSE 0 END),0) sold
+     FROM tag_stock WHERE purchase_id = ?`
+  ).get(id)
+  const pending_gross = calc.r3(bought.gross - tagged.gross)
+  const pending_net = calc.r3(bought.net - tagged.net)
+  const status = bought.net <= 0.0005
+    ? 'NONE'
+    : Math.abs(pending_net) <= 0.005 ? 'TALLIED'
+    : pending_net > 0 ? 'PENDING' : 'OVER'
+  return {
+    bought_lines: bought.lines,
+    bought_gross: calc.r3(bought.gross), bought_net: calc.r3(bought.net),
+    bought_fine: calc.r3(bought.fine),
+    tagged_pieces: tagged.pieces, tagged_sold: tagged.sold,
+    tagged_gross: calc.r3(tagged.gross), tagged_net: calc.r3(tagged.net),
+    tagged_fine: calc.r3(tagged.fine),
+    pending_gross, pending_net, status,
+  }
+}
+
 const purchase = {
   list: ({ from, to, search } = {}) => {
     const clauses = []
-    if (from) clauses.push(`invoice_date >= @from`)
-    if (to) clauses.push(`invoice_date <= @to`)
-    if (search) clauses.push(`(invoice_no LIKE '%'||@search||'%' OR party_name LIKE '%'||@search||'%')`)
+    if (from) clauses.push(`p.invoice_date >= @from`)
+    if (to) clauses.push(`p.invoice_date <= @to`)
+    if (search) clauses.push(`(p.invoice_no LIKE '%'||@search||'%' OR p.party_name LIKE '%'||@search||'%')`)
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
-    return get()
-      .prepare(`SELECT * FROM purchase ${where} ORDER BY invoice_date DESC, id DESC LIMIT 500`)
+    const db = get()
+    // Weight on the register, not just money: gross / net / fine of what came
+    // in, and what the invoice has been labelled up to.
+    return db
+      .prepare(
+        `SELECT p.*,
+                (SELECT COALESCE(SUM(gross_wt),0) FROM purchase_item
+                  WHERE purchase_id = p.id AND direction = 'IN') AS in_gross_wt,
+                (SELECT COALESCE(SUM(net_wt),0) FROM purchase_item
+                  WHERE purchase_id = p.id AND direction = 'IN') AS in_net_wt,
+                (SELECT COALESCE(SUM(fine_plus_wastage),0) FROM purchase_item
+                  WHERE purchase_id = p.id AND direction = 'IN') AS in_fine_wt,
+                (SELECT COALESCE(SUM(fine_plus_wastage),0) FROM purchase_item
+                  WHERE purchase_id = p.id AND direction = 'OUT') AS out_fine_wt
+         FROM purchase p ${where} ORDER BY p.invoice_date DESC, p.id DESC LIMIT 500`
+      )
       .all({ from: from ?? '', to: to ?? '', search: search ?? '' })
+      .map((r) => ({ ...r, tally: purchaseTally(db, r.id) }))
+  },
+
+  /** The tally for one invoice, plus the pieces made from it. */
+  tally: ({ id }) => {
+    const db = get()
+    return {
+      ...purchaseTally(db, id),
+      tags: db.prepare(
+        `SELECT ts.id, ts.tag, ts.gross_wt, ts.net_wt, ts.purity, ts.final_wt, ts.status,
+                ts.entry_date, i.name AS item_name
+         FROM tag_stock ts JOIN item i ON i.id = ts.item_id
+         WHERE ts.purchase_id = ? ORDER BY ts.tag`
+      ).all(id),
+    }
+  },
+
+  /**
+   * Purchases that still have metal waiting to be labelled — what the tag
+   * screen offers when pieces are made "from a purchase". Newest first.
+   */
+  openForTagging: ({ metal } = {}) => {
+    const db = get()
+    return db
+      .prepare(
+        `SELECT id, invoice_no, invoice_date, party_name, metal FROM purchase
+         ${metal ? 'WHERE metal = @metal' : ''}
+         ORDER BY invoice_date DESC, id DESC LIMIT 300`
+      )
+      .all({ metal: metal ?? '' })
+      .map((p) => ({ ...p, ...purchaseTally(db, p.id) }))
+      .filter((p) => p.status === 'PENDING' || p.status === 'OVER')
   },
 
   read: ({ id }) => {
     const db = get()
     const head = db.prepare(`SELECT * FROM purchase WHERE id = ?`).get(id)
     if (!head) return null
+    head.tally = purchaseTally(db, id)
     // is_loose is not stored — it belongs to the item master, which can only have
     // one answer — but the screen needs it to price the line the same way the
     // save did, so it is derived on the way out.
@@ -2101,17 +2224,20 @@ const purchase = {
            gst_not_required=@gst_not_required, purchase_amount=@purchase_amount, discount=@discount,
            return_amount=@return_amount, gst_pct=@gst_pct, gst_amount=@gst_amount, sub_tax=@sub_tax,
            tcs_pct=@tcs_pct, tcs_amount=@tcs_amount, bill_amount=@bill_amount,
-           paid_amount=@paid_amount, net_balance=@net_balance WHERE id=@id`
+           paid_amount=@paid_amount, paid_fine_wt=@paid_fine_wt, paid_fine_rate=@paid_fine_rate,
+           paid_fine_amount=@paid_fine_amount, net_balance=@net_balance WHERE id=@id`
         ).run(row)
       } else {
         id = db
           .prepare(
             `INSERT INTO purchase (prefix, invoice_no, manual_no, invoice_date, party_id, party_name,
              remark, state, metal, is_credit, gst_not_required, purchase_amount, discount, return_amount,
-             gst_pct, gst_amount, sub_tax, tcs_pct, tcs_amount, bill_amount, paid_amount, net_balance)
+             gst_pct, gst_amount, sub_tax, tcs_pct, tcs_amount, bill_amount, paid_amount,
+             paid_fine_wt, paid_fine_rate, paid_fine_amount, net_balance)
              VALUES (@prefix,@invoice_no,@manual_no,@invoice_date,@party_id,@party_name,@remark,
              @state,@metal,@is_credit,@gst_not_required,@purchase_amount,@discount,@return_amount,@gst_pct,
-             @gst_amount,@sub_tax,@tcs_pct,@tcs_amount,@bill_amount,@paid_amount,@net_balance)`
+             @gst_amount,@sub_tax,@tcs_pct,@tcs_amount,@bill_amount,@paid_amount,
+             @paid_fine_wt,@paid_fine_rate,@paid_fine_amount,@net_balance)`
           )
           .run(row).lastInsertRowid
       }
@@ -2172,6 +2298,17 @@ const purchase = {
             doc_id: id, doc_no: invoice_no, particulars: 'Cash Account', debit: t.paid_amount,
           })
         }
+        // Paid in fine metal: the value comes off what we owe, exactly as cash
+        // would. The grams themselves are posted below — on the gold khata and
+        // out of the loose pool — so this is the money leg only.
+        if (t.paid_fine_amount > 0) {
+          postLedger(db, {
+            entry_date: row.invoice_date, party_id: row.party_id, doc_type: 'PURCHASE',
+            doc_id: id, doc_no: invoice_no,
+            particulars: `Paid in fine ${t.paid_fine_wt.toFixed(3)} g @ ${t.paid_fine_rate}`,
+            debit: t.paid_fine_amount,
+          })
+        }
       }
       if (t.paid_amount > 0) {
         postLedger(db, {
@@ -2179,6 +2316,14 @@ const purchase = {
           doc_type: 'PURCHASE', doc_id: id, doc_no: invoice_no,
           particulars: row.party_name || 'Purchase', credit: t.paid_amount,
         })
+      }
+      if (t.paid_fine_wt > 0) {
+        // The metal handed over leaves the shop's loose pool of that metal.
+        db.prepare(
+          `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
+           direction, entry_date) VALUES (?,?,?,?,'PURCHASE',?,?,'OUT',?)`
+        ).run(row.metal, t.paid_fine_wt, t.paid_fine_wt, t.paid_fine_wt, id, invoice_no,
+              row.invoice_date)
       }
 
       // ── Metal (fine weight) khata ──
@@ -2192,8 +2337,17 @@ const purchase = {
               t.is_exchange ? 'Metal exchange' : 'Purchase',
               t.in_fine_wt, t.out_fine_wt)
       }
+      // Fine given as payment is its own line on the khata, so the supplier's
+      // statement reads "purchase 100 g, paid 60 g" rather than a single net.
+      if (row.party_id && t.paid_fine_wt > 0) {
+        db.prepare(
+          `INSERT INTO metal_entry (entry_date, party_id, metal, doc_type, doc_id, doc_no,
+           particulars, fine_in, fine_out) VALUES (?,?,?,'PURCHASE',?,?,?,0,?)`
+        ).run(row.invoice_date, row.party_id, row.metal, id, invoice_no,
+              'Paid in fine', t.paid_fine_wt)
+      }
 
-      return { id, invoice_no }
+      return { id, invoice_no, tally: purchaseTally(db, id) }
     })
     return tx()
   },
@@ -3112,22 +3266,25 @@ const saleReturn = {
       })
 
       // Stock: the metal is physically back on the shelf, split by its metal.
+      // A tagged piece goes back on its shelf; an untagged one back to the
+      // loose pool it was sold out of.
       const retByMetal = new Map()
       for (const l of lines) {
         if (l.is_loose) continue
-        const m = retByMetal.get(l.metal || 'Gold') ||
-          { gross: 0, net: 0, fine: 0 }
+        const key = `${l.metal || 'Gold'}|${l.tag_stock_id ? 1 : 0}`
+        const m = retByMetal.get(key) ||
+          { metal: l.metal || 'Gold', tagged: l.tag_stock_id ? 1 : 0, gross: 0, net: 0, fine: 0 }
         m.gross += num(l.gross_wt); m.net += num(l.net_wt); m.fine += num(l.final_wt)
-        retByMetal.set(l.metal || 'Gold', m)
+        retByMetal.set(key, m)
       }
       const insLooseRet = db.prepare(
         `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
-         direction, is_tagged, entry_date) VALUES (?,?,?,?,'SALERET',?,?,'IN',1,?)`
+         direction, is_tagged, entry_date) VALUES (?,?,?,?,'SALERET',?,?,'IN',?,?)`
       )
-      for (const [metal, m] of retByMetal) {
+      for (const m of retByMetal.values()) {
         if (calc.r3(m.fine) <= 0) continue
-        insLooseRet.run(metal, calc.r3(m.gross), calc.r3(m.net), calc.r3(m.fine),
-          id, return_no, row.return_date)
+        insLooseRet.run(m.metal, calc.r3(m.gross), calc.r3(m.net), calc.r3(m.fine),
+          id, return_no, m.tagged, row.return_date)
       }
 
       if (row.party_id) {
@@ -3150,9 +3307,9 @@ const saleReturn = {
           `INSERT INTO metal_entry (entry_date, party_id, metal, doc_type, doc_id, doc_no,
            particulars, fine_in, fine_out) VALUES (?,?,?,'SALERET',?,?,?,?,0)`
         )
-        for (const [metal, m] of retByMetal) {
+        for (const m of retByMetal.values()) {
           if (calc.r3(m.fine) <= 0) continue
-          insMetalRet.run(row.return_date, row.party_id, metal, id, return_no,
+          insMetalRet.run(row.return_date, row.party_id, m.metal, id, return_no,
             'Sales Return', calc.r3(m.fine))
         }
       }
