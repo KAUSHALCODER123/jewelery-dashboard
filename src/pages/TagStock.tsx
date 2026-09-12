@@ -938,15 +938,23 @@ function PrintLabels({ tags, onClose, onPrinted }: {
   const [size, setSize] = useState<LabelSize>('tsc-100x15')
   const [copies, setCopies] = useState(1)
   const [skip, setSkip] = useState(0)
+  // How long the printable head of the rat-tail tag is. Remembered per machine
+  // since it is a property of the tag stock the shop buys, not of the batch.
+  const [headMm, setHeadMm] = useState(() => {
+    try { return Number(localStorage.getItem('label.headMm')) || 50 } catch { return 50 }
+  })
   const [opts, setOpts] = useState({
-    showItem: true, showGross: true, showNet: false, showPurity: true,
+    showItem: true, showGross: true, showNet: true, showPurity: true,
   })
 
   const html = useMemo(
     () => labelSheetHtml(tags, {
-      size, copies, skip, ...opts, shopName: company.data?.name || '',
+      size, copies, skip, headMm, ...opts,
+      // The shop name has no room on the small tag; it is the item and the
+      // weights the counter needs to read.
+      shopName: size === 'tsc-100x15' ? '' : (company.data?.name || ''),
     }),
-    [tags, size, copies, skip, opts, company.data]
+    [tags, size, copies, skip, headMm, opts, company.data]
   )
 
   const sizeInfo = LABEL_SIZES.find((s) => s.value === size)
@@ -985,6 +993,16 @@ function PrintLabels({ tags, onClose, onPrinted }: {
                 onChange={(e) => setSkip(Math.max(0, Number(e.target.value) || 0))} />
             </Field>
           </div>
+          {size === 'tsc-100x15' && (
+            <Field label="Head length (mm)" hint="Printable part of the tag, before the thin tail">
+              <Input className="right" style={{ width: 74 }} value={headMm}
+                onChange={(e) => {
+                  const v = Math.min(96, Math.max(30, Number(e.target.value) || 50))
+                  setHeadMm(v)
+                  try { localStorage.setItem('label.headMm', String(v)) } catch { /* ignore */ }
+                }} />
+            </Field>
+          )}
           <div className="section-title">Show on the label</div>
           <Check label="Item name" checked={opts.showItem}
             onChange={(v) => setOpts({ ...opts, showItem: v })} />

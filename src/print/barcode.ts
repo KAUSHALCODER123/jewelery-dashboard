@@ -95,7 +95,7 @@ export type LabelSize = 'tsc-100x15' | 'roll' | 'a4-65' | 'a4-24'
 export const LABEL_SIZES: { value: LabelSize; label: string; hint: string }[] = [
   {
     value: 'tsc-100x15', label: 'TSC TL240 — 100 × 15 mm tag',
-    hint: 'Jewellery tag roll, one per label. Barcode on the left flap, weights on the right; the middle wraps around the piece.',
+    hint: 'Rat-tail jewellery tag, one per label. Everything prints in the head; the thin tail that wraps the piece is left blank.',
   },
   { value: 'roll', label: 'Jewellery tag roll', hint: '50 × 12 mm, one per row — dumbbell tags' },
   { value: 'a4-65', label: 'A4 sheet — 65 labels', hint: '38 × 21 mm, 5 across × 13 down' },
@@ -131,6 +131,8 @@ export type LabelOptions = {
   /** Skip this many label positions — lets you reuse a part-used sheet. */
   skip?: number
   copies?: number
+  /** TSC tag only: length of the printable head in mm (the rest is the tail). */
+  headMm?: number
 }
 
 const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
@@ -138,38 +140,48 @@ const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
 /**
  * The 100 × 15 mm jewellery tag the shop runs on its TSC TL240.
  *
- * A dumbbell tag: two printable flaps joined by a thin strip that wraps around
- * the ring or chain, so nothing may be printed across the middle. The barcode
- * and tag number go on one flap, the item and weights on the other, and each
- * flap is laid out so it reads once the tag is folded on the piece.
+ * A rat-tail tag, not a dumbbell: only the HEAD (about 50 mm) is printable.
+ * The rest is a 3 mm wide tail that wraps around the ring or chain and sticks
+ * to itself, so anything printed there is lost. The whole label — barcode,
+ * tag number, item and weights — is stacked inside the head, and the tail is
+ * left blank on purpose.
  *
- *   ┌────────────┬──────────────┬────────────┐
- *   │ ▌▌▌▌▌▌▌▌▌  │              │ Ring 91.6% │
- *   │  RIN00012  │   (strip)    │ G 5.120    │
- *   └────────────┴──────────────┴────────────┘
- *        34 mm          32 mm          34 mm
+ *   ┌────────────────────────────────┬────────────────────────────────┐
+ *   │ ▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌  │                                │
+ *   │ RIN00012 · Ladies Ring · 91.6% │           (tail, blank)        │
+ *   │ G 5.120  N 4.980               │                                │
+ *   └────────────────────────────────┴────────────────────────────────┘
+ *                head ≈ 50 mm                     ≈ 50 mm
+ *
+ * The barcode runs the full width of the head so each bar is at least three
+ * printer dots wide at 203 dpi — a narrower code on this small a tag is what
+ * makes a scanner miss.
  */
-function tscTagHtml(tags: (LabelTag | null)[], o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies'>>): string {
+function tscTagHtml(
+  tags: (LabelTag | null)[],
+  o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies' | 'headMm'>> & { headMm: number },
+): string {
+  const head = Math.min(96, Math.max(30, Number(o.headMm) || 50))
   const cells = tags.map((t) => {
     if (!t) return `<div class="tag blank"></div>`
     const l1 = [
+      t.tag,
       o.showItem && (t.item_name || ''),
       o.showPurity && t.purity ? `${Number(t.purity).toFixed(1)}%` : '',
     ].filter(Boolean).join(' · ')
     const l2 = [
       o.showGross ? `G ${wt3(t.gross_wt)}` : '',
       o.showNet ? `N ${wt3(t.net_wt)}` : '',
-    ].filter(Boolean).join('  ')
+      o.shopName || '',
+    ].filter(Boolean).join('   ')
     return `<div class="tag">
-      <div class="flap left">
-        <div class="bc">${barcodeSvg(t.tag, { moduleWidth: 1, height: 26, fontSize: 7, showText: true })}</div>
-      </div>
-      <div class="strip"></div>
-      <div class="flap right">
-        ${o.shopName ? `<div class="shop">${escapeXml(o.shopName)}</div>` : ''}
-        ${l1 ? `<div class="l1">${escapeXml(l1)}</div>` : ''}
+      <div class="head">
+        <div class="bc">${barcodeSvg(t.tag, { moduleWidth: 1, height: 22, showText: false })
+          // Stretch to the full head width: bars get wider in proportion, so
+          // the code stays valid and every bar is several printer dots wide.
+          .replace('<svg ', '<svg preserveAspectRatio="none" ')}</div>
+        <div class="l1">${escapeXml(l1)}</div>
         ${l2 ? `<div class="l2">${escapeXml(l2)}</div>` : ''}
-        <div class="l3">${escapeXml(t.tag)}</div>
       </div>
     </div>`
   }).join('')
@@ -182,22 +194,24 @@ function tscTagHtml(tags: (LabelTag | null)[], o: Required<Omit<LabelOptions, 's
   html, body { margin: 0; padding: 0; }
   body { font-family: "Segoe UI", Arial, sans-serif; -webkit-print-color-adjust: exact; }
   .tag {
-    width: 100mm; height: 15mm; display: flex; align-items: stretch;
-    overflow: hidden; break-after: page; page-break-after: always;
+    width: 100mm; height: 15mm; overflow: hidden;
+    break-after: page; page-break-after: always;
+    /* faint guide for the on-screen preview only: where the head ends */
+    background: linear-gradient(to right, transparent ${head}mm, #eee ${head}mm, #eee 100%);
   }
   .tag:last-child { break-after: auto; page-break-after: auto; }
   .tag.blank { visibility: hidden; }
-  .flap { width: 34mm; padding: 1mm 1.2mm; display: flex; flex-direction: column;
-          justify-content: center; overflow: hidden; }
-  .flap.left { align-items: center; }
-  .flap.right { align-items: flex-start; }
-  .strip { width: 32mm; }
+  .head {
+    width: ${head}mm; height: 15mm; padding: 0.8mm 1.5mm 0.6mm;
+    display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+  }
   .bc { line-height: 0; }
-  .bc svg { width: 31mm; height: auto; display: block; }
-  .shop { font-size: 5pt; font-weight: 700; line-height: 1.05; white-space: nowrap; overflow: hidden; max-width: 100%; }
-  .l1 { font-size: 6pt; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; max-width: 100%; }
-  .l2 { font-size: 6.5pt; font-weight: 700; line-height: 1.1; font-family: Consolas, monospace; white-space: nowrap; }
-  .l3 { font-size: 5.5pt; line-height: 1.1; font-family: Consolas, monospace; letter-spacing: .3px; }
+  .bc svg { width: 100%; height: 6mm; display: block; }
+  .l1 { font-size: 6pt; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden;
+        font-family: Consolas, "Segoe UI", monospace; }
+  .l2 { font-size: 6.5pt; font-weight: 700; line-height: 1.1; white-space: nowrap; overflow: hidden;
+        font-family: Consolas, monospace; }
+  @media print { .tag { background: none; } }
 </style>
 ${cells}`
 }
@@ -206,7 +220,7 @@ ${cells}`
 export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): string {
   const {
     size = 'tsc-100x15', showItem = true, showGross = true, showNet = false,
-    showPurity = true, shopName = '', skip = 0, copies = 1,
+    showPurity = true, shopName = '', skip = 0, copies = 1, headMm = 50,
   } = opts
   const S = SHEET[size] ?? SHEET['tsc-100x15']
 
@@ -215,7 +229,7 @@ export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): strin
   for (const t of tags) for (let c = 0; c < copies; c++) expanded.push(t)
 
   if (size === 'tsc-100x15') {
-    return tscTagHtml(expanded, { showItem, showGross, showNet, showPurity, shopName })
+    return tscTagHtml(expanded, { showItem, showGross, showNet, showPurity, shopName, headMm })
   }
 
   // Smaller labels cannot carry as much text.

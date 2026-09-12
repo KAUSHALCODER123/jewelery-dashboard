@@ -330,11 +330,13 @@ there rather than on the tagged side. Before this, untagged sales left the pool 
 ### Barcode stickers on the TSC TL240
 
 The default label size is the shop's **100 × 15 mm** jewellery tag on a TSC TL240: one
-label per page with no margin, so the printer's own gap sensor feeds them. It is a dumbbell
-tag, so nothing is printed across the 32 mm strip that wraps around the piece — the barcode
-and tag number go on the left flap, shop, item, purity and weights on the right. In the
-printer driver set the paper size to 100 × 15 mm (or *User defined*) and let the app's page
-size through; print one on plain stock first to check the two flaps land where they should.
+label per page with no margin, so the printer's own gap sensor feeds them. It is a
+**rat-tail** tag — a printable head of about 50 mm and a thin tail that wraps around the
+piece and sticks to itself — so everything is stacked inside the head and the tail is left
+blank: the barcode across the full head width (thick bars scan reliably at 203 dpi), then
+`tag · item · purity`, then `G gross  N net`. The print dialog has a **Head length (mm)**
+box for a different tag stock; it is remembered on that machine. In the printer driver set
+the paper size to 100 × 15 mm and let the app's page size through.
 
 ### Loyalty points
 
