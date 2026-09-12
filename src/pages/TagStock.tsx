@@ -310,7 +310,7 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
         <div className="card-head">
           <span className="card-title">{mode === 'loose' ? 'Loose Metal → Tags' : 'Create Tags'}</span>
           <span className="hint" style={{ marginLeft: 'auto' }}>
-            Net = Gross − Stone − Black beads · Fine = Net × Purity%
+            Net = Gross − Stone − Black beads
           </span>
         </div>
         <div className="card-body">
@@ -479,7 +479,6 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
                         </th>
                       ))}
                       <th style={{ textAlign: 'right' }}>Net Wt</th>
-                      <th style={{ textAlign: 'right' }}>Fine Wt</th>
                       <th style={{ width: 110 }}>HUID</th>
                       <th style={{ width: 66 }}></th>
                     </tr>
@@ -503,7 +502,6 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
                           </td>
                         ))}
                         <td><input className="right" readOnly value={r.net_wt ? wt(r.net_wt) : ''} /></td>
-                        <td><input className="right" readOnly value={r.final_wt ? wt(r.final_wt) : ''} /></td>
                         <td><input value={r.huid} onChange={(e) => setCell(i, 'huid', e.target.value)} /></td>
                         <td style={{ textAlign: 'center' }}>
                           {(num(r.gross_wt) > 0 || num(r.qty) > 0) && (
@@ -520,7 +518,6 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
               <div className="row wrap" style={{ marginTop: 14, gap: 18 }}>
                 <Tot label="Gross Wt" v={`${wt(totals.gross)} g`} />
                 <Tot label="Net Wt" v={`${wt(totals.net)} g`} />
-                <Tot label="Fine Wt" v={`${wt(totals.fine)} g`} gold />
                 <Tot label="Pieces" v={String(filled.length)} />
                 <span className="spacer" style={{ marginLeft: 'auto' }} />
                 <button className="btn" onClick={() => setRows([blankRow(defaults)])}>Clear</button>
@@ -590,7 +587,7 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
                     </th>
                     <th>Tag</th><th>Item</th><th>Group</th>
                     <th className="r">Gross</th><th className="r">Net</th><th className="r">Purity</th>
-                    <th className="r">Fine</th><th>Location</th><th>Label</th><th>Status</th>
+                    <th>Location</th><th>Label</th><th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -606,7 +603,6 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
                       <td className="r num">{wt(r.gross_wt)}</td>
                       <td className="r num">{wt(r.net_wt)}</td>
                       <td className="r num">{money(r.purity)}%</td>
-                      <td className="r num strong">{wt(r.final_wt)}</td>
                       <td>{r.location}</td>
                       <td>
                         {r.label_printed_at
@@ -826,7 +822,7 @@ function ImportCsv({ defaults, onClose, onImport }: {
                 <thead>
                   <tr><th>#</th><th className="r">Gross</th><th className="r">Stone</th>
                     <th className="r">Net</th><th className="r">Purity</th>
-                    <th className="r">Fine</th><th>Location</th></tr>
+                    <th>Location</th></tr>
                 </thead>
                 <tbody>
                   {parsed.slice(0, 50).map((r, i) => {
@@ -838,7 +834,6 @@ function ImportCsv({ defaults, onClose, onImport }: {
                         <td className="r num">{wt(r.stone_wt)}</td>
                         <td className="r num">{wt(net)}</td>
                         <td className="r num">{money(r.purity)}%</td>
-                        <td className="r num strong">{wt(fineWeight(net, r.purity))}</td>
                         <td>{r.location}</td>
                       </tr>
                     )

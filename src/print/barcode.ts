@@ -193,20 +193,34 @@ function tscTagHtml(
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body { font-family: "Segoe UI", Arial, sans-serif; -webkit-print-color-adjust: exact; }
+  /*
+   * The box is deliberately SHORTER than the 15 mm page. A box exactly the page
+   * height rounds, at the printer's 203 dpi, to a hair more than one page, and
+   * Chromium then emits an empty second page for it — which the TL240 feeds as
+   * a blank tag. In the shop that showed up as every other tag coming out
+   * white. The page break goes BEFORE each tag rather than after, so the last
+   * one never trails an empty page either.
+   */
   .tag {
-    width: 100mm; height: 15mm; overflow: hidden;
-    break-after: page; page-break-after: always;
+    width: 100mm; height: 14.4mm; overflow: hidden;
     /* faint guide for the on-screen preview only: where the head ends */
     background: linear-gradient(to right, transparent ${head}mm, #eee ${head}mm, #eee 100%);
   }
-  .tag:last-child { break-after: auto; page-break-after: auto; }
+  .tag + .tag { break-before: page; page-break-before: always; }
   .tag.blank { visibility: hidden; }
+  /*
+   * Generous top and bottom margins: the TL240's feed lands each tag up to
+   * ~2 mm off, and a print that fills the full 15 mm loses its top bars or
+   * its weight line whenever it does. The shop's first run had the barcode
+   * flush with the top edge and the weight line cut in half at the bottom.
+   * Everything the tag carries fits in the middle ~10 mm.
+   */
   .head {
-    width: ${head}mm; height: 15mm; padding: 0.8mm 1.5mm 0.6mm;
+    width: ${head}mm; height: 14.4mm; padding: 2mm 2mm 2.2mm;
     display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
   }
   .bc { line-height: 0; }
-  .bc svg { width: 100%; height: 6mm; display: block; }
+  .bc svg { width: 100%; height: 5.2mm; display: block; }
   .l1 { font-size: 6pt; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden;
         font-family: Consolas, "Segoe UI", monospace; }
   .l2 { font-size: 6.5pt; font-weight: 700; line-height: 1.1; white-space: nowrap; overflow: hidden;
