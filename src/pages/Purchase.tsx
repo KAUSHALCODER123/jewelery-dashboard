@@ -441,6 +441,16 @@ function PurchaseForm({ id, onDone, go }: {
               <span className="small muted">Fine weight in</span>
               <span className="small strong num gold">{wt(t.total_fine_wt)} g</span>
             </div>
+            {t.paid_fine_wt > 0 && <>
+              <div className="row" style={{ justifyContent: 'space-between' }}>
+                <span className="small muted">Paid in fine</span>
+                <span className="small num">− {wt(t.paid_fine_wt)} g</span>
+              </div>
+              <div className="total-row grand debit">
+                <span className="k">{t.fine_due_wt < 0 ? 'Fine due from supplier' : 'Balance Fine'}</span>
+                <span className="v num">{wt(Math.abs(t.fine_due_wt))} g</span>
+              </div>
+            </>}
           </div>
         </div>
       </div>

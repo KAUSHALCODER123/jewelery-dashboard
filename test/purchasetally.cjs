@@ -168,6 +168,8 @@ app.whenReady().then(() => {
       api.looseStock.summary({ metal: 'Gold' }).available_fine, poolBefore + 100 - 20)
     check('money khata: creditor up by the unpaid balance only',
       api.party.balance({ id: supplier }).balance, supplierMoneyBefore - (BILL - 10000 - 140000))
+    check('summary shows the fine still due (100 in − 20 paid)',
+      require('../electron/calc.cjs').purchaseTotals(p2, p2.items).totals.fine_due_wt, 80)
     const khata = api.reports.metalLedger({ partyId: supplier, metal: 'Gold' })
     check('gold khata shows the fine payment as its own line',
       [...khata.debits, ...khata.credits].filter((r) => /Paid in fine/.test(r.particulars)).length, 1)

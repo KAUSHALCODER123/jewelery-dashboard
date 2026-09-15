@@ -325,6 +325,9 @@ function purchaseTotals(head, items) {
       balance_gross_wt: r3(in_gross - out_gross),
       balance_net_wt: r3(in_net - out_net),
       balance_fine_wt: r3(in_fine - out_fine),
+      // Fine still owed to the supplier after the metal handed over as payment —
+      // negative when we gave them more than we took in.
+      fine_due_wt: r3(in_fine - out_fine - paid_fine_wt),
       is_exchange: outs.length > 0,
     },
   }

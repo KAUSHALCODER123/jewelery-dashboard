@@ -21,7 +21,6 @@ const COLS: GridCol[] = [
   { key: 'stone_wt', label: 'Stone' },
   { key: 'net_wt', label: 'Net Wt' },
   { key: 'purity', label: 'Purity' },
-  { key: 'final_wt', label: 'Fine Wt' },
   { key: 'stone_amount', label: 'StoneAmt' },
   { key: 'diamond_amount', label: 'DiamondAmt' },
   { key: 'purchase_rate', label: 'Cost/Gm' },
@@ -31,7 +30,7 @@ const COLS: GridCol[] = [
   { key: 'status', label: 'Status' },
 ]
 const RIGHT = new Set([
-  'gross_wt', 'stone_wt', 'net_wt', 'purity', 'final_wt',
+  'gross_wt', 'stone_wt', 'net_wt', 'purity',
   'stone_amount', 'diamond_amount', 'purchase_rate', 'cost_value',
 ])
 
@@ -44,7 +43,6 @@ function detailCell(key: string, r: any) {
     case 'stone_wt': return wt(r.stone_wt)
     case 'net_wt': return wt(r.net_wt)
     case 'purity': return `${money(r.purity)}%`
-    case 'final_wt': return <span className="strong">{wt(r.final_wt)}</span>
     case 'stone_amount': return num(r.stone_amount) > 0 ? money(r.stone_amount) : '—'
     case 'diamond_amount': return num(r.diamond_amount) > 0 ? money(r.diamond_amount) : '—'
     case 'purchase_rate': return num(r.purchase_rate) > 0 ? money(r.purchase_rate) : '—'
@@ -132,14 +130,14 @@ export default function StockReport() {
       ? {
           baseName: 'stock-report', title: 'Stock Report',
           meta: `${status === 'ALL' ? 'All' : status === 'SOLD' ? 'Sold' : 'In stock'} · ${rows.length} pieces`,
-          headers: ['Tag', 'Item', 'Group', 'Gross Wt', 'Stone Wt', 'Net Wt', 'Purity', 'Fine Wt', 'StoneAmt', 'DiamondAmt', 'Cost/Gm', 'Cost Value', 'Location', 'HUID', 'Status'],
-          rows: rows.map((r: any) => [r.tag, r.item_name, r.group_name, r.gross_wt, r.stone_wt, r.net_wt, r.purity, r.final_wt, r.stone_amount, r.diamond_amount, r.purchase_rate, r.cost_value, r.location, r.huid, r.status]),
+          headers: ['Tag', 'Item', 'Group', 'Gross Wt', 'Stone Wt', 'Net Wt', 'Purity', 'StoneAmt', 'DiamondAmt', 'Cost/Gm', 'Cost Value', 'Location', 'HUID', 'Status'],
+          rows: rows.map((r: any) => [r.tag, r.item_name, r.group_name, r.gross_wt, r.stone_wt, r.net_wt, r.purity, r.stone_amount, r.diamond_amount, r.purchase_rate, r.cost_value, r.location, r.huid, r.status]),
         }
       : {
           baseName: 'stock-summary', title: 'Stock Summary',
           meta: `Grouped by ${groupBy} · ${groups.length} lines`,
-          headers: ['Group', 'Pieces', 'Gross Wt', 'Net Wt', 'Purity', 'Fine Wt', 'StoneAmt', 'DiamondAmt', 'Cost Value', 'Uncosted Pieces'],
-          rows: groups.map((g: any) => [g.key, g.count, g.gross_wt, g.net_wt, g.purity, g.final_wt, g.stone_amount, g.diamond_amount, g.cost_value, g.uncosted]),
+          headers: ['Group', 'Pieces', 'Gross Wt', 'Net Wt', 'Purity', 'StoneAmt', 'DiamondAmt', 'Cost Value', 'Uncosted Pieces'],
+          rows: groups.map((g: any) => [g.key, g.count, g.gross_wt, g.net_wt, g.purity, g.stone_amount, g.diamond_amount, g.cost_value, g.uncosted]),
         }
 
   return (
@@ -218,17 +216,16 @@ export default function StockReport() {
       {editing && (
         <div className="note" style={{ marginBottom: 12 }}>
           Correcting stock after a count. Change gross, stone, purity, cost or location and
-          press <b>Save</b> — net and fine weight are recalculated for you, and the metal on
+          press <b>Save</b> — net weight is recalculated for you, and the metal on
           hand moves with the correction. Sold pieces cannot be changed here; correct the
           bill they are on instead.
         </div>
       )}
 
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(5, minmax(0,1fr))' }}>
+      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
         <div className="stat"><div className="stat-label">Pieces</div><div className="stat-value num">{rows.length}</div></div>
         <div className="stat"><div className="stat-label">Gross Weight</div><div className="stat-value num">{wt(tot.gross)}<span style={{ fontSize: 13, color: 'var(--text-3)' }}> g</span></div></div>
         <div className="stat"><div className="stat-label">Net Weight</div><div className="stat-value num">{wt(tot.net)}<span style={{ fontSize: 13, color: 'var(--text-3)' }}> g</span></div></div>
-        <div className="stat"><div className="stat-label">Fine Weight</div><div className="stat-value num gold">{wt(tot.fine)}<span style={{ fontSize: 13, color: 'var(--text-3)' }}> g</span></div></div>
         <div className="stat">
           <div className="stat-label">Value at Cost</div>
           <div className="stat-value num">{money(value)}</div>
@@ -260,7 +257,6 @@ export default function StockReport() {
                     <th className="r">Net Wt</th>
                     <th className="r" title="Weighted by net weight, not an average of the percentages">
                       Purity</th>
-                    <th className="r">Fine Wt</th>
                     <th className="r">StoneAmt</th><th className="r">DiamondAmt</th>
                     <th className="r">Value at Cost</th></tr>
                 </thead>
@@ -272,7 +268,6 @@ export default function StockReport() {
                       <td className="r num">{wt(g.gross_wt)}</td>
                       <td className="r num">{wt(g.net_wt)}</td>
                       <td className="r num">{money(g.purity)}%</td>
-                      <td className="r num strong">{wt(g.final_wt)}</td>
                       <td className="r num">{num(g.stone_amount) > 0 ? money(g.stone_amount) : '—'}</td>
                       <td className="r num">{num(g.diamond_amount) > 0 ? money(g.diamond_amount) : '—'}</td>
                       <td className="r num" title={g.uncosted ? `${g.uncosted} piece(s) have no cost recorded` : undefined}>
@@ -288,7 +283,6 @@ export default function StockReport() {
                     <td className="r num">{wt(tot.gross)}</td>
                     <td className="r num">{wt(tot.net)}</td>
                     <td className="r num">{tot.net > 0 ? `${money((tot.fine / tot.net) * 100)}%` : ''}</td>
-                    <td className="r num">{wt(tot.fine)}</td>
                     <td className="r num">{tot.stone > 0 ? money(tot.stone) : ''}</td>
                     <td className="r num">{tot.diamond > 0 ? money(tot.diamond) : ''}</td>
                     <td className="r num">{money(value)}</td>
@@ -332,7 +326,6 @@ export default function StockReport() {
                         {c.key === 'tag' ? `${rows.length} pieces`
                           : c.key === 'gross_wt' ? wt(tot.gross)
                           : c.key === 'net_wt' ? wt(tot.net)
-                          : c.key === 'final_wt' ? wt(tot.fine)
                           : c.key === 'stone_amount' ? (tot.stone > 0 ? money(tot.stone) : '')
                           : c.key === 'diamond_amount' ? (tot.diamond > 0 ? money(tot.diamond) : '')
                           : c.key === 'cost_value' ? money(value)

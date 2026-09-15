@@ -190,12 +190,11 @@ app.whenReady().then(async () => {
     `)
     const live = await js(`
       const row = document.querySelectorAll('.grid-edit tbody tr')[0]
-      // Net and Fine are the only read-only cells, so this survives new columns
-      // being added to the grid.
+      // Net is the only read-only cell (Fine is no longer shown on this grid), so
+      // this survives new columns being added.
       const calc = row.querySelectorAll('input[readonly]')
-      return { net: calc[0].value, fine: calc[1].value }`)
+      return { net: calc[0].value }`)
     check('net weight computed live', live.net, '8.500')
-    check('fine weight computed live (8.5 @ 91.6%)', live.fine, '7.786')
     await js(`__t.click('Save 1 tag'); await __t.wait(900)`)
     const penTags = api.tagStock.list({ status: 'IN_STOCK', search: 'PEN' })
     check('tag saved from UI', penTags.length, 1)
@@ -648,12 +647,13 @@ app.whenReady().then(async () => {
         .find(r => r.textContent.includes('PEN00001'))
       return {
         editable: cells.length,
-        // Net and fine are read-only and must have followed the typing live.
+        // Net is read-only and must have followed the typing live. Fine is no
+        // longer a column here; the engine's recompute is checked after Save.
         text: after.textContent,
         marked: after.className.includes('row-ok'),
       }`)
     check('the row became editable', edited.editable, 6)
-    ok('net and fine recompute as you type', /6\.750/.test(edited.text))
+    ok('net recomputes as you type', /9\.000/.test(edited.text))
     ok('the changed row is marked', edited.marked)
     await js(`__t.click('Save'); await __t.wait(1200)`)
     const after = api.tagStock.list({ status: 'IN_STOCK' }).find((t) => t.tag === 'PEN00001')
