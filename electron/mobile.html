@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1B2230">
+<title>Parivar Mobile</title>
+<style>
+:root{--bg:#F5F4F0;--paper:#fff;--ink:#1B2230;--muted:#6B7280;--line:#E3E5E8;--gold:#A97A17;--gold-soft:#FBF3DF;--ok:#1F6B5A;--ok-soft:#E6F1EC;--bad:#B3462C;--bad-soft:#FBEAE4;--nav:#1B2230}
+@media(prefers-color-scheme:dark){:root{--bg:#15181D;--paper:#1E232B;--ink:#E8EAEE;--muted:#A0A7B4;--line:#2E343D;--gold:#E0B04E;--gold-soft:#2E2818;--ok:#6FC2A6;--ok-soft:#1E2E29;--bad:#F08A6C;--bad-soft:#33221C;--nav:#0F1216}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+.hide{display:none!important}
+header{position:sticky;top:0;z-index:5;background:var(--nav);color:#fff;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;display:flex;align-items:center;gap:10px}
+header h1{font-size:17px;margin:0;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .sub{font-size:12px;opacity:.7;display:block;font-weight:400}
+header button{background:transparent;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:5px 10px;font-size:13px}
+main{padding:14px 16px}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.tile{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px}
+.tile .l{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tile .v{font-size:20px;font-weight:600;margin-top:2px;font-variant-numeric:tabular-nums}
+.tile .m{font-size:12px;color:var(--muted)}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600}
+.row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.row:last-child{border-bottom:0}
+.row.tap{cursor:pointer}
+.row .t{flex:1;min-width:0}
+.row .t b{display:block;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .t small{color:var(--muted);font-size:12px}
+.row .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .n small{display:block;color:var(--muted);font-size:11px}
+.dr{color:var(--bad)}.cr{color:var(--ok)}
+.pill{font-size:11px;padding:2px 7px;border-radius:99px;background:var(--gold-soft);color:var(--gold);font-weight:600}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.tools{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+input,select{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);min-width:0}
+input[type=search]{flex:1}
+input[type=date]{flex:1}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;background:var(--paper);color:var(--muted);padding:8px 10px;font:inherit;font-size:13px}
+.seg button[aria-selected=true]{background:var(--gold-soft);color:var(--gold);font-weight:600}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:10px 14px;font-size:14px}
+.kv span:nth-child(2n){text-align:right;font-variant-numeric:tabular-nums}
+.kv .tot{font-weight:600;border-top:1px solid var(--line);padding-top:6px}
+.empty{padding:28px 14px;text-align:center;color:var(--muted)}
+.err{background:var(--bad-soft);color:var(--bad);padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:14px}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--paper);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);z-index:5}
+nav button{flex:1;border:0;background:none;color:var(--muted);font:inherit;font-size:11px;padding:8px 2px 6px;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav button[aria-selected=true]{color:var(--gold)}
+.login{max-width:360px;margin:40px auto 0;display:grid;gap:10px}
+.login h1{font-size:22px;margin:0 0 4px;text-align:center}
+.login p{margin:0 0 10px;text-align:center;color:var(--muted);font-size:13px}
+.btn{font:inherit;font-weight:600;padding:11px;border:0;border-radius:8px;background:var(--gold);color:#fff}
+.btn:disabled{opacity:.6}
+.back{background:none;border:0;color:#fff;font-size:20px;padding:0 6px 0 0;line-height:1}
+.ro{font-size:11px;color:var(--muted);text-align:center;padding:6px 0 0}
+@media (prefers-reduced-motion:no-preference){.row.tap:active{background:var(--bg)}}
+</style>
+</head>
+<body>
+<header id="hdr" class="hide">
+  <button id="back" class="back hide" aria-label="Back">‹</button>
+  <h1 id="title">Parivar<span class="sub" id="subtitle"></span></h1>
+  <button id="logout">Sign out</button>
+</header>
+<main id="main"></main>
+<nav id="nav" class="hide">
+  <button data-go="home" aria-selected="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Home</button>
+  <button data-go="stock"><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8"/></svg>Stock</button>
+  <button data-go="sales"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6zM14 2v6h6M9 13h6M9 17h6"/></svg>Sales</button>
+  <button data-go="parties"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg>Khata</button>
+  <button data-go="daybook"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 9h16M9 4v16"/></svg>Day Book</button>
+  <button data-go="outstanding"><svg viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Dues</button>
+</nav>
+<script>
+(function(){
+'use strict';
+const $=(s,r=document)=>r.querySelector(s);
+const main=$('#main'),hdr=$('#hdr'),nav=$('#nav'),title=$('#title'),sub=$('#subtitle'),back=$('#back');
+const inr=n=>(Number(n)||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const g=n=>(Number(n)||0).toLocaleString('en-IN',{minimumFractionDigits:3,maximumFractionDigits:3});
+const dmy=s=>s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const monthStart=()=>today().slice(0,8)+'01';
+let me=null, stack=[];
+
+async function api(path,opts){
+  const r=await fetch(path,{credentials:'same-origin',...opts});
+  const j=await r.json().catch(()=>({ok:false,error:'Bad response'}));
+  if(r.status===401&&me){me=null;showLogin();throw new Error('Signed out')}
+  if(!j.ok)throw new Error(j.error||'Failed');
+  return j.data;
+}
+const get=(name,q={})=>api('/api/'+name+'?'+new URLSearchParams(Object.fromEntries(Object.entries(q).filter(([,v])=>v!==undefined&&v!==''))));
+
+function setHead(t,s,canBack){title.firstChild.textContent=t;sub.textContent=s||'';back.classList.toggle('hide',!canBack)}
+function selectNav(k){nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-selected',b.dataset.go===k))}
+function render(html){main.innerHTML=html;window.scrollTo(0,0)}
+const loading=()=>render('<div class="empty">Loading…</div>');
+const fail=e=>render('<div class="err">'+esc(e.message)+'</div>');
+
+/* ── screens ── */
+const screens={
+  async home(){
+    setHead(me.company?.name||'Parivar','Today · '+dmy(today()),false);selectNav('home');loading();
+    const d=await get('dashboard');
+    render(`<div class="tiles">
+      <div class="tile"><div class="l">Today's sales</div><div class="v">₹${inr(d.todaySales.v)}</div><div class="m">${d.todaySales.n} bills</div></div>
+      <div class="tile"><div class="l">This month</div><div class="v">₹${inr(d.monthSales.v)}</div><div class="m">${d.monthSales.n} bills</div></div>
+      <div class="tile"><div class="l">Stock in trays</div><div class="v">${g(d.stock.fine)} g</div><div class="m">fine · ${d.stock.pieces} pcs · ${g(d.stock.gross)} g gross</div></div>
+      <div class="tile"><div class="l">Customers owe</div><div class="v">₹${inr(d.receivable)}</div><div class="m">${d.customers} customers</div></div>
+    </div>
+    <div class="card"><h2>Recent bills</h2>${d.recent.length?d.recent.map(s=>`<div class="row tap" data-sale="${s.id}"><div class="t"><b>${esc(s.party_name||'Cash customer')}</b><small>${esc(s.bill_no)} · ${dmy(s.bill_date)}</small></div><div class="n">₹${inr(s.total_amount)}</div></div>`).join(''):'<div class="empty">No bills yet</div>'}</div>
+    <div class="ro">Read-only view · figures as of now on the shop computer</div>`);
+  },
+  async stock(state={}){
+    setHead('Stock','Pieces in trays, by item',false);selectNav('stock');
+    const q=state.q||'';
+    render(`<div class="tools"><input type="search" id="q" placeholder="Search tag or item" value="${esc(q)}"></div><div id="out" class="empty">Loading…</div>`);
+    $('#q').addEventListener('change',e=>go('stock',{q:e.target.value}));
+    const d=await get('stock',{groupBy:'item',search:q});
+    const out=$('#out');if(!out)return;
+    out.className='';
+    out.innerHTML=`<div class="tiles"><div class="tile"><div class="l">Pieces</div><div class="v">${d.totals.count}</div></div><div class="tile"><div class="l">Loose metal</div><div class="v">${g(d.looseTotals.balance_wt)} g</div><div class="m">${d.looseTotals.count} lots</div></div></div>
+      <div class="card"><h2>By item</h2>${d.groups.length?d.groups.map(r=>`<div class="row"><div class="t"><b>${esc(r.key)}</b><small>${r.count} pcs · ${g(r.gross_wt)} g gross · ${g(r.net_wt)} g net</small></div><div class="n">${g(r.final_wt)} g<small>fine</small></div></div>`).join(''):'<div class="empty">Nothing in stock</div>'}</div>
+      ${q?`<div class="card"><h2>Matching pieces</h2>${d.rows.map(r=>`<div class="row"><div class="t"><b>${esc(r.tag)} · ${esc(r.item_name)}</b><small>${r.purity}% · ${esc(r.location||'')} ${esc(r.shelf_tray||'')}</small></div><div class="n">${g(r.net_wt)} g<small>net</small></div></div>`).join('')||'<div class="empty">No matching piece</div>'}</div>`:''}`;
+  },
+  async sales(state={}){
+    setHead('Sales','Bills in the period',false);selectNav('sales');
+    const from=state.from||monthStart(),to=state.to||today();
+    render(`<div class="tools"><input type="date" id="from" value="${from}"><input type="date" id="to" value="${to}"></div><div id="out" class="empty">Loading…</div>`);
+    const re=()=>go('sales',{from:$('#from').value,to:$('#to').value});
+    $('#from').addEventListener('change',re);$('#to').addEventListener('change',re);
+    const rows=await get('sales',{from,to});const out=$('#out');if(!out)return;
+    const tot=rows.reduce((s,r)=>s+(+r.total_amount||0),0);
+    out.className='';
+    out.innerHTML=`<div class="tiles"><div class="tile"><div class="l">Bills</div><div class="v">${rows.length}</div></div><div class="tile"><div class="l">Total</div><div class="v">₹${inr(tot)}</div></div></div>
+      <div class="card">${rows.length?rows.map(s=>`<div class="row tap" data-sale="${s.id}"><div class="t"><b>${esc(s.party_name||'Cash customer')}</b><small>${esc(s.bill_no)} · ${dmy(s.bill_date)} ${s.is_credit?'<span class="pill">Credit</span>':''}</small></div><div class="n">₹${inr(s.total_amount)}${+s.net_balance>0.009?`<small class="dr">₹${inr(s.net_balance)} due</small>`:''}</div></div>`).join(''):'<div class="empty">No bills in this period</div>'}</div>`;
+  },
+  async sale({id}){
+    setHead('Bill','',true);loading();
+    const s=await get('sale',{id});
+    setHead(s.bill_no,dmy(s.bill_date)+' · '+(s.party_name||'Cash customer'),true);
+    render(`<div class="card"><h2>Items</h2>${s.items.map(l=>`<div class="row"><div class="t"><b>${esc(l.item_name)}${l.tag?' · '+esc(l.tag):''}</b><small>${g(l.net_wt)} g net @ ₹${inr(l.rate_per_gm)}/g · making ₹${inr(l.mkg_amount)}</small></div><div class="n">₹${inr(l.item_total??l.total_amount)}</div></div>`).join('')}</div>
+      ${s.urds?.length?`<div class="card"><h2>Old gold taken</h2>${s.urds.map(u=>`<div class="row"><div class="t"><b>${esc(u.name||'Old gold')}</b><small>${g(u.net_wt)} g · ${u.purity}%</small></div><div class="n">₹${inr(u.amount)}</div></div>`).join('')}</div>`:''}
+      <div class="card"><h2>Totals</h2><div class="kv">
+        <span>Goods + making</span><span>₹${inr(s.bill_amount)}</span>
+        ${+s.bill_discount||+s.making_discount||+s.loyalty_discount?`<span>Discounts</span><span>− ₹${inr((+s.bill_discount||0)+(+s.making_discount||0)+(+s.loyalty_discount||0))}</span>`:''}
+        <span>GST ${s.gst_pct}%</span><span>₹${inr(s.gst_amount)}</span>
+        ${+s.tcs_amount?`<span>TCS</span><span>₹${inr(s.tcs_amount)}</span>`:''}
+        <span class="tot">Total</span><span class="tot">₹${inr(s.total_amount)}</span>
+        ${+s.urd_amount?`<span>Old gold</span><span>− ₹${inr(s.urd_amount)}</span>`:''}
+        ${+s.gss_amount?`<span>Scheme</span><span>− ₹${inr(s.gss_amount)}</span>`:''}
+        <span>Received</span><span>₹${inr(s.amount_received)}</span>
+        <span class="tot">Balance</span><span class="tot ${+s.net_balance>0.009?'dr':''}">₹${inr(s.net_balance)}</span>
+      </div></div>`);
+  },
+  async parties(state={}){
+    setHead('Khata','Customers and suppliers',false);selectNav('parties');
+    const q=state.q||'',type=state.type||'ALL';
+    render(`<div class="tools"><input type="search" id="q" placeholder="Search name or mobile" value="${esc(q)}"></div>
+      <div class="seg" style="margin-bottom:12px">${[['ALL','All'],['CUSTOMER','Customers'],['SUPPLIER','Suppliers'],['KARAGIR','Karagir']].map(([k,l])=>`<button data-type="${k}" aria-selected="${type===k}">${l}</button>`).join('')}</div><div id="out" class="empty">Loading…</div>`);
+    $('#q').addEventListener('change',e=>go('parties',{q:e.target.value,type}));
+    main.querySelectorAll('[data-type]').forEach(b=>b.addEventListener('click',()=>go('parties',{q,type:b.dataset.type})));
+    const rows=await get('parties',{type,search:q});const out=$('#out');if(!out)return;
+    out.className='card';
+    out.innerHTML=rows.length?rows.map(p=>`<div class="row tap" data-party="${p.id}"><div class="t"><b>${esc(p.name)}</b><small>${esc(p.party_type.toLowerCase())}${p.city?' · '+esc(p.city):''}${p.mobile?' · '+esc(p.mobile):''}</small></div><div class="n ${p.balance>0.009?'dr':p.balance<-0.009?'cr':''}">₹${inr(Math.abs(p.balance))}<small>${p.balance>0.009?'they owe':p.balance<-0.009?'we owe':'settled'}</small></div></div>`).join(''):'<div class="empty">No one found</div>';
+  },
+  async ledger({id,metal}){
+    setHead('Khata','',true);loading();
+    const d=metal?await get('metalLedger',{partyId:id,metal:'Gold'}):await get('ledger',{partyId:id});
+    setHead(d.party.name,(metal?'Gold khata · fine grams':'Money khata')+(d.party.mobile?' · '+d.party.mobile:''),true);
+    const fmt=metal?v=>g(v)+' g':v=>'₹'+inr(v);
+    const list=(rows,cls)=>rows.map(r=>`<div class="row"><div class="t"><b>${esc(r.particulars)}</b><small>${dmy(r.entry_date)}${r.doc_no?' · '+esc(r.doc_no):''}</small></div><div class="n ${cls}">${fmt(r.amount)}</div></div>`).join('')||'<div class="empty">None</div>';
+    render(`<div class="seg" style="margin-bottom:12px"><button id="m0" aria-selected="${!metal}">Money</button><button id="m1" aria-selected="${!!metal}">Gold</button></div>
+      <div class="tiles"><div class="tile"><div class="l">Closing balance</div><div class="v ${d.closingSide==='Dr'?'dr':'cr'}">${fmt(d.closing)}</div><div class="m">${d.closingSide==='Dr'?(metal?'they hold our metal':'they owe us'):(metal?'we hold their metal':'we owe them')}</div></div><div class="tile"><div class="l">Dr / Cr totals</div><div class="v" style="font-size:15px">${fmt(d.drTotal)}<br>${fmt(d.crTotal)}</div></div></div>
+      <div class="card"><h2>Debit · ${metal?'metal we gave':'they owe'}</h2>${list(d.debits,'dr')}</div>
+      <div class="card"><h2>Credit · ${metal?'metal they gave':'they paid / we owe'}</h2>${list(d.credits,'cr')}</div>`);
+    $('#m0').onclick=()=>go('ledger',{id,metal:false},true);$('#m1').onclick=()=>go('ledger',{id,metal:true},true);
+  },
+  async daybook(state={}){
+    setHead('Day Book','',false);selectNav('daybook');
+    const from=state.from||today(),to=state.to||from;
+    render(`<div class="tools"><input type="date" id="from" value="${from}"><input type="date" id="to" value="${to}"></div><div id="out" class="empty">Loading…</div>`);
+    const re=()=>go('daybook',{from:$('#from').value,to:$('#to').value});
+    $('#from').addEventListener('change',re);$('#to').addEventListener('change',re);
+    const d=await get('daybook',{from,to});const out=$('#out');if(!out)return;
+    setHead('Day Book',from===to?dmy(from):dmy(from)+' – '+dmy(to),false);
+    out.className='';
+    out.innerHTML=`<div class="card"><h2>Sales</h2><div class="kv"><span>Cash bills</span><span>₹${inr(d.sales.cash)}</span><span>Credit bills</span><span>₹${inr(d.sales.credit)}</span><span>Old gold taken</span><span>₹${inr(d.sales.urd)}</span><span class="tot">${d.sales.n} bills</span><span class="tot">₹${inr((+d.sales.cash||0)+(+d.sales.credit||0))}</span></div></div>
+      <div class="card"><h2>Purchases</h2><div class="kv"><span>Cash</span><span>₹${inr(d.purchases.cash)}</span><span>Credit</span><span>₹${inr(d.purchases.credit)}</span><span class="tot">${d.purchases.n} invoices</span><span class="tot">₹${inr((+d.purchases.cash||0)+(+d.purchases.credit||0))}</span></div></div>
+      <div class="card"><h2>Money received, by mode</h2>${d.receivedBy.length?`<div class="kv">${d.receivedBy.map(r=>`<span>${esc(r.mode)}</span><span>₹${inr(r.amount)}</span>`).join('')}</div>`:'<div class="empty">Nothing received</div>'}</div>
+      <div class="card"><h2>Vouchers</h2><div class="kv"><span>Receipts</span><span>₹${inr(d.receipts.RECEIPT||0)}</span><span>Payments</span><span>₹${inr(d.receipts.PAYMENT||0)}</span></div></div>
+      <div class="card"><h2>Cash &amp; bank</h2>${(d.accounts||[]).map(a=>`<div class="row"><div class="t"><b>${esc(a.name)}</b><small>opening ₹${inr(a.opening)}</small></div><div class="n">₹${inr(a.closing)}<small>closing</small></div></div>`).join('')||'<div class="empty">—</div>'}</div>
+      <div class="card"><h2>Gold stock (fine)</h2><div class="kv"><span>Opening</span><span>${g(d.stock.gold_opening)} g</span><span>Closing</span><span>${g(d.stock.gold_closing)} g</span><span>of which tagged</span><span>${g(d.stock.tagged_closing)} g</span><span>of which loose</span><span>${g(d.stock.loose_closing)} g</span><span>Old gold in safe</span><span>${g(d.stock.urd_closing)} g</span></div></div>`;
+  },
+  async outstanding(state={}){
+    setHead('Dues','Who owes whom',false);selectNav('outstanding');
+    const basis=state.basis||'money';
+    render(`<div class="seg" style="margin-bottom:12px"><button id="b0" aria-selected="${basis==='money'}">Money</button><button id="b1" aria-selected="${basis==='metal'}">Gold (fine g)</button></div><div id="out" class="empty">Loading…</div>`);
+    $('#b0').onclick=()=>go('outstanding',{basis:'money'});$('#b1').onclick=()=>go('outstanding',{basis:'metal'});
+    const d=await get('outstanding',{basis});const out=$('#out');if(!out)return;
+    const fmt=basis==='metal'?v=>g(v)+' g':v=>'₹'+inr(v);
+    const list=rows=>rows.map(r=>`<div class="row tap" data-party="${r.id}"><div class="t"><b>${esc(r.name)}</b><small>${esc(r.party_type.toLowerCase())}${r.mobile?' · '+esc(r.mobile):''}</small></div><div class="n">${fmt(r.balance)}</div></div>`).join('')||'<div class="empty">None</div>';
+    out.className='';
+    out.innerHTML=`<div class="tiles"><div class="tile"><div class="l">Owed to us</div><div class="v dr">${fmt(d.debtorTotal)}</div><div class="m">${d.debtors.length} parties</div></div><div class="tile"><div class="l">We owe</div><div class="v cr">${fmt(d.creditorTotal)}</div><div class="m">${d.creditors.length} parties</div></div></div>
+      <div class="card"><h2>They owe us</h2>${list(d.debtors)}</div><div class="card"><h2>We owe them</h2>${list(d.creditors)}</div>`;
+  },
+};
+
+async function go(name,state={},replace){
+  if(!replace&&!(stack.length&&stack[stack.length-1].name===name&&['stock','sales','parties','daybook','outstanding'].includes(name)))stack.push({name,state});
+  else stack[stack.length-1]={name,state};
+  try{await screens[name](state)}catch(e){fail(e)}
+}
+back.onclick=()=>{stack.pop();const p=stack.pop()||{name:'home',state:{}};go(p.name,p.state)};
+nav.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b){stack=[];go(b.dataset.go)}});
+main.addEventListener('click',e=>{
+  const s=e.target.closest('[data-sale]');if(s)return go('sale',{id:s.dataset.sale});
+  const p=e.target.closest('[data-party]');if(p)return go('ledger',{id:p.dataset.party});
+});
+$('#logout').onclick=async()=>{await fetch('/api/logout',{method:'POST'});me=null;showLogin()};
+
+function showLogin(err){
+  hdr.classList.add('hide');nav.classList.add('hide');
+  render(`<form class="login" id="lf"><h1>Parivar Jewellery ERP</h1><p>Sign in with your shop login. This view is read-only.</p>
+    ${err?`<div class="err">${esc(err)}</div>`:''}
+    <input id="u" placeholder="Username" autocomplete="username" autocapitalize="none" required>
+    <input id="p" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button class="btn" id="lb">Sign in</button></form>`);
+  $('#lf').onsubmit=async ev=>{ev.preventDefault();$('#lb').disabled=true;
+    try{me=await api('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:$('#u').value,password:$('#p').value})});await boot()}
+    catch(e){showLogin(e.message)}};
+}
+async function boot(){
+  try{me=await get('me')}catch{return showLogin()}
+  hdr.classList.remove('hide');nav.classList.remove('hide');stack=[];go('home');
+}
+boot();
+})();
+</script>
+</body>
+</html>

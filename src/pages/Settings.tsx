@@ -5,6 +5,7 @@ import { DEFAULT_INVOICE_CONFIG, invoiceHtml, loadConfig, type InvoiceConfig } f
 import { num } from '../lib/calc'
 import Users from './Users'
 import GoogleDrive from './GoogleDrive'
+import MobileAccess from './MobileAccess'
 
 /**
  * Making Master and Wastage Master — default making charges and wastage
@@ -193,7 +194,7 @@ function LoyaltySettings() {
 export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
   const run = useAction()
   const [tab, setTab] = useState<
-    'company' | 'invoice' | 'series' | 'accounts' | 'rates' | 'users' | 'data'
+    'company' | 'invoice' | 'series' | 'accounts' | 'rates' | 'users' | 'data' | 'mobile'
   >((initialTab as any) || 'company')
   const [form, setForm] = useState<any>(null)
   const info = useAsync(() => window.api.app.info(), [])
@@ -253,6 +254,7 @@ export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
           ['rates', 'Making & Wastage'],
           ['users', 'Users'],
           ['data', 'Data & Backup'],
+          ['mobile', 'Mobile View'],
         ] as const).map(([k, label]) => (
           <button key={k} className="tab" aria-selected={tab === k} onClick={() => setTab(k as any)}>
             {label}
@@ -441,6 +443,8 @@ export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
       )}
 
       {tab === 'users' && <Users />}
+
+      {tab === 'mobile' && <MobileAccess />}
 
       {tab === 'data' && (
         <>

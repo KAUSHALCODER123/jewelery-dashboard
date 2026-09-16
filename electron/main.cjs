@@ -7,6 +7,7 @@ const api = require('./api.cjs')
 const backups = require('./backup.cjs')
 const { auth, session, bootstrap } = require('./auth.cjs')
 const { gdrive, init: initDrive } = require('./gdrive.cjs')
+const { mobile, init: initMobile, stop: stopMobile } = require('./mobile.cjs')
 
 const isDev = process.env.NODE_ENV === 'development'
 let win = null
@@ -49,6 +50,7 @@ app.whenReady().then(() => {
   db.open(app.getPath('userData'))
   bootstrap()          // creates the default owner on a fresh database
   initDrive(app.getPath('userData'))
+  initMobile()         // read-only phone view, only if the owner switched it on
   registerIpc()
   createWindow()
 
@@ -56,6 +58,8 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
+
+app.on('before-quit', () => { stopMobile() })
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
@@ -102,6 +106,12 @@ const CHANNEL_PERMISSION = {
   'gdrive:backupNow': 'restore_backup',
   'gdrive:listBackups': 'restore_backup',
   'gdrive:openFolder': 'restore_backup',
+
+  // Mobile view opens the books to the shop's Wi-Fi — owner only.
+  'mobile:status': 'manage_settings',
+  'mobile:qr': 'manage_settings',
+  'mobile:setEnabled': 'manage_settings',
+  'mobile:setPort': 'manage_settings',
 }
 
 /** Channels usable before signing in. */
@@ -117,7 +127,7 @@ function guard(channel) {
  * Errors are returned as { ok:false, error } rather than thrown across the bridge.
  */
 function registerIpc() {
-  for (const [group, methods] of Object.entries({ ...api, auth, gdrive })) {
+  for (const [group, methods] of Object.entries({ ...api, auth, gdrive, mobile })) {
     for (const [name, fn] of Object.entries(methods)) {
       ipcMain.handle(`${group}:${name}`, async (_evt, payload) => {
         try {

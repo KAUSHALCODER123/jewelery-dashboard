@@ -192,6 +192,12 @@ declare global {
         inspect(): Promise<any>
         restore(p: { filePath: string }): Promise<any>
       }
+      mobile: {
+        status(): Promise<any>
+        qr(): Promise<string | null>
+        setEnabled(p: { enabled: boolean }): Promise<any>
+        setPort(p: { port: number }): Promise<any>
+      }
       gdrive: {
         status(): Promise<any>
         saveCredentials(p: { clientId: string; clientSecret: string }): Promise<boolean>

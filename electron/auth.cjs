@@ -238,5 +238,5 @@ const auth = {
 module.exports = {
   auth, session, bootstrap,
   can, assertAllowed, normalizeRole, ROLES,
-  hashPassword, randomSalt,
+  hashPassword, randomSalt, sameHash,
 }

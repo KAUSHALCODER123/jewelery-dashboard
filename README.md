@@ -92,6 +92,7 @@ npm run test:all
 | `npm run test:flows` | Real UI driven by clicks and keystrokes, verified in the DB | 121 |
 | `npm run test:auth` | Login, roles, permissions, staff management | 50 |
 | `npm run test:gdrive` | Drive config, token encryption, owner-only guards | 26 |
+| `npm run test:mobile` | Read-only phone view: login door, throttling, no write route, figures match desktop | 64 |
 | `npm run test:hunt` | Adversarial edge cases and abuse | 25 |
 | `npm run test:backup` | Backup inspection, restore, rollback and bad-file refusal | 22 |
 | `npm run test:weightwise` | Metal-basis billing, pending weight, making on top | 33 |
@@ -337,6 +338,37 @@ blank: the barcode across the full head width (thick bars scan reliably at 203 d
 `tag · item · purity`, then `G gross  N net`. The print dialog has a **Head length (mm)**
 box for a different tag stock; it is remembered on that machine. In the printer driver set
 the paper size to 100 × 15 mm and let the app's page size through.
+
+### Mobile view
+
+**Settings → Mobile View** switches on a small read-only web server inside the app, so a
+phone on the **same Wi-Fi** as the billing computer can open today's sales, stock by item,
+any party's khata (money and gold), the day book, dues and any bill. The screen shows the
+address and a QR code; scan it, sign in with the same login used on the desktop, and add
+the page to the phone's home screen.
+
+Off by default. Nothing is exposed beyond the shop network unless somebody forwards a
+router port, and nothing can be written from a phone:
+
+- `electron/mobile.cjs` has exactly one POST, `/api/login`. Every other route is a GET
+  that calls one whitelisted read function from `api.cjs`; there is no path to a save or
+  remove method, so a phone cannot change the books whatever it sends.
+- Phone sessions are their own in-memory tokens, in an `HttpOnly; SameSite=Strict`
+  cookie. They never touch the desktop session in `auth.cjs`, so a phone login cannot
+  become the user at the counter, and the counter being signed out does not sign the
+  phone out.
+- Passwords are checked with the same scrypt hash. Five wrong guesses from one address in
+  a minute and that address waits. A login the owner disables loses the phone at once.
+- The page is a single self-contained HTML file served with a CSP of `default-src 'none'`,
+  so it loads nothing from anywhere.
+
+`npm run test:mobile` covers the door (nothing without a login, wrong password, throttling,
+disabled login, forged cookie, sign-out), that every write-shaped route is a 404 or 405 and
+the books are unchanged afterwards, and that each figure the phone shows equals the desktop
+report it came from.
+
+Windows asks once, the first time the server starts, whether to allow the app on private
+networks. Answer **Allow** or phones cannot connect.
 
 ### Loyalty points
 

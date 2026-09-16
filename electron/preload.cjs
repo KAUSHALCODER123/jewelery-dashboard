@@ -86,6 +86,8 @@ contextBridge.exposeInMainWorld('api', {
     'status', 'saveCredentials', 'connect', 'disconnect',
     'setAutoDaily', 'backupNow', 'listBackups', 'openFolder',
   ]),
+  /** Read-only phone view over the shop Wi-Fi. Owner only. */
+  mobile: group('mobile', ['status', 'qr', 'setEnabled', 'setPort']),
   /** Hands a URL to the OS — used for WhatsApp / SMS / email. Nothing is sent by the app. */
   send: {
     whatsapp: (p) => ipcRenderer.invoke('send:whatsapp', p),

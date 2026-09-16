@@ -131,8 +131,10 @@
     <li><span class="n">14</span><strong>Reports and Khata</strong>
       <ul><li>Day book · Money khata · Gold khata · Sales register</li></ul></li>
     <li><span class="n">15</span><strong>Printing, WhatsApp and PDF</strong></li>
+    <li><span class="n">15b</span><strong>Seeing the Books on Your Phone</strong>
+      <ul><li>Switching it on · Scanning the code · What a phone can and cannot do</li></ul></li>
     <li><span class="n">16</span><strong>Backup — Do This Every Day</strong>
-      <ul><li>To a pen drive · To Google Drive</li></ul></li>
+      <ul><li>To a pen drive · To Google Drive · Moving to a new computer</li></ul></li>
     <li><span class="n">17</span><strong>Keyboard Shortcuts</strong></li>
     <li><span class="n">18</span><strong>How Every Number Is Calculated</strong></li>
     <li><span class="n">19</span><strong>Problems and Solutions</strong></li>
@@ -2002,6 +2004,70 @@
     it in Excel to make your own summaries or send to your accountant.
   </p>
 
+  <h2 style="margin-top:2em">15b. Seeing the Books on Your Phone</h2>
+  <p>
+    You do not have to be at the counter to know how the day went. The software can show
+    today's sales, the stock in the trays, any customer's or supplier's khata, the day book,
+    who owes what, and any bill — on a phone that is on the <strong>same Wi-Fi</strong> as the
+    billing computer.
+  </p>
+  <div class="note">
+    <b>Look, never touch</b>
+    A phone can only <strong>read</strong>. There is no way to make, change or delete a bill,
+    a receipt or a piece of stock from it, whoever is signed in. Everything is still entered
+    on the computer.
+  </div>
+
+  <h3>Switching it on (owner only)</h3>
+  <ol>
+    <li>Go to <strong>Settings → Mobile View</strong> and tick <strong>Turn on mobile view</strong>.</li>
+    <li>The first time, Windows asks whether to allow "Parivar Jewellery ERP" on private
+        networks. Choose <strong>Allow</strong>. If you choose Cancel by mistake, phones will
+        never connect — see Problems and Solutions.</li>
+    <li>A square code and an address such as <span class="mono">http://192.168.1.42:8765</span>
+        appear on the screen.</li>
+  </ol>
+
+  <h3>Opening it on the phone</h3>
+  <ol>
+    <li>Connect the phone to the shop Wi-Fi — the same one the computer uses.</li>
+    <li>Point the phone camera at the square code and tap the link that appears, or type the
+        address into Chrome or Safari.</li>
+    <li>Sign in with the same username and password you use on the computer.</li>
+    <li>In the browser menu choose <strong>Add to Home Screen</strong>. From then on it opens
+        with one tap, like any app.</li>
+  </ol>
+  <p>
+    The phone stays signed in for twelve hours, then asks again. The bottom bar switches
+    between Home, Stock, Sales, Khata, Day Book and Dues. Tap a bill to see its lines; tap a
+    name to open their khata, with a <strong>Money | Gold</strong> switch at the top.
+  </p>
+
+  <h3>What it can and cannot do</h3>
+  <table>
+    <tr><th>Works</th><th>Does not</th></tr>
+    <tr><td>Any phone or tablet with a browser — Android, iPhone, iPad</td>
+        <td>A phone outside the shop, on mobile data. It must be on the shop Wi-Fi.</td></tr>
+    <tr><td>Several phones at once, each with their own login</td>
+        <td>Making or editing anything. It is a window, not a door.</td></tr>
+    <tr><td>Staff logins as well as the owner</td>
+        <td>A login the owner has disabled — it is cut off immediately, even mid-session.</td></tr>
+    <tr><td>Working while the computer is signed out, as long as the software is open</td>
+        <td>Working while the software is closed or the computer is off.</td></tr>
+  </table>
+  <div class="tip">
+    <b>Keep it inside the shop</b>
+    Nothing is on the internet. The address only works on your own Wi-Fi. Do not set up
+    "port forwarding" on the router to reach it from outside — that would put your books
+    one password away from anyone. If you need the figures away from the shop, take a
+    backup to Google Drive instead and open it on another computer with the software.
+  </div>
+  <p>
+    Five wrong passwords in a minute from one phone and that phone is made to wait, so the
+    password cannot be guessed by trying. Switch mobile view off from the same Settings tab
+    at any time; every phone is signed out at once.
+  </p>
+
   <h2 style="margin-top:2em">16. Backup — Do This Every Day</h2>
 
   <div class="warn">
@@ -2068,6 +2134,37 @@
     If the file you choose is not a backup, is from a different program, or has been
     damaged, the app refuses it and tells you why. Your books are not touched.
   </p>
+
+
+  <h3>Moving to a new computer</h3>
+  <p>
+    Your whole shop is one file, so changing computers is a backup and a restore. Nothing is
+    typed in again and no bill number changes.
+  </p>
+  <ol>
+    <li><strong>On the old computer:</strong> finish the day's entries. Go to
+        Settings → Data &amp; Backup, press <strong>Create Backup</strong> and save it to a pen
+        drive. Note the bill count on the Dashboard so you can check it later.</li>
+    <li><strong>On the new computer:</strong> run the same installer (or a newer one — a newer
+        version reads an older backup). Open the software and sign in as admin / admin.</li>
+    <li>Go to Settings → Data &amp; Backup, press <strong>Choose Backup File…</strong> and pick
+        the file from the pen drive. Check the figures shown side by side — shop name,
+        customers, pieces, bills, last entry date — then press <strong>Replace my data</strong>.</li>
+    <li>The software restarts. Sign in with your <em>real</em> logins — they came across in
+        the backup, including every staff login and password. Check the Dashboard bill count
+        matches the note you made.</li>
+    <li>Set up what lives outside the data file: the printer and its paper size,
+        <strong>Settings → Invoice Design</strong> (which is saved per computer — press Test
+        Print), Google Drive (press Connect again on the new machine), and Mobile View if you
+        use it (Windows will ask to allow it once more).</li>
+    <li>Only when the new computer has run a full day correctly, stop using the old one. Do
+        not enter bills on both — the second machine's entries would be lost.</li>
+  </ol>
+  <div class="tip">
+    <b>The old computer is your fallback</b>
+    Leave the software and data on it for a few weeks before wiping it. If anything is
+    wrong on the new machine, you can still take a fresh backup from the old one.
+  </div>
 
   <h3>Backing up to Google Drive</h3>
   <p class="lead">
@@ -2342,6 +2439,19 @@
       <td><strong>The scanner does not read a label</strong></td>
       <td>Print larger — use the A4 sheet of 24 rather than 65 — and make sure the label is
           not creased across the bars.</td>
+    </tr>
+    <tr>
+      <td><strong>Phone cannot open the mobile view address</strong></td>
+      <td>Check the phone is on the shop Wi-Fi, not mobile data, and that Mobile View is on in
+          Settings. If Windows was told to block the app when it first asked, open Windows
+          Security → Firewall &amp; network protection → Allow an app through firewall, and
+          tick "Parivar Jewellery ERP" for private networks. Some routers keep Wi-Fi devices
+          apart from each other ("AP isolation") — switch that off.</td>
+    </tr>
+    <tr>
+      <td><strong>"Too many attempts" on the phone</strong></td>
+      <td>Five wrong passwords in a minute. Wait a minute and type it carefully — the
+          password is case-sensitive.</td>
     </tr>
     <tr>
       <td><strong>Google Drive keeps asking me to reconnect</strong></td>
