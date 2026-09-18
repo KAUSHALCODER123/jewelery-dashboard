@@ -89,6 +89,13 @@ declare global {
         remove(p: any): Promise<any>
         forPrint(p: any): Promise<any>
       }
+      urd: {
+        list(p?: any): Promise<any[]>
+        read(p: any): Promise<any>
+        save(p: any): Promise<any>
+        remove(p: any): Promise<any>
+        forPrint(p: any): Promise<any>
+      }
       purchase: {
         list(p?: any): Promise<any[]>
         read(p: any): Promise<any>
@@ -161,6 +168,7 @@ declare global {
         orderTracking(p?: any): Promise<any[]>
         metalOutstanding(p?: any): Promise<any[]>
         dayBook(p: any): Promise<any>
+        oldGold(p?: any): Promise<any>
         outstanding(p?: any): Promise<any[]>
         outstandingList(p?: any): Promise<any>
         reorder(): Promise<any[]>
@@ -180,7 +188,11 @@ declare global {
         mis(p?: any): Promise<any>
         reconcile(p?: any): Promise<any>
       }
-      calc: { saleTotals(p: any): Promise<any>; amountInWords(p: any): Promise<string> }
+      calc: {
+        saleTotals(p: any): Promise<any>
+        urdTotals(p: any): Promise<any>
+        amountInWords(p: any): Promise<string>
+      }
 
       print: {
         html(p: { html: string; silent?: boolean }): Promise<any>

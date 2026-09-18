@@ -9,6 +9,8 @@ import TagStock from './pages/TagStock'
 import Parties from './pages/Parties'
 import SalesList from './pages/SalesList'
 import Returns from './pages/Returns'
+import OldGold from './pages/OldGold'
+import OldGoldReport from './pages/OldGoldReport'
 import SalesInvoice from './pages/SalesInvoice'
 import Purchase from './pages/Purchase'
 import Receipts from './pages/Receipts'
@@ -42,6 +44,7 @@ const NAV: { group: string; items: { key: string; label: string; icon: any; kbd?
       { key: 'sales.new', label: 'Sales Invoice', icon: Icon.invoice, kbd: 'F2' },
       { key: 'sales', label: 'Sales Register', icon: Icon.book },
       { key: 'returns', label: 'Returns', icon: Icon.back },
+      { key: 'oldgold', label: 'Old Gold Purchase', icon: Icon.refine },
       { key: 'purchase', label: 'Purchase', icon: Icon.cart, kbd: 'F3' },
       { key: 'receipts', label: 'Receipts', icon: Icon.receipt, kbd: 'F4' },
       { key: 'orders', label: 'Orders', icon: Icon.order, kbd: 'F5' },
@@ -64,6 +67,7 @@ const NAV: { group: string; items: { key: string; label: string; icon: any; kbd?
       { key: 'stock', label: 'Stock Report', icon: Icon.stock },
       { key: 'stockcheck', label: 'Stock Verification', icon: Icon.check },
       { key: 'daybook', label: 'Day Book', icon: Icon.chart },
+      { key: 'oldgold.report', label: 'Old Gold Report', icon: Icon.refine },
       { key: 'ledger', label: 'Ledger / Khata', icon: Icon.ledger },
       { key: 'outstanding', label: 'Outstanding', icon: Icon.users },
       { key: 'books', label: 'Accounting Books', icon: Icon.balance },
@@ -84,6 +88,8 @@ const TITLES: Record<string, { title: string; sub?: string }> = {
   dashboard: { title: 'Dashboard' },
   'sales.new': { title: 'Sales Invoice', sub: 'Create a new bill' },
   sales: { title: 'Sales Register' },
+  oldgold: { title: 'Old Gold Purchase', sub: 'Buying old gold from a customer, with no sale against it' },
+  'oldgold.report': { title: 'Old Gold Report', sub: 'Every gram of old gold taken in — on sale bills and old gold bills' },
   purchase: { title: 'Purchase Invoice' },
   receipts: { title: 'Receipts & Payments' },
   orders: { title: 'Order Booking', sub: 'Karagir orders' },
@@ -299,6 +305,8 @@ function Page({ route, go }: { route: Route; go: (n: string, p?: any) => void })
     case 'suppliers': return <Parties type="SUPPLIER" key="supp" />
     case 'sales': return <SalesList go={go} />
     case 'returns': return <Returns />
+    case 'oldgold': return <OldGold billId={route.params?.id} />
+    case 'oldgold.report': return <OldGoldReport go={go} />
     case 'sales.new': return <SalesInvoice go={go} saleId={route.params?.id} />
     case 'purchase': return <Purchase go={go} />
     case 'receipts': return <Receipts />

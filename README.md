@@ -315,10 +315,14 @@ Over by 3.000 g      more was tagged against this invoice than it brought in
 ```
 
 The link is made on **Tag & Barcode → From loose metal → From purchase**: pick the invoice
-the pieces came from and each tag remembers it. The strip above the grid shows what the
-invoice bought, what is already labelled, and what these pieces will leave. The purchase
-screen has the same tally with the list of tags, and a **Make labels from this purchase**
-button that opens the tag screen with the invoice preselected.
+the pieces came from and each tag remembers it, or leave it on **All loose metal** to draw
+on the whole pool without tying the labels to any invoice. The strip above the grid shows
+what the invoice bought, what is already labelled, what has been sold untagged, and what
+these pieces will leave. The purchase screen has the same tally with the list of tags, and a
+**Make labels from this purchase** button that opens the tag screen with the invoice
+preselected. Saving a new purchase keeps it open so that button is right there, **Save &
+Make Labels** goes straight to the tag screen, and the purchase register has a label
+shortcut on every invoice that still has metal to label.
 
 The decision is taken on **net** weight: gross carries stones and beads, and fine carries
 the supplier's wastage, which the tags never do. Loose weight-wise items (mani, fuli) are
@@ -327,6 +331,14 @@ left out — they are never labelled, they are sold by the gram.
 Until it is labelled the metal is still sellable: a hand-typed line on a bill (no tag) now
 takes its fine weight **out of the loose pool**, and a return of such a line puts it back
 there rather than on the tagged side. Before this, untagged sales left the pool overstated.
+
+Such a line can also say **which purchase it came out of**: the bill grid has a **From
+Purchase** column (untagged metal lines only — a tagged piece already knows its invoice,
+and loose lots never wait for a label) listing every invoice with metal still to label. Its
+net weight then comes off that invoice's tally as *sold untagged*, the purchase screen lists
+the bill under its labels, and the line is refused if it takes more than the invoice still
+has unlabelled or names a purchase of a different metal. Left on *Loose pool*, the line
+behaves exactly as before.
 
 ### Barcode stickers on the TSC TL240
 
@@ -443,6 +455,25 @@ only fine could never be reconciled against the count it exists to check.
 Only physical cash goes in the drawer — card, UPI, NEFT and cheque all settle into the bank.
 That is what makes the two balances mean anything, and it is where the card-swipe fee comes
 out of.
+
+### Old gold bought on its own
+
+A customer can sell old gold with nothing bought against it. **Transactions → Old Gold
+Purchase** raises a bill in the `O` series: the same old-gold lines a sale bill carries
+(gross, net, purity, rate, priced on fine weight), a deduction if any, and how much was paid
+now — blank means paid in full. The metal lands in URD loose stock exactly as it does from a
+sale bill; the cash or bank account drops by what was paid; whatever was not paid sits on the
+customer's khata as a **credit** until a receipt voucher or their next purchase clears it. A
+walk-in with no customer record must be paid in full, because a balance has to sit on
+somebody's khata. The bill prints on the same A4 frame as the invoice.
+
+**Reports → Old Gold Report** lists every old-gold line in a period from both sources — sale
+bills and old gold bills — with gross, net, fine, rate and amount, the totals (fine grams
+taken in, rupees paid, average rate per fine gram), a split by source, a month-by-month table,
+and how much URD gold is in the safe right now. Clicking a row opens the bill it came from.
+
+Old gold bills count as Old Gold Purchase in the Day Book (their own row: paid / still owed),
+the Trading account and the trial balance, alongside the old gold exchanged on sale bills.
 
 ### Branches & stock transfer
 

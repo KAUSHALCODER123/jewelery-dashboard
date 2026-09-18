@@ -374,7 +374,10 @@ CREATE TABLE IF NOT EXISTS sale_item (
   total_amount     REAL NOT NULL DEFAULT 0,
   hallmark_charges REAL NOT NULL DEFAULT 0,
   huid             TEXT DEFAULT '',
-  item_total       REAL NOT NULL DEFAULT 0
+  item_total       REAL NOT NULL DEFAULT 0,
+  -- An untagged line sold straight out of a purchase, before it was ever
+  -- labelled. Names the invoice so its weight comes off that purchase's tally.
+  purchase_id      INTEGER REFERENCES purchase(id)
 );
 
 -- Old-gold / URD purchased from the customer inside a sale bill
@@ -644,9 +647,13 @@ CREATE TABLE IF NOT EXISTS urd_bill (
   gst_amount      REAL NOT NULL DEFAULT 0,
   amount_given    REAL NOT NULL DEFAULT 0,
   net_balance     REAL NOT NULL DEFAULT 0,
+  payment_mode    TEXT DEFAULT 'Cash',   -- how the customer was paid out
+  narration       TEXT DEFAULT '',
   created_at      TEXT NOT NULL DEFAULT (datetime('now','localtime')),
   UNIQUE (prefix, bill_no)
 );
+CREATE INDEX IF NOT EXISTS idx_urd_bill_date ON urd_bill(bill_date);
+CREATE INDEX IF NOT EXISTS idx_sale_urd_bill ON sale_urd(urd_bill_id);
 
 -- ─────────────────────────── Purchase ───────────────────────────
 CREATE TABLE IF NOT EXISTS purchase (

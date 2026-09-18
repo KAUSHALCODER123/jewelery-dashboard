@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('api', {
   series: group('series', ['list', 'peek', 'save']),
 
   sale: group('sale', ['list', 'read', 'save', 'remove', 'forPrint']),
+  urd: group('urd', ['list', 'read', 'save', 'remove', 'forPrint']),
   purchase: group('purchase', ['list', 'read', 'save', 'remove', 'tally', 'openForTagging']),
   refinery: group('refinery', ['list', 'read', 'save', 'remove']),
   order: group('order', ['list', 'read', 'save', 'setStatus', 'remove', 'toInvoice']),
@@ -61,12 +62,12 @@ contextBridge.exposeInMainWorld('api', {
 
   reports: group('reports', [
     'stock', 'ledger', 'metalLedger', 'accountCumStock', 'metalOutstanding', 'orderTracking',
-    'dayBook', 'outstanding', 'outstandingList', 'reorder', 'gstRegister', 'dashboard',
+    'dayBook', 'oldGold', 'outstanding', 'outstandingList', 'reorder', 'gstRegister', 'dashboard',
     'trialBalance', 'profitAndLoss', 'balanceSheet',
     'cashBook', 'journal', 'register',
     'gstReturn', 'gstSummary', 'hsnSummary', 'tcsTds', 'schemeReport', 'mis', 'reconcile',
   ]),
-  calc: group('calc', ['saleTotals', 'amountInWords']),
+  calc: group('calc', ['saleTotals', 'urdTotals', 'amountInWords']),
 
   print: {
     html: (payload) => ipcRenderer.invoke('print:html', payload),

@@ -34,13 +34,18 @@ export default function Purchase({ go }: { go?: (name: string, params?: any) => 
   const [editId, setEditId] = useState<number | null>(null)
 
   if (mode === 'edit') {
-    return <PurchaseForm id={editId} go={go} onDone={() => { setMode('list'); setEditId(null) }} />
+    return <PurchaseForm id={editId} go={go} onDone={() => { setMode('list'); setEditId(null) }}
+      // A freshly saved invoice stays open, now with its labels tally and the
+      // "Make labels" button — the next thing the shop does with a purchase.
+      onSaved={(id) => setEditId(id)} />
   }
   return <PurchaseList onNew={() => { setEditId(null); setMode('edit') }}
-    onOpen={(id) => { setEditId(id); setMode('edit') }} />
+    onOpen={(id) => { setEditId(id); setMode('edit') }} go={go} />
 }
 
-function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: number) => void }) {
+function PurchaseList({ onNew, onOpen, go }: {
+  onNew: () => void; onOpen: (id: number) => void; go?: (name: string, params?: any) => void
+}) {
   const [from, setFrom] = useState(monthStartISO())
   const [to, setTo] = useState(todayISO())
   const list = useAsync(() => window.api.purchase.list({ from, to }), [from, to])
@@ -76,7 +81,7 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
                   <tr><th>Invoice</th><th>Date</th><th>Supplier</th><th>Mode</th>
                     <th className="r">Gross</th><th className="r">Net</th><th className="r">Fine</th>
                     <th>Labels</th>
-                    <th className="r">Bill Amt</th><th className="r">Balance</th></tr>
+                    <th className="r">Bill Amt</th><th className="r">Balance</th><th></th></tr>
                 </thead>
                 <tbody>
                   {rows.map((r: any) => (
@@ -94,6 +99,12 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
                       <td className="r num">{num(r.net_balance) > 0
                         ? <span className="danger">{money(r.net_balance)}</span>
                         : <span className="ok">Settled</span>}</td>
+                      <td className="r" onClick={(e) => e.stopPropagation()}>
+                        {go && (r.tally?.status === 'PENDING' || r.tally?.status === 'OVER') && (
+                          <button className="btn btn-ghost btn-icon btn-sm" title="Make labels from this purchase"
+                            onClick={() => go('tags', { purchaseId: r.id })}><Icon.tag /></button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -105,6 +116,7 @@ function PurchaseList({ onNew, onOpen }: { onNew: () => void; onOpen: (id: numbe
                     <td className="r num strong gold">{wt(sumW('in_fine_wt'))}</td>
                     <td></td>
                     <td className="r num strong">₹{money(total)}</td>
+                    <td></td>
                     <td></td>
                   </tr>
                 </tfoot>
@@ -130,8 +142,9 @@ function TallyBadge({ t }: { t: any }) {
   return <span className="badge badge-danger">Over by {wt(Math.abs(t.pending_net))} g</span>
 }
 
-function PurchaseForm({ id, onDone, go }: {
-  id: number | null; onDone: () => void; go?: (name: string, params?: any) => void
+function PurchaseForm({ id, onDone, onSaved, go }: {
+  id: number | null; onDone: () => void; onSaved?: (id: number) => void
+  go?: (name: string, params?: any) => void
 }) {
   const run = useAction()
   const [head, setHead] = useState<any>(blankHead())
@@ -197,7 +210,13 @@ function PurchaseForm({ id, onDone, go }: {
     )
   }, [dir])
 
-  const save = async () => {
+  /**
+   * Save, then either go straight to Tag & Barcode with this invoice preselected
+   * (`thenLabels`), or stay on the saved invoice so its labels tally and the
+   * "Make labels" button are right there. Only an edit of an already-saved
+   * invoice goes back to the register, as before.
+   */
+  const save = async (thenLabels = false) => {
     setBusy(true)
     const res = await run(async () => {
       const filled = lines.filter((r) => r.item_name && num(r.gross_wt) > 0)
@@ -206,7 +225,10 @@ function PurchaseForm({ id, onDone, go }: {
       return window.api.purchase.save({ head, items: filled })
     }, 'Purchase saved')
     setBusy(false)
-    if (res) onDone()
+    if (!res) return
+    if (thenLabels && go) go('tags', { purchaseId: res.id })
+    else if (!head.id && onSaved) onSaved(res.id)
+    else onDone()
   }
 
   const remove = async () => {
@@ -472,6 +494,9 @@ function PurchaseForm({ id, onDone, go }: {
                   <W label="Bought — Net" v={tally.data.bought_net} />
                   <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)' }} />
                   <W label={`Labelled — ${tally.data.tagged_pieces} pcs`} v={tally.data.tagged_net} gold />
+                  {tally.data.sold_loose_net > 0 && (
+                    <W label={`Sold untagged — ${tally.data.sold_loose_lines} lines`} v={tally.data.sold_loose_net} />
+                  )}
                   <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--line)' }} />
                   <W label={tally.data.pending_net >= 0 ? 'Still to label (net)' : 'Over the purchase (net)'}
                     v={Math.abs(tally.data.pending_net)} bold />
@@ -513,8 +538,30 @@ function PurchaseForm({ id, onDone, go }: {
                 ) : (
                   <p className="small muted" style={{ margin: 0 }}>
                     No labels made from this purchase yet. The metal is still in the loose pool —
-                    it can be sold by weight as it is, or tagged from Tag &amp; Barcode → From loose metal.
+                    it can be sold by weight as it is (pick this invoice under "From Purchase" on
+                    the bill line), or tagged from Tag &amp; Barcode → From loose metal.
                   </p>
+                )}
+                {tally.data.loose_sales?.length > 0 && (
+                  <div className="table-wrap" style={{ maxHeight: 180, marginTop: 10 }}>
+                    <table className="data">
+                      <thead><tr><th>Bill</th><th>Date</th><th>Customer</th><th>Item</th>
+                        <th className="r">Gross</th><th className="r">Net</th><th className="r">Purity</th></tr></thead>
+                      <tbody>
+                        {tally.data.loose_sales.map((x: any) => (
+                          <tr key={x.id}>
+                            <td className="mono strong">{x.bill_no}</td>
+                            <td>{dmy(x.bill_date)}</td>
+                            <td>{x.party_name || <span className="muted">Counter</span>}</td>
+                            <td>{x.item_name} <span className="badge badge-mute">untagged</span></td>
+                            <td className="r num">{wt(x.gross_wt)}</td>
+                            <td className="r num">{wt(x.net_wt)}</td>
+                            <td className="r num">{x.purity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </>
             )}
@@ -526,7 +573,12 @@ function PurchaseForm({ id, onDone, go }: {
         <span className="spacer" />
         {head.id && <button className="btn btn-danger" onClick={() => setConfirmDel(true)}><Icon.trash /> Delete</button>}
         <button className="btn" onClick={onDone}>Cancel</button>
-        <button className="btn btn-primary" onClick={save} disabled={busy}>
+        {go && (
+          <button className="btn" onClick={() => save(true)} disabled={busy} title="Save this invoice and open Tag & Barcode with it preselected">
+            <Icon.tag /> Save &amp; Make Labels
+          </button>
+        )}
+        <button className="btn btn-primary" onClick={() => save(false)} disabled={busy}>
           {busy ? <span className="spinner" /> : <Icon.save />} Save Purchase
         </button>
       </div>

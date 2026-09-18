@@ -168,20 +168,20 @@ function tscTagHtml(
       t.tag,
       o.showItem && (t.item_name || ''),
       o.showPurity && t.purity ? `${Number(t.purity).toFixed(1)}%` : '',
-    ].filter(Boolean).join(' · ')
+    ].filter(Boolean).join('  ')
     const l2 = [
       o.showGross ? `G ${wt3(t.gross_wt)}` : '',
       o.showNet ? `N ${wt3(t.net_wt)}` : '',
       o.shopName || '',
-    ].filter(Boolean).join('   ')
+    ].filter(Boolean).join('  ')
     return `<div class="tag">
       <div class="head">
         <div class="bc">${barcodeSvg(t.tag, { moduleWidth: 1, height: 22, showText: false })
           // Stretch to the full head width: bars get wider in proportion, so
           // the code stays valid and every bar is several printer dots wide.
           .replace('<svg ', '<svg preserveAspectRatio="none" ')}</div>
-        <div class="l1">${escapeXml(l1)}</div>
-        ${l2 ? `<div class="l2">${escapeXml(l2)}</div>` : ''}
+        <div class="l1"><span>${escapeXml(l1)}</span></div>
+        ${l2 ? `<div class="l2"><span>${escapeXml(l2)}</span></div>` : ''}
       </div>
     </div>`
   }).join('')
@@ -209,22 +209,38 @@ function tscTagHtml(
   .tag + .tag { break-before: page; page-break-before: always; }
   .tag.blank { visibility: hidden; }
   /*
-   * Generous top and bottom margins: the TL240's feed lands each tag up to
-   * ~2 mm off, and a print that fills the full 15 mm loses its top bars or
-   * its weight line whenever it does. The shop's first run had the barcode
-   * flush with the top edge and the weight line cut in half at the bottom.
-   * Everything the tag carries fits in the middle ~10 mm.
+   * Every row has an EXPLICIT height and the rows are stacked from the top,
+   * so where each one lands is arithmetic, not the browser's guess:
+   *
+   *     0.9  top margin
+   *     5.0  barcode
+   *     0.2
+   *     3.5  tag · item · purity        9 pt
+   *     0.2
+   *     3.7  weights                    9.5 pt bold
+   *     0.9  bottom margin
+   *    ────
+   *    14.4  = the box
+   *
+   * The earlier layout padded 2 mm top and bottom and let the two text lines
+   * find their own height inside what was left; on the printer's font metrics
+   * the weight line ended up straddling the clipped bottom padding and lost
+   * its lower half, even though the tag had room. Nothing below clips a text
+   * line any more — only the head box as a whole, and only past its edge.
    */
   .head {
-    width: ${head}mm; height: 14.4mm; padding: 2mm 2mm 2.2mm;
-    display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+    width: ${head}mm; height: 14.4mm; padding: 0.9mm 1.5mm 0;
+    display: flex; flex-direction: column; overflow: hidden;
   }
-  .bc { line-height: 0; }
-  .bc svg { width: 100%; height: 5.2mm; display: block; }
-  .l1 { font-size: 6pt; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden;
+  .bc { line-height: 0; height: 5mm; flex: none; }
+  .bc svg { width: 100%; height: 5mm; display: block; }
+  /* The lines themselves never clip: a long name runs on to the right and is
+     cut by the head box at its edge, but a descender is never cut. */
+  .l1, .l2 { flex: none; white-space: nowrap; display: flex; align-items: center; }
+  .l1 { height: 3.5mm; margin-top: 0.2mm; font-size: 9pt; font-weight: 700; line-height: 1.15;
+        font-family: "Segoe UI", Arial, sans-serif; }
+  .l2 { height: 3.7mm; margin-top: 0.2mm; font-size: 9.5pt; font-weight: 700; line-height: 1.15;
         font-family: Consolas, "Segoe UI", monospace; }
-  .l2 { font-size: 6.5pt; font-weight: 700; line-height: 1.1; white-space: nowrap; overflow: hidden;
-        font-family: Consolas, monospace; }
   @media print { .tag { background: none; } }
 </style>
 ${cells}`

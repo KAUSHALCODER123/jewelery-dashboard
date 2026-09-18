@@ -1389,11 +1389,15 @@ function computeBooks(db, { from, to, openingStock = 0 } = {}) {
   const karagir = one(
     `SELECT COALESCE(SUM(labour_amount),0) labour, COALESCE(SUM(tds_amount),0) tds
      FROM karagir_receive WHERE receive_date BETWEEN @from AND @to`)
+  // Old gold bought on its own bill, with no sale against it.
+  const urdBills = one(
+    `SELECT COALESCE(SUM(purchase_amount - discount + other_amount),0) amt
+     FROM urd_bill WHERE bill_date BETWEEN @from AND @to`)
 
   // ── trading heads (net of returns) ──
   const salesRevenue = calc.r2(num(sales.goods) + num(settle.goods) - num(salesRet.goods))
   const purchases = calc.r2(num(purch.goods) - num(purchRet.goods))
-  const oldGold = calc.r2(num(sales.urd))
+  const oldGold = calc.r2(num(sales.urd) + num(urdBills.amt))
   const discountAllowed = calc.r2(num(sales.discount))
   const otherCharges = calc.r2(num(sales.other))
 
@@ -1478,8 +1482,10 @@ function computeBooks(db, { from, to, openingStock = 0 } = {}) {
      WHERE p2.invoice_date BETWEEN @from AND @to`).get(p).v)
   const fineUrd = calc.r3(db.prepare(
     `SELECT COALESCE(SUM(u.final_wt),0) v
-     FROM sale_urd u JOIN sale s2 ON s2.id = u.sale_id
-     WHERE s2.bill_date BETWEEN @from AND @to`).get(p).v)
+     FROM sale_urd u
+     LEFT JOIN sale s2 ON s2.id = u.sale_id
+     LEFT JOIN urd_bill b2 ON b2.id = u.urd_bill_id
+     WHERE COALESCE(s2.bill_date, b2.bill_date) BETWEEN @from AND @to`).get(p).v)
   const fineAcquired = calc.r3(fineBought + fineUrd)
   const avgMetalCost = fineAcquired > 0
     ? calc.r2((purchases + oldGold) / fineAcquired) : 0
@@ -1802,11 +1808,11 @@ const sale = {
         `INSERT INTO sale_item (sale_id, line_no, tag, tag_stock_id, item_id, item_name, hsn, qty,
          gross_wt, purity, stone_wt, stone_rate, stone_amount, diamond_wt, diamond_rate,
          diamond_amount, net_wt, rate_per_gm, mkg_per_gm, mkg_pct, mkg_amount, total_amount,
-         hallmark_charges, huid, item_total)
+         hallmark_charges, huid, item_total, purchase_id)
          VALUES (@sale_id,@line_no,@tag,@tag_stock_id,@item_id,@item_name,@hsn,@qty,@gross_wt,
          @purity,@stone_wt,@stone_rate,@stone_amount,@diamond_wt,@diamond_rate,@diamond_amount,
          @net_wt,@rate_per_gm,@mkg_per_gm,@mkg_pct,@mkg_amount,@total_amount,
-         @hallmark_charges,@huid,@item_total)`
+         @hallmark_charges,@huid,@item_total,@purchase_id)`
       )
       computed.items.forEach((l, i) => {
         // A tag_stock_id that names no piece would trip the line's foreign key
@@ -1822,12 +1828,33 @@ const sale = {
             )
           }
         }
+        // An untagged line can name the purchase it was sold out of, so the
+        // metal comes off that invoice's tally instead of just the loose pool.
+        // Only a hand-typed metal line can: a tagged piece already belongs to
+        // its purchase, and beads were never waiting for a label.
+        const purchase_id = !l.tag_stock_id && !l.is_loose ? (num(l.purchase_id) || null) : null
+        if (purchase_id) {
+          const pu = db.prepare(`SELECT id, invoice_no, metal FROM purchase WHERE id = ?`).get(purchase_id)
+          if (!pu) throw new Error(`Line ${i + 1}: that purchase no longer exists.`)
+          if (pu.metal !== (l.metal || 'Gold')) {
+            throw new Error(
+              `Line ${i + 1}: ${pu.invoice_no} is a ${pu.metal} purchase — this line is ${l.metal || 'Gold'}.`
+            )
+          }
+          const left = purchaseTally(db, purchase_id).pending_net
+          if (num(l.net_wt) > left + 0.005) {
+            throw new Error(
+              `Line ${i + 1}: only ${left.toFixed(3)} g of ${pu.invoice_no} is still unlabelled — ` +
+              `this line takes ${num(l.net_wt).toFixed(3)} g.`
+            )
+          }
+        }
         insItem.run({
           tag: '', tag_stock_id: null, item_id: null, hsn: '', qty: 0, gross_wt: 0, purity: 0,
           stone_wt: 0, stone_rate: 0, stone_amount: 0, diamond_wt: 0, diamond_rate: 0,
           diamond_amount: 0, rate_per_gm: 0, mkg_per_gm: 0, mkg_pct: 0,
           hallmark_charges: 0, huid: '',
-          ...l, sale_id: id, line_no: i + 1,
+          ...l, sale_id: id, line_no: i + 1, purchase_id,
           // The grid clears the making fields to '' when the other one is used.
           // Those are REAL columns, so coerce rather than store an empty string.
           mkg_per_gm: num(l.mkg_per_gm), mkg_pct: num(l.mkg_pct),
@@ -2066,6 +2093,210 @@ const sale = {
   },
 }
 
+/* ───────────────────────── Old gold purchase (URD bill) ───────────────────────── */
+
+/**
+ * A customer sells old gold with nothing bought against it.
+ *
+ * The lines are the very same `sale_urd` rows a sale bill carries — keyed on
+ * `urd_bill_id` instead of `sale_id` — so the URD stock, the Day Book's old
+ * gold position and the Old Gold report all see both kinds in one place, and
+ * nothing downstream has to know which way the metal came in.
+ *
+ * Money is the mirror of a sale: the shop owes the customer the bill's value,
+ * pays some or all of it now out of cash or bank, and whatever is left sits on
+ * the customer's khata as a credit (a negative balance), where a receipt
+ * voucher or their next purchase clears it.
+ */
+const urd = {
+  list: ({ from, to, search } = {}) => {
+    const clauses = []
+    if (from) clauses.push(`b.bill_date >= @from`)
+    if (to) clauses.push(`b.bill_date <= @to`)
+    if (search)
+      clauses.push(`(b.bill_no LIKE '%'||@search||'%' OR b.party_name LIKE '%'||@search||'%')`)
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    return get()
+      .prepare(
+        `SELECT b.*,
+                (b.purchase_amount - b.discount + b.other_amount) AS total_amount,
+                (SELECT COALESCE(SUM(u.gross_wt),0) FROM sale_urd u WHERE u.urd_bill_id = b.id) gross_wt,
+                (SELECT COALESCE(SUM(u.net_wt),0)   FROM sale_urd u WHERE u.urd_bill_id = b.id) net_wt,
+                (SELECT COALESCE(SUM(u.final_wt),0) FROM sale_urd u WHERE u.urd_bill_id = b.id) fine_wt,
+                (SELECT COUNT(*) FROM sale_urd u WHERE u.urd_bill_id = b.id) lines
+         FROM urd_bill b ${where} ORDER BY b.bill_date DESC, b.id DESC LIMIT 500`
+      )
+      .all({ from: from ?? '', to: to ?? '', search: search ?? '' })
+  },
+
+  read: ({ id }) => {
+    const db = get()
+    const head = db.prepare(`SELECT * FROM urd_bill WHERE id = ?`).get(id)
+    if (!head) return null
+    head.total_amount = calc.r2(
+      num(head.purchase_amount) - num(head.discount) + num(head.other_amount))
+    head.urds = db
+      .prepare(`SELECT * FROM sale_urd WHERE urd_bill_id = ? ORDER BY line_no`)
+      .all(id)
+    return head
+  },
+
+  /**
+   * Create or update an old gold bill. Side effects: consumes a bill number,
+   * books the metal into URD loose stock, and posts the money and metal ledgers.
+   */
+  save: (payload) => {
+    const db = get()
+    const tx = db.transaction(() => {
+      const head = payload.head || {}
+      const computed = calc.urdTotals(head, payload.urds || [])
+      const t = computed.totals
+      if (!computed.urds.length) {
+        throw new Error('Add at least one old gold line with a weight, purity and rate')
+      }
+      if (t.amount_given > t.total_amount + 0.005) {
+        throw new Error(
+          `Paying ₹${t.amount_given.toFixed(2)} on a bill worth ₹${t.total_amount.toFixed(2)} — ` +
+          'the customer is owed less than that.'
+        )
+      }
+      // A balance has to sit on somebody's khata. With no customer on the bill
+      // there is nobody to owe, so it must be settled on the spot.
+      if (!head.party_id && Math.abs(t.net_balance) >= 0.005) {
+        throw new Error('Select a customer to leave a balance on their khata, or pay the bill in full.')
+      }
+
+      let id = head.id
+      let bill_no = head.bill_no
+      if (id) {
+        clearPostings(db, 'URD', id)
+        db.prepare(`DELETE FROM sale_urd WHERE urd_bill_id = ?`).run(id)
+      } else {
+        bill_no = nextDocNo('URD', head.prefix || 'O')
+      }
+
+      const row = {
+        manual_no: '', party_id: null, party_name: '', by_hand: '', address: '', mobile: '',
+        state: 'Maharashtra', narration: '',
+        ...head,
+        prefix: head.prefix || 'O',
+        bill_no,
+        bill_date: head.bill_date || today(),
+        payment_mode: head.payment_mode || 'Cash',
+        is_credit: t.net_balance > 0.005 ? 1 : 0,
+        purchase_amount: t.purchase_amount, sub_tax: 0, discount: t.discount,
+        other_amount: t.other_amount, gst_amount: 0,
+        amount_given: t.amount_given, net_balance: t.net_balance,
+      }
+
+      if (id) {
+        db.prepare(
+          `UPDATE urd_bill SET manual_no=@manual_no, bill_date=@bill_date, party_id=@party_id,
+           party_name=@party_name, by_hand=@by_hand, address=@address, mobile=@mobile,
+           state=@state, is_credit=@is_credit, purchase_amount=@purchase_amount,
+           sub_tax=@sub_tax, discount=@discount, other_amount=@other_amount,
+           gst_amount=@gst_amount, amount_given=@amount_given, net_balance=@net_balance,
+           payment_mode=@payment_mode, narration=@narration WHERE id=@id`
+        ).run(row)
+      } else {
+        id = db
+          .prepare(
+            `INSERT INTO urd_bill (prefix, bill_no, manual_no, bill_date, party_id, party_name,
+             by_hand, address, mobile, state, is_credit, purchase_amount, sub_tax, discount,
+             other_amount, gst_amount, amount_given, net_balance, payment_mode, narration)
+             VALUES (@prefix,@bill_no,@manual_no,@bill_date,@party_id,@party_name,@by_hand,
+             @address,@mobile,@state,@is_credit,@purchase_amount,@sub_tax,@discount,
+             @other_amount,@gst_amount,@amount_given,@net_balance,@payment_mode,@narration)`
+          )
+          .run(row).lastInsertRowid
+      }
+
+      // ── the metal, line by line, into URD loose stock ──
+      const insUrd = db.prepare(
+        `INSERT INTO sale_urd (sale_id, urd_bill_id, line_no, code, name, description, gross_wt,
+         net_wt, purity, final_wt, rate, amount)
+         VALUES (NULL,@urd_bill_id,@line_no,@code,@name,@description,@gross_wt,@net_wt,@purity,
+         @final_wt,@rate,@amount)`
+      )
+      computed.urds.forEach((u, i) => {
+        insUrd.run({
+          code: `MO${i + 1}`, name: 'Old Gold', description: '', gross_wt: 0, purity: 0, rate: 0,
+          ...u, urd_bill_id: id, line_no: i + 1,
+        })
+        db.prepare(
+          `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
+           direction, is_urd, entry_date) VALUES ('Gold',?,?,?,'URD',?,?,'IN',1,?)`
+        ).run(num(u.gross_wt), num(u.net_wt), num(u.final_wt), id, bill_no, row.bill_date)
+      })
+
+      // ── money ──
+      // The customer's khata: we owe them the bill (credit), and what we handed
+      // over comes back off it (debit). A fully paid bill nets to nothing but
+      // still shows both legs, so the ledger reads as what actually happened.
+      if (row.party_id) {
+        postLedger(db, {
+          entry_date: row.bill_date, party_id: row.party_id, doc_type: 'URD', doc_id: id,
+          doc_no: bill_no, manual_no: row.manual_no || '',
+          particulars: 'Old Gold Purchase', credit: t.total_amount,
+        })
+        if (t.amount_given > 0) {
+          postLedger(db, {
+            entry_date: row.bill_date, party_id: row.party_id, doc_type: 'URD', doc_id: id,
+            doc_no: bill_no,
+            particulars: CASH_MODES.has(row.payment_mode) ? 'Cash Account' : 'Bank Account',
+            debit: t.amount_given,
+          })
+        }
+      }
+      // Money out of the drawer or the bank.
+      if (t.amount_given > 0) {
+        postLedger(db, {
+          entry_date: row.bill_date, account_id: moneyAccountFor(db, row.payment_mode),
+          doc_type: 'URD', doc_id: id, doc_no: bill_no,
+          particulars: `${row.party_name || 'Old gold purchase'} — old gold`,
+          credit: t.amount_given,
+        })
+      }
+
+      // ── metal: the customer handed us gold ──
+      if (row.party_id && t.total_fine_wt > 0) {
+        db.prepare(
+          `INSERT INTO metal_entry (entry_date, party_id, metal, doc_type, doc_id, doc_no,
+           particulars, fine_in, fine_out) VALUES (?,?,'Gold','URD',?,?,?,?,0)`
+        ).run(row.bill_date, row.party_id, id, bill_no, 'Old gold purchase', t.total_fine_wt)
+      }
+
+      return { id, bill_no }
+    })
+    return tx()
+  },
+
+  remove: ({ id }) => {
+    const db = get()
+    const tx = db.transaction(() => {
+      clearPostings(db, 'URD', id)
+      db.prepare(`DELETE FROM sale_urd WHERE urd_bill_id = ?`).run(id)
+      db.prepare(`DELETE FROM urd_bill WHERE id = ?`).run(id)
+      return true
+    })
+    return tx()
+  },
+
+  /** Everything the old gold bill print needs, in one call. */
+  forPrint: ({ id }) => {
+    const db = get()
+    const bill = urd.read({ id })
+    if (!bill) return null
+    return {
+      company: company.read(),
+      bill,
+      party: bill.party_id ? db.prepare(`SELECT * FROM party WHERE id=?`).get(bill.party_id) : null,
+      pending_balance: bill.party_id ? party.balance({ id: bill.party_id }).balance : 0,
+      amount_in_words: calc.amountInWords(bill.total_amount),
+    }
+  },
+}
+
 /* ───────────────────────────── Purchase ───────────────────────────── */
 
 /**
@@ -2095,8 +2326,17 @@ function purchaseTally(db, id) {
             COALESCE(SUM(CASE WHEN status = 'SOLD' THEN 1 ELSE 0 END),0) sold
      FROM tag_stock WHERE purchase_id = ?`
   ).get(id)
-  const pending_gross = calc.r3(bought.gross - tagged.gross)
-  const pending_net = calc.r3(bought.net - tagged.net)
+  // Metal sold untagged straight off this invoice — a bill line that named the
+  // purchase it came from. It never got a label, but it has left the shop, so
+  // it is no longer waiting for one.
+  const soldLoose = db.prepare(
+    `SELECT COUNT(*) lines,
+            COALESCE(SUM(gross_wt),0) gross, COALESCE(SUM(net_wt),0) net,
+            COALESCE(SUM(net_wt * purity / 100),0) fine
+     FROM sale_item WHERE purchase_id = ? AND tag_stock_id IS NULL`
+  ).get(id)
+  const pending_gross = calc.r3(bought.gross - tagged.gross - soldLoose.gross)
+  const pending_net = calc.r3(bought.net - tagged.net - soldLoose.net)
   const status = bought.net <= 0.0005
     ? 'NONE'
     : Math.abs(pending_net) <= 0.005 ? 'TALLIED'
@@ -2108,6 +2348,9 @@ function purchaseTally(db, id) {
     tagged_pieces: tagged.pieces, tagged_sold: tagged.sold,
     tagged_gross: calc.r3(tagged.gross), tagged_net: calc.r3(tagged.net),
     tagged_fine: calc.r3(tagged.fine),
+    sold_loose_lines: soldLoose.lines,
+    sold_loose_gross: calc.r3(soldLoose.gross), sold_loose_net: calc.r3(soldLoose.net),
+    sold_loose_fine: calc.r3(soldLoose.fine),
     pending_gross, pending_net, status,
   }
 }
@@ -2149,6 +2392,13 @@ const purchase = {
                 ts.entry_date, i.name AS item_name
          FROM tag_stock ts JOIN item i ON i.id = ts.item_id
          WHERE ts.purchase_id = ? ORDER BY ts.tag`
+      ).all(id),
+      loose_sales: db.prepare(
+        `SELECT si.id, si.item_name, si.gross_wt, si.net_wt, si.purity,
+                s.bill_no, s.bill_date, s.party_name
+         FROM sale_item si JOIN sale s ON s.id = si.sale_id
+         WHERE si.purchase_id = ? AND si.tag_stock_id IS NULL
+         ORDER BY s.bill_date, s.id, si.line_no`
       ).all(id),
     }
   },
@@ -4788,6 +5038,86 @@ const reports = {
     }
   },
 
+  /**
+   * Old Gold report — every piece of old gold the shop took in, whether on a
+   * sale bill (exchanged against new jewellery) or on an old gold bill of its
+   * own (bought outright), one row per line with the weights it was priced on.
+   *
+   * The totals are what the owner actually asks: how many grams of fine gold
+   * came in, what was paid for it, and what that works out to per gram. The
+   * stock strip is not period-bound — it is the URD gold sitting in the safe
+   * right now, after whatever has been melted or converted out.
+   */
+  oldGold: ({ from, to, search } = {}) => {
+    const db = get()
+    const range = { from: from || '1900-01-01', to: to || '2999-12-31', search: search ?? '' }
+    const rows = db.prepare(
+      `SELECT u.id, u.name, u.description, u.gross_wt, u.net_wt, u.purity, u.final_wt,
+              u.rate, u.amount,
+              COALESCE(s.bill_date, b.bill_date)   AS date,
+              COALESCE(s.bill_no, b.bill_no)       AS doc_no,
+              COALESCE(s.party_name, b.party_name) AS party_name,
+              CASE WHEN s.id IS NOT NULL THEN 'SALE' ELSE 'URD' END AS source,
+              s.id AS sale_id, b.id AS urd_bill_id
+       FROM sale_urd u
+       LEFT JOIN sale s     ON s.id = u.sale_id
+       LEFT JOIN urd_bill b ON b.id = u.urd_bill_id
+       WHERE COALESCE(s.bill_date, b.bill_date) BETWEEN @from AND @to
+         AND (@search = ''
+              OR COALESCE(s.party_name, b.party_name) LIKE '%'||@search||'%'
+              OR COALESCE(s.bill_no, b.bill_no) LIKE '%'||@search||'%')
+       ORDER BY date, doc_no, u.line_no`
+    ).all(range)
+
+    const sum = (list, k) => list.reduce((a, r) => a + num(r[k]), 0)
+    const tot = (list) => {
+      const fine = calc.r3(sum(list, 'final_wt'))
+      const amount = calc.r2(sum(list, 'amount'))
+      return {
+        lines: list.length,
+        bills: new Set(list.map((r) => r.doc_no)).size,
+        gross_wt: calc.r3(sum(list, 'gross_wt')),
+        net_wt: calc.r3(sum(list, 'net_wt')),
+        fine_wt: fine,
+        amount,
+        avg_rate: fine > 0 ? calc.r2(amount / fine) : 0,
+      }
+    }
+    const byMonth = new Map()
+    for (const r of rows) {
+      const k = String(r.date).slice(0, 7)
+      if (!byMonth.has(k)) byMonth.set(k, [])
+      byMonth.get(k).push(r)
+    }
+
+    // URD gold in the safe right now, all time: taken in, gone out (melted,
+    // converted, refined) and what is left.
+    const stock = db.prepare(
+      `SELECT COALESCE(SUM(CASE WHEN direction='IN'  THEN fine_wt  END),0) fine_in,
+              COALESCE(SUM(CASE WHEN direction='OUT' THEN fine_wt  END),0) fine_out,
+              COALESCE(SUM(CASE WHEN direction='IN'  THEN gross_wt END),0) gross_in,
+              COALESCE(SUM(CASE WHEN direction='OUT' THEN gross_wt END),0) gross_out
+       FROM loose_stock WHERE is_urd = 1 AND metal = 'Gold'`
+    ).get()
+
+    return {
+      range: { from: range.from, to: range.to },
+      rows,
+      totals: tot(rows),
+      bySource: {
+        SALE: tot(rows.filter((r) => r.source === 'SALE')),
+        URD: tot(rows.filter((r) => r.source === 'URD')),
+      },
+      byMonth: [...byMonth.entries()].map(([month, list]) => ({ month, ...tot(list) })),
+      stock: {
+        fine_in: calc.r3(stock.fine_in), fine_out: calc.r3(stock.fine_out),
+        fine_on_hand: calc.r3(num(stock.fine_in) - num(stock.fine_out)),
+        gross_in: calc.r3(stock.gross_in), gross_out: calc.r3(stock.gross_out),
+        gross_on_hand: calc.r3(num(stock.gross_in) - num(stock.gross_out)),
+      },
+    }
+  },
+
   /** Day Book — the daily cash/credit summary plus stock and cash positions. */
   dayBook: ({ from, to }) => {
     const db = get()
@@ -4830,6 +5160,17 @@ const reports = {
       .prepare(
         `SELECT COALESCE(SUM(bill_amount),0) amt, COALESCE(SUM(fine_wt),0) fine, COUNT(*) n
          FROM stock_settlement WHERE settle_date BETWEEN @from AND @to`
+      )
+      .get(range)
+
+    // Old gold bought on its own bill. `paid` left the drawer or the bank today;
+    // `credit` is what the customers are still owed for it.
+    const urdBills = db
+      .prepare(
+        `SELECT COALESCE(SUM(purchase_amount - discount + other_amount),0) amt,
+                COALESCE(SUM(amount_given),0) paid, COALESCE(SUM(net_balance),0) credit,
+                COALESCE(SUM(purchase_amount),0) urd, COUNT(*) n
+         FROM urd_bill WHERE bill_date BETWEEN @from AND @to`
       )
       .get(range)
 
@@ -4999,6 +5340,7 @@ const reports = {
       sales, purchases,
       sales_return: salesReturn,
       purchase_return: purchaseReturnT,
+      urd_bills: urdBills,
       settlements,
       receipts: Object.fromEntries(receipts.map((r) => [r.kind, r.amt])),
       // Gross / net / fine opening and closing, one row per metal, plus the same
@@ -5440,10 +5782,11 @@ module.exports = {
   company, settings,
   itemType, itemGroup, design, item, rateMaster, gridPref, branch, stockTransfer,
   tagStock, looseStock, looseItem, party, account, series,
-  sale, purchase, refinery, order, voucher, stockSettlement,
+  sale, urd, purchase, refinery, order, voucher, stockSettlement,
   saleReturn, purchaseReturn, karagir, gss, reports,
   calc: {
     saleTotals: (p) => calc.saleTotals(p.head, p.items, p.urds, p.metals),
+    urdTotals: (p) => calc.urdTotals(p.head, p.urds),
     amountInWords: ({ amount }) => calc.amountInWords(amount),
   },
 }

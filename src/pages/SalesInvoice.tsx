@@ -17,6 +17,9 @@ const blankItem = () => ({
   // priced in rupees per gram and settles no metal, so the totals treat it like
   // a stone rather than like gold.
   is_loose: 0,
+  // An untagged line can say which purchase invoice it was sold out of, so
+  // the weight comes off that invoice's labels tally. '' = the loose pool.
+  purchase_id: '' as any,
   item_name: '', hsn: '', qty: '', gross_wt: '', purity: '', stone_wt: '',
   stone_rate: '', diamond_wt: '', diamond_rate: '',
   net_wt: '', rate_per_gm: '', mkg_per_gm: '', mkg_pct: '', hallmark_charges: '', huid: '',
@@ -49,6 +52,9 @@ const PAY_MODES = ['Cash', 'UPI', 'Card', 'NEFT', 'Cheque', 'Bank']
 const ITEM_COLS: GridCol[] = [
   { key: 'tag', label: 'Tag', width: 100, fixed: true },
   { key: 'item_name', label: 'Item', width: 180, fixed: true },
+  // Only meaningful on a hand-typed (untagged) metal line: which purchase it
+  // was sold out of. A tagged piece already knows its purchase.
+  { key: 'purchase_id', label: 'From Purchase', width: 150 },
   { key: 'qty', label: 'Qty', width: 54 },
   { key: 'gross_wt', label: 'Gross Wt', width: 78 },
   { key: 'purity', label: 'Purity', width: 66 },
@@ -102,6 +108,9 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
   const [fitNote, setFitNote] = useState('')
 
   const series = useAsync(() => window.api.series.list({ docType: 'SALE' }), [])
+  // Purchases with metal still unlabelled — what an untagged line can be sold
+  // out of. Reloaded after a save, since the bill just took some of it.
+  const openPurchases = useAsync(() => window.api.purchase.openForTagging(), [])
 
   // Load an existing bill, or reserve the next number for a fresh one.
   useEffect(() => {
@@ -255,7 +264,7 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
   /** Fill a line from a scanned/selected stock tag. */
   const applyTag = (i: number, ts: any) => {
     setItem(i, {
-      tag: ts.tag, tag_stock_id: ts.id, item_id: ts.item_id,
+      tag: ts.tag, tag_stock_id: ts.id, item_id: ts.item_id, purchase_id: '',
       item_name: ts.item_name, hsn: ts.hsn || '',
       gross_wt: ts.gross_wt, stone_wt: ts.stone_wt, net_wt: ts.net_wt,
       stone_rate: ts.stone_rate || '', diamond_wt: ts.diamond_wt || '',
@@ -280,7 +289,7 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
    */
   const applyLoose = (i: number, it: any) => {
     setItem(i, {
-      tag: '', tag_stock_id: null, item_id: it.id, is_loose: 1,
+      tag: '', tag_stock_id: null, item_id: it.id, is_loose: 1, purchase_id: '',
       item_name: it.name, hsn: it.hsn || '',
       gross_wt: '', stone_wt: '', diamond_wt: '', net_wt: '',
       // Beads carry no purity: their grams are not metal and must not become
@@ -492,7 +501,13 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
 
             <Field label="Series">
               <Select value={head.prefix} disabled={!!head.id}
-                onChange={(v) => setHead({ ...head, prefix: v })}
+                // An estimate is a quotation, not a tax invoice, so it carries no
+                // GST by default. The box below stays editable for the odd case.
+                onChange={(v) => {
+                  const s = (series.data || []).find((x: any) => x.prefix === v)
+                  const estimate = /estimate/i.test(`${v} ${s?.label || ''}`)
+                  setHead({ ...head, prefix: v, gst_not_required: estimate ? 1 : 0 })
+                }}
                 options={(series.data || []).map((s: any) => ({ value: s.prefix, label: `${s.prefix} — ${s.label}` }))} />
             </Field>
 
@@ -572,6 +587,26 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
                                 const found = await window.api.tagStock.findByTag({ tag: (e.target as HTMLInputElement).value })
                                 if (found && found.status === 'IN_STOCK') applyTag(i, found)
                               }} />
+                          </td>
+                        )
+                        // Which purchase an untagged line came out of. Blank on a
+                        // tagged piece (it already belongs to its purchase) and on
+                        // a loose lot (beads never wait for a label).
+                        case 'purchase_id': return (
+                          <td key={c.key}>
+                            {r.tag_stock_id || r.is_loose ? (
+                              <input readOnly value={r.tag_stock_id ? 'tagged' : ''} />
+                            ) : (
+                              <select value={r.purchase_id || ''}
+                                onChange={(e) => setItem(i, { purchase_id: e.target.value })}>
+                                <option value="">Loose pool</option>
+                                {(openPurchases.data || []).map((p: any) => (
+                                  <option key={p.id} value={String(p.id)}>
+                                    {p.invoice_no} · {wt(p.pending_net)} g left · {p.metal}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </td>
                         )
                         case 'item_name': return (
@@ -1124,7 +1159,7 @@ function ItemCell({ row, onPick, onPickLoose, onText }: {
 }
 
 /** Minimal inline customer create, so billing never stalls. */
-function QuickCustomer({ draft, onClose, onSaved }: {
+export function QuickCustomer({ draft, onClose, onSaved }: {
   draft: any; onClose: () => void; onSaved: (id: number, name: string) => void
 }) {
   const [f, setF] = useState(draft)

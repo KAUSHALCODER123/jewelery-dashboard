@@ -21,6 +21,7 @@ export default function DayBook() {
       ['Sales', money(d.sales.cash), money(d.sales.credit)],
       ['Purchases', money(d.purchases.cash), money(d.purchases.credit)],
       ['Old Gold Purchase (URD)', '', money(d.sales.urd)],
+      ['Old Gold Bills', money(d.urd_bills?.paid || 0), money(d.urd_bills?.credit || 0)],
       ['Voucher Receipts', money(d.receipts.RECEIPT || 0), ''],
       ['Voucher Payments', money(d.receipts.PAYMENT || 0), ''],
       ['', '', ''],
@@ -84,6 +85,7 @@ export default function DayBook() {
                     <tr><td>Total Sales</td><td className="r num">{money(d.sales.cash)}</td><td className="r num">{money(d.sales.credit)}</td></tr>
                     <tr><td>Total Purchase</td><td className="r num">{money(d.purchases.cash)}</td><td className="r num">{money(d.purchases.credit)}</td></tr>
                     <tr><td>Old Gold Purchase (URD)</td><td className="r num">—</td><td className="r num">{money(d.sales.urd)}</td></tr>
+                    <tr><td>Old Gold Bills</td><td className="r num">{money(d.urd_bills?.paid || 0)}</td><td className="r num">{money(d.urd_bills?.credit || 0)}</td></tr>
                     <tr><td>Voucher Receipt</td><td className="r num">{money(d.receipts.RECEIPT || 0)}</td><td className="r num">—</td></tr>
                     <tr><td>Voucher Payment</td><td className="r num">{money(d.receipts.PAYMENT || 0)}</td><td className="r num">—</td></tr>
                   </tbody>

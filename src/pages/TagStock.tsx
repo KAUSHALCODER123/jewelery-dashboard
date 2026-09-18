@@ -339,13 +339,17 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
             )}
             {mode === 'loose' && (
               <div style={{ minWidth: 320 }}>
-                <Field label="From purchase" hint="Optional — ties these labels to the invoice so it can tally">
-                  <Select value={fromPurchase} placeholder="Not from a particular purchase"
+                <Field label="From purchase"
+                  hint="All loose metal draws on the whole pool; a purchase ties the labels to that invoice so it can tally">
+                  <Select value={fromPurchase}
                     onChange={setFromPurchase}
-                    options={(openPurchases.data || []).map((p: any) => ({
-                      value: String(p.id),
-                      label: `${p.invoice_no} · ${p.party_name || '—'} · ${wt(p.pending_net)} g to label`,
-                    }))} />
+                    options={[
+                      { value: '', label: 'All loose metal — not tied to a purchase' },
+                      ...(openPurchases.data || []).map((p: any) => ({
+                        value: String(p.id),
+                        label: `${p.invoice_no} · ${p.party_name || '—'} · ${wt(p.pending_net)} g to label`,
+                      })),
+                    ]} />
                 </Field>
               </div>
             )}
@@ -359,6 +363,9 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
             }}>
               <Tot label={`${purchasePick.invoice_no} bought (net)`} v={`${wt(purchasePick.bought_net)} g`} />
               <Tot label="Already labelled" v={`${wt(purchasePick.tagged_net)} g · ${purchasePick.tagged_pieces} pcs`} />
+              {purchasePick.sold_loose_net > 0 && (
+                <Tot label="Sold untagged" v={`${wt(purchasePick.sold_loose_net)} g · ${purchasePick.sold_loose_lines} lines`} />
+              )}
               <Tot label="Still to label" v={`${wt(purchasePick.pending_net)} g`} gold />
               <Tot label="These pieces (net)" v={`${wt(totals.net)} g`} />
               <Tot label={totals.net > purchasePick.pending_net + 0.005 ? 'Over by' : 'Left after'}

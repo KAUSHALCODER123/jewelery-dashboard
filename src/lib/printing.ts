@@ -1,4 +1,5 @@
 import { invoiceHtml, loadConfig, type InvoiceConfig } from '../print/invoice'
+import { urdBillHtml } from '../print/urd'
 
 /** Read the saved invoice template settings. */
 export async function getInvoiceConfig(): Promise<InvoiceConfig> {
@@ -28,6 +29,25 @@ export async function pdfInvoice(saleId: number) {
     html: b.html,
     suggestedName: `${b.data.sale.bill_no}.pdf`,
   })
+}
+
+/** The old gold purchase bill — same template settings as the invoice. */
+export async function buildUrdBill(id: number) {
+  const [data, cfg] = await Promise.all([window.api.urd.forPrint({ id }), getInvoiceConfig()])
+  if (!data) return null
+  return { data, cfg, html: urdBillHtml(data, cfg) }
+}
+
+export async function printUrdBill(id: number) {
+  const b = await buildUrdBill(id)
+  if (!b) return
+  await window.api.print.html({ html: b.html })
+}
+
+export async function pdfUrdBill(id: number) {
+  const b = await buildUrdBill(id)
+  if (!b) return
+  await window.api.print.pdf({ html: b.html, suggestedName: `${b.data.bill.bill_no}.pdf` })
 }
 
 /** Plain-text bill summary for WhatsApp / SMS. */

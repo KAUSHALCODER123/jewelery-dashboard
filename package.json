@@ -1,7 +1,7 @@
 {
   "name": "parivar-jewellery-erp",
   "productName": "Parivar Jewellery ERP",
-  "version": "1.25.0",
+  "version": "1.26.0",
   "description": "Jewellery ERP desktop software — sales, invoicing, purchase, item creation, CRM and refining",
   "main": "electron/main.cjs",
   "author": "Parivar",
@@ -18,7 +18,7 @@
     "test:full": "electron ./test/full.cjs",
     "demo": "electron ./scripts/seed-demo.cjs",
     "test:flows": "vite build && electron ./test/flows.cjs",
-    "test:all": "vite build && node ./test/parse.cjs && electron ./test/e2e.cjs && electron ./test/full.cjs && electron ./test/auth.cjs && electron ./test/backup.cjs && electron ./test/weightwise.cjs && electron ./test/acstock.cjs && electron ./test/returns.cjs && electron ./test/karagir.cjs && electron ./test/books.cjs && electron ./test/orderbooking.cjs && electron ./test/rated.cjs && electron ./test/multimetal.cjs && electron ./test/outstanding.cjs && electron ./test/registers.cjs && electron ./test/gst.cjs && electron ./test/stockmaster.cjs && electron ./test/looseitem.cjs && electron ./test/looseflow.cjs && electron ./test/purchasetally.cjs && electron ./test/loyalty.cjs && electron ./test/gssweight.cjs && electron ./test/stockedit.cjs && electron ./test/ratemaster.cjs && electron ./test/splitpay.cjs && electron ./test/gridcard.cjs && electron ./test/misreports.cjs && electron ./test/daybook.cjs && electron ./test/bugfixes.cjs && electron ./test/shopmonth.cjs && electron ./test/shopstress.cjs && electron ./test/shopyear.cjs && electron ./test/changeover.cjs && electron ./test/changeoverday.cjs && electron ./test/faults.cjs && electron ./test/gdrive.cjs && electron ./test/mobile.cjs && electron ./test/hunt.cjs && electron ./test/ui.cjs && electron ./test/layout.cjs && electron ./test/flows.cjs",
+    "test:all": "vite build && node ./test/parse.cjs && electron ./test/e2e.cjs && electron ./test/full.cjs && electron ./test/auth.cjs && electron ./test/backup.cjs && electron ./test/weightwise.cjs && electron ./test/acstock.cjs && electron ./test/returns.cjs && electron ./test/oldgold.cjs && electron ./test/untagged.cjs && electron ./test/karagir.cjs && electron ./test/books.cjs && electron ./test/orderbooking.cjs && electron ./test/rated.cjs && electron ./test/multimetal.cjs && electron ./test/outstanding.cjs && electron ./test/registers.cjs && electron ./test/gst.cjs && electron ./test/stockmaster.cjs && electron ./test/looseitem.cjs && electron ./test/looseflow.cjs && electron ./test/purchasetally.cjs && electron ./test/loyalty.cjs && electron ./test/gssweight.cjs && electron ./test/stockedit.cjs && electron ./test/ratemaster.cjs && electron ./test/splitpay.cjs && electron ./test/gridcard.cjs && electron ./test/misreports.cjs && electron ./test/daybook.cjs && electron ./test/bugfixes.cjs && electron ./test/shopmonth.cjs && electron ./test/shopstress.cjs && electron ./test/shopyear.cjs && electron ./test/changeover.cjs && electron ./test/changeoverday.cjs && electron ./test/faults.cjs && electron ./test/gdrive.cjs && electron ./test/mobile.cjs && electron ./test/hunt.cjs && electron ./test/ui.cjs && electron ./test/layout.cjs && electron ./test/flows.cjs",
     "test:looseitem": "electron ./test/looseitem.cjs",
     "test:looseflow": "electron ./test/looseflow.cjs",
     "test:purchasetally": "electron ./test/purchasetally.cjs",
@@ -56,7 +56,12 @@
     "test:changeover": "electron ./test/changeover.cjs",
     "test:changeoverday": "electron ./test/changeoverday.cjs",
     "test:faults": "electron ./test/faults.cjs",
-    "test:mobile": "electron ./test/mobile.cjs"
+    "test:mobile": "electron ./test/mobile.cjs",
+    "test:oldgold": "electron ./test/oldgold.cjs",
+    "test:untagged": "electron ./test/untagged.cjs",
+    "manual:owner": "electron ./scripts/make-manual.cjs docs/shop-owner-manual.html docs/Parivar-Shop-Owner-Manual.pdf",
+    "demo:features": "vite build && electron ./scripts/demo/features.cjs",
+    "demo:tour": "vite build && node ./scripts/demo/tour-all.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",

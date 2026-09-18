@@ -66,3 +66,30 @@ Two things to keep right:
 
 Narration is Latin-script Hinglish. Sarvam speaks it correctly — verified by
 transcribing its own output back and comparing.
+
+## The silent feature tour (no voice needed)
+
+A second, caption-driven film that covers **every screen and flow**, recorded the same way
+(the real built app, a seeded shop, one timestamped frame at a time) but with no narration —
+so it can be remade the day a feature lands.
+
+```bash
+npm run demo:tour      # build, record all parts, merge → demo/parivar-full-tour-1.26.mp4
+node scripts/demo/polish.mjs demo/parivar-full-tour-1.26.mp4 demo/parivar-full-tour-1.26-final.mp4
+```
+
+| file | what it does |
+|---|---|
+| `tour-scenes.cjs` | the chapters: title card, beats, the caption shown for each beat, `shot` names |
+| `tour.cjs` | records one PART (`DEMO_PART=n`) → `demo/tour/part-n.mp4` + `part-n.json` (chapter times) |
+| `merge.mjs` | joins the parts and writes a `-chapters.txt` index |
+| `polish.mjs` | post-production: SRT subtitle track from the captions, slow zoom on chapter cards, dip-to-black between chapters, and a soft music bed (`--music track.mp3` to use a licensed one) |
+| `features.cjs` | a short clip of just the newest features |
+| `helpers.cjs` / `history.cjs` | the in-page driver and the seeded trading history, shared with the narrated film |
+
+Beats with `shot: 'name'` also save `docs/shots/name.png`; the Shop Owner's Manual
+(`docs/shop-owner-manual.html`, `npm run manual:owner`) uses those, so the pictures in the book
+are the same screens as in the film.
+
+**Record one part at a time.** `capturePage` needs the window on a real desktop, and two
+recorders (or any other Electron job) running at once starve each other of frames.

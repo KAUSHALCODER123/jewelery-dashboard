@@ -455,10 +455,43 @@ function amountInWords(amount) {
   return `${out} Only`
 }
 
+/**
+ * Old gold bought on its own — no sale against it. The lines are the same URD
+ * lines a sale bill carries; the bill is what the shop owes the customer for
+ * them, less any discount, plus any extra (melting charge, say), and whatever
+ * of that is not paid on the spot stays on the customer's khata as a credit.
+ *
+ * `amount_given` left blank means "paid in full" — the common case at the
+ * counter, where the customer walks out with the cash.
+ */
+function urdTotals(head, urds) {
+  const lines = (urds || [])
+    .map(urdLine)
+    .filter((l) => num(l.final_wt) > 0 || num(l.amount) > 0)
+  const purchase_amount = r2(lines.reduce((s, l) => s + num(l.amount), 0))
+  const discount = r2(nn(head?.discount))
+  const other_amount = r2(num(head?.other_amount))
+  const total_amount = r2(Math.max(0, purchase_amount - discount + other_amount))
+  const amount_given =
+    head?.amount_given == null || head?.amount_given === ''
+      ? total_amount
+      : r2(nn(head.amount_given))
+  return {
+    urds: lines,
+    totals: {
+      purchase_amount, discount, other_amount, total_amount, amount_given,
+      net_balance: r2(total_amount - amount_given),
+      total_gross_wt: r3(lines.reduce((s, l) => s + num(l.gross_wt), 0)),
+      total_net_wt: r3(lines.reduce((s, l) => s + num(l.net_wt), 0)),
+      total_fine_wt: r3(lines.reduce((s, l) => s + num(l.final_wt), 0)),
+    },
+  }
+}
+
 module.exports = {
   r2, r3, num, nn,
   netWeight, fineWeight, rateBasis, GOLD_RATE_PURITY,
-  saleLine, urdLine, saleTotals, metalSettlement,
+  saleLine, urdLine, urdTotals, saleTotals, metalSettlement,
   purchaseLine, purchaseTotals,
   refineryLine, refineryTotals,
   orderLine, orderTotals,

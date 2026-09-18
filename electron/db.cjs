@@ -70,6 +70,11 @@ function migrate() {
   // Making charged as a percentage of the metal value. Existing rows get 0, so a
   // bill priced per gram of making is unaffected.
   addCol('sale_item', 'mkg_pct', 'REAL NOT NULL DEFAULT 0')
+  // Untagged sale lines can name the purchase they were sold out of.
+  addCol('sale_item', 'purchase_id', 'INTEGER')
+  // Standalone old gold bills: which money account the customer was paid from.
+  addCol('urd_bill', 'payment_mode', "TEXT DEFAULT 'Cash'")
+  addCol('urd_bill', 'narration', "TEXT DEFAULT ''")
   addCol('sale_item', 'stone_rate', 'REAL NOT NULL DEFAULT 0')
   addCol('sale_item', 'stone_amount', 'REAL NOT NULL DEFAULT 0')
   addCol('sale_item', 'diamond_wt', 'REAL NOT NULL DEFAULT 0')

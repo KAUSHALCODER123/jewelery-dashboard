@@ -73,6 +73,7 @@ app.on('window-all-closed', () => {
 const CHANNEL_PERMISSION = {
   // Owner only — destroying a document cannot be undone.
   'sale:remove': 'permanent_delete',
+  'urd:remove': 'permanent_delete',
   'purchase:remove': 'permanent_delete',
   'refinery:remove': 'permanent_delete',
   'order:remove': 'permanent_delete',
