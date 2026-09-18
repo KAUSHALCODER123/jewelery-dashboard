@@ -32,7 +32,8 @@ export default function OldGold({ billId }: { billId?: number }) {
   useEffect(() => { if (billId) setEditing({ id: billId }) }, [billId])
   const rows = list.data || []
   const sum = (k: string) => rows.reduce((s: number, r: any) => s + num(r[k]), 0)
-  const fine = sum('fine_wt')
+  // Fine weight still prices the bill; the shop reads net weight, so that is shown.
+  const netWt = sum('net_wt')
   const value = sum('total_amount')
   const paid = sum('amount_given')
   const owed = sum('net_balance')
@@ -45,9 +46,9 @@ export default function OldGold({ billId }: { billId?: number }) {
 
   const exportCsv = async () => {
     const csv = toCsv(
-      ['Bill No', 'Date', 'Customer', 'Gross Wt', 'Net Wt', 'Fine Wt', 'Value', 'Paid', 'Balance', 'Paid By'],
+      ['Bill No', 'Date', 'Customer', 'Gross Wt', 'Net Wt', 'Value', 'Paid', 'Balance', 'Paid By'],
       rows.map((r: any) => [
-        r.bill_no, r.bill_date, r.party_name, r.gross_wt, r.net_wt, r.fine_wt,
+        r.bill_no, r.bill_date, r.party_name, r.gross_wt, r.net_wt,
         r.total_amount, r.amount_given, r.net_balance, r.payment_mode,
       ])
     )
@@ -76,7 +77,7 @@ export default function OldGold({ billId }: { billId?: number }) {
 
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
         <div className="stat"><div className="stat-label">Bills</div><div className="stat-value num">{rows.length}</div></div>
-        <div className="stat"><div className="stat-label">Fine Gold Taken In</div><div className="stat-value num">{wt(fine)} g</div></div>
+        <div className="stat"><div className="stat-label">Old Gold Taken In (net)</div><div className="stat-value num">{wt(netWt)} g</div></div>
         <div className="stat"><div className="stat-label">Paid to Customers</div><div className="stat-value num">₹{money(paid)}</div></div>
         <div className="stat"><div className="stat-label">Still Owed</div>
           <div className="stat-value num" style={{ color: owed > 0 ? 'var(--danger)' : undefined }}>₹{money(owed)}</div></div>
@@ -99,7 +100,7 @@ export default function OldGold({ billId }: { billId?: number }) {
                 <thead>
                   <tr>
                     <th>Bill No</th><th>Date</th><th>Customer</th>
-                    <th className="r">Gross Wt</th><th className="r">Fine Wt</th>
+                    <th className="r">Gross Wt</th><th className="r">Net Wt</th>
                     <th className="r">Value</th><th className="r">Paid</th><th className="r">Balance</th>
                     <th></th>
                   </tr>
@@ -111,7 +112,7 @@ export default function OldGold({ billId }: { billId?: number }) {
                       <td>{dmy(r.bill_date)}</td>
                       <td>{r.party_name || <span className="muted">Cash customer</span>}</td>
                       <td className="r num">{wt(r.gross_wt)}</td>
-                      <td className="r num">{wt(r.fine_wt)}</td>
+                      <td className="r num">{wt(r.net_wt)}</td>
                       <td className="r num strong">₹{money(r.total_amount)}</td>
                       <td className="r num">{money(r.amount_given)}</td>
                       <td className="r num">{num(r.net_balance) > 0
@@ -130,7 +131,7 @@ export default function OldGold({ billId }: { billId?: number }) {
                   <tr>
                     <td colSpan={3}>Total · {rows.length} bills</td>
                     <td className="r num">{wt(sum('gross_wt'))}</td>
-                    <td className="r num">{wt(fine)}</td>
+                    <td className="r num">{wt(netWt)}</td>
                     <td className="r num">₹{money(value)}</td>
                     <td className="r num">₹{money(paid)}</td>
                     <td className="r num">₹{money(owed)}</td>
@@ -322,7 +323,6 @@ function UrdBillModal({ id, onClose, onSaved }: {
                   <th style={{ width: 84, textAlign: 'right' }}>Gross Wt</th>
                   <th style={{ width: 84, textAlign: 'right' }}>Net Wt</th>
                   <th style={{ width: 76, textAlign: 'right' }}>Purity %</th>
-                  <th style={{ width: 84, textAlign: 'right' }}>Fine Wt</th>
                   <th style={{ width: 88, textAlign: 'right' }}>Rate/g</th>
                   <th style={{ width: 104, textAlign: 'right' }}>Amount</th>
                 </tr>
@@ -340,8 +340,6 @@ function UrdBillModal({ id, onClose, onSaved }: {
                     <NumCell v={l.gross_wt} on={(v) => setLine(i, { gross_wt: v, net_wt: v })} />
                     <NumCell v={l.net_wt} on={(v) => setLine(i, { net_wt: v })} />
                     <NumCell v={l.purity} on={(v) => setLine(i, { purity: v })} />
-                    <td><input className="right" readOnly
-                      value={preview[i]?.final_wt ? wt(preview[i].final_wt) : ''} /></td>
                     <NumCell v={l.rate} on={(v) => setLine(i, { rate: v })} />
                     <td><input className="right" readOnly style={{ fontWeight: 600 }}
                       value={preview[i]?.amount ? money(preview[i].amount) : ''} /></td>
@@ -367,7 +365,7 @@ function UrdBillModal({ id, onClose, onSaved }: {
             </Field>
             <span className="spacer" style={{ marginLeft: 'auto' }} />
             <div style={{ minWidth: 260 }}>
-              <div className="total-row"><span className="k">Fine gold</span><span className="v num">{wt(t.total_fine_wt)} g</span></div>
+              <div className="total-row"><span className="k">Net weight</span><span className="v num">{wt(t.total_net_wt)} g</span></div>
               <div className="total-row"><span className="k">Old gold value</span><span className="v num">₹{money(t.purchase_amount)}</span></div>
               {t.discount > 0 && <div className="total-row debit"><span className="k">Less deduction</span><span className="v num">− {money(t.discount)}</span></div>}
               {t.other_amount !== 0 && <div className="total-row"><span className="k">Other</span><span className="v num">{money(t.other_amount)}</span></div>}

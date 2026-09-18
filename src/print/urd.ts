@@ -23,13 +23,12 @@ export function urdBillHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
       <td class="r">${wt(u.gross_wt)}</td>
       <td class="r">${wt(u.net_wt)}</td>
       <td class="r">${money(u.purity)}</td>
-      <td class="r">${wt(u.final_wt)}</td>
       <td class="r">${money(u.rate)}</td>
       <td class="r">${money(u.amount)}</td>
     </tr>`).join('')
   const filler = Array.from(
     { length: Math.max(0, 6 - lines.length) },
-    () => '<tr class="filler"><td colspan="8">&nbsp;</td></tr>'
+    () => '<tr class="filler"><td colspan="7">&nbsp;</td></tr>'
   ).join('')
   const sum = (k: string) => lines.reduce((a, u) => a + (Number(u[k]) || 0), 0)
 
@@ -109,7 +108,7 @@ export function urdBillHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     <thead><tr>
       <th style="width:22px">NO</th><th>Description</th>
       <th style="width:60px">Gr.Wt</th><th style="width:60px">Nt.Wt</th>
-      <th style="width:48px">Purity</th><th style="width:60px">Fine Wt</th>
+      <th style="width:48px">Purity</th>
       <th style="width:64px">Rate/g</th><th style="width:76px">Amount</th>
     </tr></thead>
     <tbody>
@@ -117,7 +116,7 @@ export function urdBillHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
       <tr class="tot-row">
         <td></td><td class="r">Total</td>
         <td class="r">${wt(sum('gross_wt'))}</td><td class="r">${wt(sum('net_wt'))}</td>
-        <td></td><td class="r">${wt(sum('final_wt'))}</td><td></td>
+        <td></td><td></td>
         <td class="r">${money(b.purchase_amount)}</td>
       </tr>
     </tbody>
@@ -128,7 +127,7 @@ export function urdBillHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
       <div class="words"><b>Amount In Words:</b> ${esc(amount_in_words)}</div>
       ${b.narration ? `<div class="narr">${esc(b.narration)}</div>` : ''}
       <div class="narr" style="margin-top:6px">
-        The above old gold has been received from the customer and valued on its fine weight
+        The above old gold has been received from the customer and valued on its weight and purity
         at the rate agreed on the day.
       </div>
     </div>

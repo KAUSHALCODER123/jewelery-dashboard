@@ -16,7 +16,7 @@ const SOURCE_LABEL: Record<string, string> = { SALE: 'On sale bill', URD: 'Old g
 /**
  * Old Gold report — every gram of old gold the shop took in over a period,
  * whether exchanged on a sale bill or bought outright on an old gold bill,
- * with what was paid for it and what it works out to per fine gram. The
+ * with what was paid for it and the average rate allowed. The
  * strip at the top also shows how much URD gold is still in the safe.
  */
 export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void }) {
@@ -36,15 +36,15 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
     baseName: `old-gold-${from}-to-${to}`,
     title: 'Old Gold Report',
     meta: `${dmy(from)} to ${dmy(to)}${source !== 'ALL' ? ` · ${SOURCE_LABEL[source]}` : ''}`,
-    headers: ['Date', 'Bill', 'Source', 'Customer', 'Item', 'Gross Wt', 'Net Wt', 'Purity', 'Fine Wt', 'Rate/g', 'Amount'],
+    headers: ['Date', 'Bill', 'Source', 'Customer', 'Item', 'Gross Wt', 'Net Wt', 'Purity', 'Rate/g', 'Amount'],
     rows: [
       ...rows.map((r) => [
         dmy(r.date), r.doc_no, SOURCE_LABEL[r.source], r.party_name || 'Cash customer',
         [r.name, r.description].filter(Boolean).join(' — '),
-        wt(r.gross_wt), wt(r.net_wt), money(r.purity), wt(r.final_wt), money(r.rate), money(r.amount),
+        wt(r.gross_wt), wt(r.net_wt), money(r.purity), money(r.rate), money(r.amount),
       ]),
       ...(tot ? [['', '', '', `Total · ${tot.bills} bills`, `${tot.lines} lines`,
-        wt(tot.gross_wt), wt(tot.net_wt), '', wt(tot.fine_wt), money(tot.avg_rate), money(tot.amount)]] : []),
+        wt(tot.gross_wt), wt(tot.net_wt), '', money(tot.avg_rate), money(tot.amount)]] : []),
     ],
   })
 
@@ -81,28 +81,28 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
           <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(5, minmax(0,1fr))' }}>
             <div className="stat">
               <div className="stat-label">Old Gold Taken In</div>
-              <div className="stat-value num">{wt(tot.fine_wt)} g</div>
-              <div className="stat-meta">fine · {wt(tot.gross_wt)} g gross · {tot.bills} bills</div>
+              <div className="stat-value num">{wt(tot.net_wt)} g</div>
+              <div className="stat-meta">net · {wt(tot.gross_wt)} g gross · {tot.bills} bills</div>
             </div>
             <div className="stat">
               <div className="stat-label">Old Gold Total (paid)</div>
               <div className="stat-value num">₹{money(tot.amount)}</div>
-              <div className="stat-meta">avg ₹{money(tot.avg_rate)} per fine gram</div>
+              <div className="stat-meta">avg rate ₹{money(tot.avg_rate)} per gram</div>
             </div>
             <div className="stat">
               <div className="stat-label">On Sale Bills</div>
-              <div className="stat-value num">{wt(d.bySource.SALE.fine_wt)} g</div>
+              <div className="stat-value num">{wt(d.bySource.SALE.net_wt)} g</div>
               <div className="stat-meta">₹{money(d.bySource.SALE.amount)} · {d.bySource.SALE.bills} bills</div>
             </div>
             <div className="stat">
               <div className="stat-label">On Old Gold Bills</div>
-              <div className="stat-value num">{wt(d.bySource.URD.fine_wt)} g</div>
+              <div className="stat-value num">{wt(d.bySource.URD.net_wt)} g</div>
               <div className="stat-meta">₹{money(d.bySource.URD.amount)} · {d.bySource.URD.bills} bills</div>
             </div>
             <div className="stat">
               <div className="stat-label">URD Gold in Safe Now</div>
-              <div className="stat-value num" style={{ color: 'var(--gold-ink)' }}>{wt(d.stock.fine_on_hand)} g</div>
-              <div className="stat-meta">fine · {wt(d.stock.gross_on_hand)} g gross · all time</div>
+              <div className="stat-value num" style={{ color: 'var(--gold-ink)' }}>{wt(d.stock.gross_on_hand)} g</div>
+              <div className="stat-meta">gross · all time</div>
             </div>
           </div>
 
@@ -110,7 +110,7 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
             <div className="card-head">
               <span className="card-title">Old Gold Received</span>
               <span className="muted small" style={{ marginLeft: 8 }}>{dmy(from)} – {dmy(to)}</span>
-              <span className="badge badge-gold" style={{ marginLeft: 'auto' }}>{wt(tot.fine_wt)} g · ₹{money(tot.amount)}</span>
+              <span className="badge badge-gold" style={{ marginLeft: 'auto' }}>{wt(tot.net_wt)} g · ₹{money(tot.amount)}</span>
             </div>
             <div className="card-body flush">
               {!rows.length ? (
@@ -124,7 +124,7 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
                       <tr>
                         <th>Date</th><th>Bill</th><th>Source</th><th>Customer</th><th>Item</th>
                         <th className="r">Gross</th><th className="r">Net</th><th className="r">Purity</th>
-                        <th className="r">Fine</th><th className="r">Rate/g</th><th className="r">Amount</th>
+                        <th className="r">Rate/g</th><th className="r">Amount</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -139,7 +139,6 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
                           <td className="r num">{wt(r.gross_wt)}</td>
                           <td className="r num">{wt(r.net_wt)}</td>
                           <td className="r num">{money(r.purity)}</td>
-                          <td className="r num strong">{wt(r.final_wt)}</td>
                           <td className="r num">{money(r.rate)}</td>
                           <td className="r num strong">₹{money(r.amount)}</td>
                         </tr>
@@ -152,7 +151,6 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
                         <td className="r num">{wt(tot.gross_wt)}</td>
                         <td className="r num">{wt(tot.net_wt)}</td>
                         <td></td>
-                        <td className="r num">{wt(tot.fine_wt)}</td>
                         <td className="r num">{money(tot.avg_rate)}</td>
                         <td className="r num">₹{money(tot.amount)}</td>
                       </tr>
@@ -170,7 +168,7 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
                 <table className="data">
                   <thead>
                     <tr><th>Month</th><th className="r">Bills</th><th className="r">Gross Wt</th>
-                      <th className="r">Fine Wt</th><th className="r">Avg Rate/g</th><th className="r">Amount</th></tr>
+                      <th className="r">Net Wt</th><th className="r">Avg Rate/g</th><th className="r">Amount</th></tr>
                   </thead>
                   <tbody>
                     {d.byMonth.map((m: any) => (
@@ -178,7 +176,7 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
                         <td className="strong">{m.month}</td>
                         <td className="r num">{m.bills}</td>
                         <td className="r num">{wt(m.gross_wt)}</td>
-                        <td className="r num">{wt(m.fine_wt)}</td>
+                        <td className="r num">{wt(m.net_wt)}</td>
                         <td className="r num">{money(m.avg_rate)}</td>
                         <td className="r num strong">₹{money(m.amount)}</td>
                       </tr>
