@@ -14,12 +14,12 @@ app.whenReady().then(async () => {
   const bundle = path.join(dir, 'invoice.cjs')
   buildSync({ entryPoints: [path.join(__dirname, '../src/print/invoice.ts')],
     bundle: true, platform: 'node', format: 'cjs', outfile: bundle,
-    loader: { '.jpeg': 'dataurl' }, logLevel: 'silent' })
+    loader: { '.jpeg': 'dataurl', '.png': 'dataurl' }, logLevel: 'silent' })
   const { invoiceHtml } = require(bundle)
   const urdBundle = path.join(dir, 'urd.cjs')
   buildSync({ entryPoints: [path.join(__dirname, '../src/print/urd.ts')],
     bundle: true, platform: 'node', format: 'cjs', outfile: urdBundle,
-    loader: { '.jpeg': 'dataurl' }, logLevel: 'silent' })
+    loader: { '.jpeg': 'dataurl', '.png': 'dataurl' }, logLevel: 'silent' })
   const { urdBillHtml } = require(urdBundle)
   const data = { company: { name: 'Parivar Jewellers', address: 'Test shop address', phone: '0000000000' },
     sale: { bill_no: 'TEST-1', bill_date: '2026-09-21', party_name: 'Print test customer',
@@ -64,6 +64,49 @@ app.whenReady().then(async () => {
     assert.equal(withoutLogo.includes('<img class="shop-logo"'), false)
     assert.ok(withoutLogo.includes('<div class="co">Parivar Jewellers</div>'), 'company name remains when logo is disabled')
     console.log(`PASS: ${name} — complete embedded logo within printable width; hide-logo option works`)
+    w.destroy()
+  }
+  const barcodeBundle = path.join(dir, 'barcode.cjs')
+  buildSync({ entryPoints: [path.join(__dirname, '../src/print/barcode.ts')],
+    bundle: true, platform: 'node', format: 'cjs', outfile: barcodeBundle,
+    loader: { '.jpeg': 'dataurl', '.png': 'dataurl' }, logLevel: 'silent' })
+  const { labelSheetHtml } = require(barcodeBundle)
+  const tags = [{ tag: 'CHA00001', item_name: 'chain', purity: 75, gross_wt: 3, net_wt: 3 }]
+  // a 96 mm head leaves nothing to fold over, so that tag carries no logo
+  assert.equal(labelSheetHtml(tags, { headMm: 96 }).includes('<img class="shop-logo"'), false)
+  for (const headMm of [30, 50, 70]) {
+    const html = labelSheetHtml(tags, { headMm, showNet: true, copies: 2 })
+    const w = new BrowserWindow({ show: false, width: 800, height: 300,
+      webPreferences: { sandbox: true, offscreen: true, backgroundThrottling: false } })
+    await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    const bounds = await w.webContents.executeJavaScript(`(async () => {
+      await Promise.all([...document.images].map(i => i.decode()))
+      const mm = 96 / 25.4
+      return [...document.querySelectorAll('.tag')].map(tag => {
+        const t = tag.getBoundingClientRect(), h = tag.querySelector('.head').getBoundingClientRect(),
+          back = tag.querySelector('.back').getBoundingClientRect(),
+          barcode = tag.querySelector('svg').getBoundingClientRect(),
+          parts = [...tag.querySelectorAll('.back > *')].map(e => e.getBoundingClientRect())
+        const mid = (Math.min(...parts.map(r => r.left)) + Math.max(...parts.map(r => r.right))) / 2
+        return { barcodeWidth: barcode.width,
+          // fold at the head's edge: the back panel mirrors the front one
+          foldsToBack: Math.abs(back.left - h.right) < 0.5 && Math.abs(back.width - Math.min(h.width, t.right - h.right)) < 0.5,
+          centred: Math.abs(mid - (back.left + back.right) / 2) < 0.5,
+          inside: parts.every(r => r.left >= back.left + mm && r.right <= back.right - mm && r.top >= t.top + 0.9 * mm - 0.5 && r.bottom <= t.bottom - 0.9 * mm + 0.5),
+          textFits: [...tag.querySelectorAll('.l1 span, .l2 span')].every(e => e.getBoundingClientRect().right <= h.right) }
+      })
+    })()`)
+    assert.equal(bounds.length, 2)
+    for (const b of bounds) {
+      assert.ok(b.foldsToBack && b.centred, 'logo panel must start at the fold and centre the logo on the back')
+      assert.ok(b.inside, 'logo and name must sit inside the back panel with safe margins')
+      assert.ok(Math.abs(b.barcodeWidth - (headMm - 3) * 96 / 25.4) < 1, 'barcode retains full width')
+      assert.ok(b.textFits, 'label text must fit on the front')
+    }
+    assert.equal(labelSheetHtml(tags, { showLogo: false }).includes('<img class="shop-logo"'), false)
+    fs.writeFileSync(path.join(dir, `labels-${headMm}.pdf`), await w.webContents.printToPDF({
+      printBackground: true, preferCSSPageSize: true, margins: { top: 0, bottom: 0, left: 0, right: 0 } }))
+    console.log(`PASS: TSC ${headMm} mm head — logo centred on the fold-over back, front untouched, two copies`)
     w.destroy()
   }
   console.log('Print samples: ' + dir)

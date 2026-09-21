@@ -962,7 +962,7 @@ function PrintLabels({ tags, onClose, onPrinted }: {
     try { return Number(localStorage.getItem('label.headMm')) || 50 } catch { return 50 }
   })
   const [opts, setOpts] = useState({
-    showItem: true, showGross: true, showNet: true, showPurity: true,
+    showItem: true, showGross: true, showNet: true, showPurity: true, showLogo: true,
   })
 
   const html = useMemo(
@@ -1022,6 +1022,8 @@ function PrintLabels({ tags, onClose, onPrinted }: {
             </Field>
           )}
           <div className="section-title">Show on the label</div>
+          {size === 'tsc-100x15' && <Check label="Company logo" checked={opts.showLogo}
+            onChange={(v) => setOpts({ ...opts, showLogo: v })} />}
           <Check label="Item name" checked={opts.showItem}
             onChange={(v) => setOpts({ ...opts, showItem: v })} />
           <Check label="Purity" checked={opts.showPurity}

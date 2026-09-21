@@ -33,6 +33,7 @@ async function main() {
   esbuild.buildSync({
     entryPoints: [path.join(__dirname, '..', 'src', 'pages', 'TagStock.tsx')],
     bundle: true, format: 'esm', platform: 'node', outfile: out, logLevel: 'silent',
+    loader: { '.jpeg': 'dataurl', '.png': 'dataurl' },
   })
   const { parseRows } = await import(`file://${out.replace(/\\/g, '/')}`)
 

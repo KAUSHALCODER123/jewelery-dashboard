@@ -1,3 +1,7 @@
+// Pure black-and-white crop of the mark: a thermal head has no greys, and the
+// full artwork's own lettering is a smudge at tag size, so the name is set as text.
+import shopLogo from '../assets/parivar-mark-tag.png?inline'
+
 /**
  * Code 128 barcode rendering, as inline SVG.
  *
@@ -128,6 +132,8 @@ export type LabelOptions = {
   showNet?: boolean
   showPurity?: boolean
   shopName?: string
+  /** Print the company mark just past the TSC tag's head, where it folds to the back. */
+  showLogo?: boolean
   /** Skip this many label positions — lets you reuse a part-used sheet. */
   skip?: number
   copies?: number
@@ -143,15 +149,16 @@ const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
  * A rat-tail tag, not a dumbbell: only the HEAD (about 50 mm) is printable.
  * The rest is a 3 mm wide tail that wraps around the ring or chain and sticks
  * to itself, so anything printed there is lost. The whole label — barcode,
- * tag number, item and weights — is stacked inside the head, and the tail is
- * left blank on purpose.
+ * tag number, item and weights — is stacked inside the head. The stretch after
+ * it carries only the company mark: the tag is folded at the head's edge, so the
+ * mark ends up on the back of the printed face.
  *
  *   ┌────────────────────────────────┬────────────────────────────────┐
  *   │ ▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌  │                                │
- *   │ RIN00012 · Ladies Ring · 91.6% │           (tail, blank)        │
+ *   │ RIN00012 · Ladies Ring · 91.6% │          company mark          │
  *   │ G 5.120  N 4.980               │                                │
  *   └────────────────────────────────┴────────────────────────────────┘
- *                head ≈ 50 mm                     ≈ 50 mm
+ *                head (front)                folds to the back
  *
  * The barcode runs the full width of the head so each bar is at least three
  * printer dots wide at 203 dpi — a narrower code on this small a tag is what
@@ -162,6 +169,8 @@ function tscTagHtml(
   o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies' | 'headMm'>> & { headMm: number },
 ): string {
   const head = Math.min(96, Math.max(30, Number(o.headMm) || 50))
+  // The panel behind the head once the tag is folded at the head's edge.
+  const back = Math.min(head, 100 - head)
   const cells = tags.map((t) => {
     if (!t) return `<div class="tag blank"></div>`
     const l1 = [
@@ -183,6 +192,7 @@ function tscTagHtml(
         <div class="l1"><span>${escapeXml(l1)}</span></div>
         ${l2 ? `<div class="l2"><span>${escapeXml(l2)}</span></div>` : ''}
       </div>
+      ${o.showLogo && back >= 12 ? `<div class="back"><img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">${back >= 26 ? '<b>PARIVAR JEWELLERS</b>' : ''}</div>` : ''}
     </div>`
   }).join('')
 
@@ -202,7 +212,7 @@ function tscTagHtml(
    * one never trails an empty page either.
    */
   .tag {
-    width: 100mm; height: 14.4mm; overflow: hidden;
+    position: relative; width: 100mm; height: 14.4mm; overflow: hidden;
     /* faint guide for the on-screen preview only: where the head ends */
     background: linear-gradient(to right, transparent ${head}mm, #eee ${head}mm, #eee 100%);
   }
@@ -234,6 +244,23 @@ function tscTagHtml(
   }
   .bc { line-height: 0; height: 5mm; flex: none; }
   .bc svg { width: 100%; height: 5mm; display: block; }
+  /*
+   * The company mark goes on the blank stretch straight after the head, centred
+   * in a panel as wide as the head itself. The tag is folded at the head's edge,
+   * so that panel becomes the BACK of the printed face and the mark lands in the
+   * middle of it. The barcode and text keep the whole front to themselves.
+   *
+   *     8.6 mark · 0.3 · 2.6 name = 11.5, centred in the 14.4 box
+   */
+  .back {
+    position: absolute; left: ${head}mm; top: 0; width: ${back}mm; height: 14.4mm;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; background: #fff;
+  }
+  .shop-logo { display: block; height: ${back >= 26 ? 8.6 : 11}mm; width: auto; flex: none; }
+  .back b { display: block; margin-top: .3mm; height: 2.6mm; line-height: 2.6mm; font-size: 6pt;
+            font-weight: 700; letter-spacing: .15mm; white-space: nowrap;
+            font-family: Georgia, "Times New Roman", serif; }
   /* The lines themselves never clip: a long name runs on to the right and is
      cut by the head box at its edge, but a descender is never cut. */
   .l1, .l2 { flex: none; white-space: nowrap; display: flex; align-items: center; }
@@ -241,6 +268,8 @@ function tscTagHtml(
         font-family: "Segoe UI", Arial, sans-serif; }
   .l2 { height: 3.7mm; margin-top: 0.2mm; font-size: 9.5pt; font-weight: 700; line-height: 1.15;
         font-family: Consolas, "Segoe UI", monospace; }
+  /* a short head cannot hold the full-size lines */
+  .l1 { font-size: ${head < 45 ? 7 : 9}pt; } .l2 { font-size: ${head < 45 ? 7.5 : 9.5}pt; }
   @media print { .tag { background: none; } }
 </style>
 ${cells}`
@@ -250,7 +279,7 @@ ${cells}`
 export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): string {
   const {
     size = 'tsc-100x15', showItem = true, showGross = true, showNet = false,
-    showPurity = true, shopName = '', skip = 0, copies = 1, headMm = 50,
+    showPurity = true, shopName = '', showLogo = true, skip = 0, copies = 1, headMm = 50,
   } = opts
   const S = SHEET[size] ?? SHEET['tsc-100x15']
 
@@ -259,7 +288,7 @@ export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): strin
   for (const t of tags) for (let c = 0; c < copies; c++) expanded.push(t)
 
   if (size === 'tsc-100x15') {
-    return tscTagHtml(expanded, { showItem, showGross, showNet, showPurity, shopName, headMm })
+    return tscTagHtml(expanded, { showItem, showGross, showNet, showPurity, shopName, showLogo, headMm })
   }
 
   // Smaller labels cannot carry as much text.
