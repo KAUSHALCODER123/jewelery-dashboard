@@ -1,4 +1,5 @@
 import { money, wt, dmy } from '../lib/format'
+import shopLogo from '../assets/parivar-jewellers.jpeg?inline'
 
 const esc = (s: any) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
@@ -134,7 +135,9 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
   body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10.5px; color: #000;
     margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .sheet { border: 1px solid #000; }
-  .hd { text-align: center; padding: 6px 8px 4px; }
+  .hd { text-align: center; padding: 6px 8px 4px; break-inside: avoid; }
+  .shop-logo { display: block; width: 32mm; max-width: 100%; height: auto;
+    object-fit: contain; margin: 2mm auto; break-inside: avoid; }
   .co { font-size: 20px; font-weight: 700; letter-spacing: .3px; color: ${esc(cfg.accent)}; }
   .co-sub { font-size: 10px; margin-top: 1px; }
   .ti { font-weight: 700; text-decoration: underline; font-size: 12px; margin-top: 3px; }
@@ -178,7 +181,8 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
 </style>
 <div class="sheet">
   <div class="hd">
-    ${cfg.showLogo ? `<div class="co">${esc(c?.name || 'Demo')}</div>` : ''}
+    ${cfg.showLogo ? `<img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">` : ''}
+    <div class="co">${esc(c?.name || 'Demo')}</div>
     ${c?.address ? `<div class="co-sub">${esc(c.address)}</div>` : ''}
     <div class="co-sub">Contact No.: ${esc(c?.phone || '')} ${c?.gstin ? `&nbsp;&nbsp; GST No: ${esc(c.gstin)}` : ''}</div>
     <div class="ti">${esc(cfg.title)}</div>
@@ -260,9 +264,13 @@ function thermalHtml(data: any, cfg: InvoiceConfig) {
 <meta charset="utf-8">
 <title>${esc(s.bill_no)}</title>
 <style>
-  @page { size: 80mm auto; margin: 3mm; }
+  @page { size: auto; margin: 3mm; }
+  * { box-sizing: border-box; }
   body { font-family: "Segoe UI", Arial, sans-serif; font-size: 11px; width: 72mm;
-    margin: 0; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    max-width: 100%; margin: 0; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .receipt-header { break-inside: avoid; }
+  .shop-logo { display: block; width: 32mm; max-width: 100%; height: auto;
+    object-fit: contain; margin: 2mm auto; break-inside: avoid; }
   .ct { text-align: center; }
   .co { font-size: 15px; font-weight: 700; }
   .ti { font-weight: 700; margin: 3px 0; }
@@ -274,7 +282,8 @@ function thermalHtml(data: any, cfg: InvoiceConfig) {
   .it .d { display: flex; justify-content: space-between; font-size: 10px; color: #333; }
   .w { font-size: 10px; margin-top: 4px; }
 </style>
-<div class="ct">
+<div class="ct receipt-header">
+  ${cfg.showLogo ? `<img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">` : ''}
   <div class="co">${esc(c?.name || 'Demo')}</div>
   ${c?.address ? `<div style="font-size:10px">${esc(c.address)}</div>` : ''}
   ${c?.phone ? `<div style="font-size:10px">Ph: ${esc(c.phone)}</div>` : ''}

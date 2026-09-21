@@ -42,11 +42,8 @@ export default function Login({ onSignedIn }: { onSignedIn: (u: any) => void }) 
     <div className="login-screen">
       <form className="login-card" onSubmit={submit}>
         <div className="login-brand">
-          <Logo size={46} />
-          <div>
-            <div className="login-title">Parivar</div>
-            <div className="login-sub">Jewellery ERP</div>
-          </div>
+          <Logo size={180} />
+          <div className="login-sub">Jewellery ERP</div>
         </div>
 
         <div className="form-grid" style={{ gap: 12 }}>

@@ -48,28 +48,11 @@ export const Icon = {
 
 export type IconName = keyof typeof Icon
 
-/**
- * The app mark — same brilliant-cut gem as build/icon.ico, drawn as SVG so it
- * stays crisp at any size in the UI.
- */
-export function Logo({ size = 28, rounded = true }: { size?: number; rounded?: boolean }) {
-  const id = React.useId()
+/** Original black-and-white shop artwork, including the shop name. */
+export function Logo({ size = 44 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <defs>
-        <linearGradient id={`g${id}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#F2D882" />
-          <stop offset="48%" stopColor="#D4AF37" />
-          <stop offset="100%" stopColor="#9E791C" />
-        </linearGradient>
-      </defs>
-      {rounded && <rect width="24" height="24" rx="5.4" fill={`url(#g${id})`} />}
-      <g transform="translate(12 12) scale(0.63) translate(-12 -12)">
-        <path d="M6 3h12l3 6-9 12L3 9z" fill="#fff" stroke="#967316"
-          strokeWidth="1.6" strokeLinejoin="round" />
-        <path d="M3 9h18M9 3l3 6 3-6M12 9v12" fill="none" stroke="#967316"
-          strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </g>
-    </svg>
+    <img src={new URL('../assets/parivar-jewellers.jpeg', import.meta.url).href}
+      alt="Parivar Jewellers" width={size} height={size}
+      style={{ display: 'block', objectFit: 'contain', flexShrink: 0, borderRadius: 4 }} />
   )
 }

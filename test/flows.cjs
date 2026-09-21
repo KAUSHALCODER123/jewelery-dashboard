@@ -47,6 +47,14 @@ window.__t = {
     Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set.call(el, v)
     el.dispatchEvent(new Event('change', { bubbles: true }))
   },
+  gridInput(label, row = 0) {
+    const table = document.querySelector('.grid-edit')
+    const column = [...table.querySelectorAll('thead th')]
+      .findIndex(th => th.textContent.trim() === label)
+    const input = table.querySelectorAll('tbody tr')[row]?.cells[column]?.querySelector('input')
+    if (!input || input.readOnly) throw new Error('Editable grid column not found: ' + label)
+    return input
+  },
   nav(label) {
     const b = [...document.querySelectorAll('.nav-item')]
       .find(x => x.textContent.trim().startsWith(label))
@@ -225,12 +233,11 @@ app.whenReady().then(async () => {
       const pick = document.querySelector('.ac-list .ac-item')
       if (!pick) throw new Error('item autocomplete empty')
       pick.click(); await __t.wait(800)
-      // Invoice inputs: 0 tag, 1 item, 2 qty, 3 gross, 4 purity, 5 stone wt,
-      // 6 stone rate, 7 net, 8 rate/10gm, 9 mkg %.
-      const c2 = document.querySelectorAll('.grid-edit tbody tr')[0].querySelectorAll('input')
+      // Use column names: the From Purchase cell adds a read-only input on
+      // tagged rows, so positional input indices no longer identify the fields.
       // The rate is typed per TEN grams at the counter — 45,900 is 4,590 a gram.
-      __t.set(c2[8], '45900')
-      __t.set(c2[9], '10')      // making, 10% of the metal value
+      __t.set(__t.gridInput('Rate/10Gm'), '45900')
+      __t.set(__t.gridInput('Mkg %'), '10')
       await __t.wait(700)
     `)
     const tot = await js(`return __t.totals()`)
@@ -279,8 +286,7 @@ app.whenReady().then(async () => {
 
     // Put the bill back the way the rest of this flow expects it.
     await js(`
-      const c = document.querySelectorAll('.grid-edit tbody tr')[0].querySelectorAll('input')
-      __t.set(c[9], '10')
+      __t.set(__t.gridInput('Mkg %'), '10')
       await __t.wait(600)
     `)
     check('restored for the save', (await js(`return __t.totals()`))['Total'], '₹52,051.05')

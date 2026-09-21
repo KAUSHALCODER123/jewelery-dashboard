@@ -209,10 +209,10 @@ export default function App() {
     <div className="shell" data-collapsed={collapsed}>
       <aside className="sidebar">
         <div className="brand">
-          <Logo size={28} />
+          <Logo size={collapsed ? 32 : 44} />
           <div className="brand-text">
             Parivar
-            <small>Jewellery ERP</small>
+            <small>JEWELLERS</small>
           </div>
         </div>
         <nav className="nav">

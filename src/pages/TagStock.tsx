@@ -79,6 +79,12 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
   // what lets the invoice tally its bought weight against the labels made.
   const [fromPurchase, setFromPurchase] = useState<string>(purchaseId ? String(purchaseId) : '')
   const openPurchases = useAsync(() => window.api.purchase.openForTagging(), [])
+  // Keep the selected invoice visible even once it is fully labelled and no
+  // longer appears in the list of open purchases.
+  const selectedPurchase = useAsync(
+    () => fromPurchase ? window.api.purchase.read({ id: Number(fromPurchase) }) : Promise.resolve(null),
+    [fromPurchase]
+  )
 
   const [search, setSearch] = useState('')
   const q = useDebounced(search, 250)
@@ -111,9 +117,15 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
     ? selectedItem.type_name : 'Gold'
   const loose = useAsync(() => window.api.looseStock.summary({ metal }), [metal])
   const purchasePick = useMemo(
-    () => (openPurchases.data || []).find((p: any) => String(p.id) === fromPurchase),
-    [openPurchases.data, fromPurchase]
+    () => selectedPurchase.data && String(selectedPurchase.data.id) === fromPurchase
+      ? { ...selectedPurchase.data, ...selectedPurchase.data.tally }
+      : (openPurchases.data || []).find((p: any) => String(p.id) === fromPurchase),
+    [selectedPurchase.data, openPurchases.data, fromPurchase]
   )
+  const purchaseOptions = [...(openPurchases.data || [])]
+  if (purchasePick && !purchaseOptions.some((p: any) => p.id === purchasePick.id)) {
+    purchaseOptions.unshift(purchasePick)
+  }
 
   const [defaults, setDefaults] = useState<Defaults>({
     purity: 91.6, mkg_per_gm: '', hallmark_charges: '', purchase_rate: '',
@@ -257,6 +269,7 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
     if (ok !== undefined) {
       setRows([blankRow(defaults)]); existing.reload(); items.reload(); loose.reload()
       openPurchases.reload()
+      selectedPurchase.reload()
     }
   }
 
@@ -345,7 +358,7 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
                     onChange={setFromPurchase}
                     options={[
                       { value: '', label: 'All loose metal — not tied to a purchase' },
-                      ...(openPurchases.data || []).map((p: any) => ({
+                      ...purchaseOptions.map((p: any) => ({
                         value: String(p.id),
                         label: `${p.invoice_no} · ${p.party_name || '—'} · ${wt(p.pending_net)} g to label`,
                       })),
@@ -366,7 +379,7 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
               {purchasePick.sold_loose_net > 0 && (
                 <Tot label="Sold untagged" v={`${wt(purchasePick.sold_loose_net)} g · ${purchasePick.sold_loose_lines} lines`} />
               )}
-              <Tot label="Still to label" v={`${wt(purchasePick.pending_net)} g`} gold />
+              <Tot label="Still to label (net)" v={`${wt(purchasePick.pending_net)} g`} gold />
               <Tot label="These pieces (net)" v={`${wt(totals.net)} g`} />
               <Tot label={totals.net > purchasePick.pending_net + 0.005 ? 'Over by' : 'Left after'}
                 v={`${wt(Math.abs(purchasePick.pending_net - totals.net))} g`} />
@@ -382,21 +395,23 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
           )}
 
           {mode === 'loose' && loose.data && (
-            <div className="row wrap" style={{
+            <div className="row wrap" aria-label={`${metal} loose metal balance`} style={{
               gap: 20, padding: '11px 14px', marginBottom: 14,
               background: shortfall > 0 ? 'var(--danger-soft)' : 'var(--gold-soft)',
               border: `1px solid ${shortfall > 0 ? 'var(--danger)' : 'var(--gold-line)'}`,
               borderRadius: 'var(--radius)',
             }}>
-              <Tot label={`Loose ${metal.toLowerCase()} on hand`} v={`${wt(loose.data.loose_fine)} g`} />
+              <Tot label={`Loose ${metal.toLowerCase()} on hand (fine)`} v={`${wt(loose.data.loose_fine)} g`} />
               <button className="btn btn-sm" style={{ alignSelf: 'center' }}
                 onClick={() => setOpeningMetal(true)}>
                 Opening metal
               </button>
-              {loose.data.urd_fine > 0 && <Tot label="Old gold (URD)" v={`${wt(loose.data.urd_fine)} g`} />}
-              <Tot label="Available to use" v={`${wt(loose.data.available_fine)} g`} gold />
-              <Tot label="These pieces need" v={`${wt(totals.fine)} g`} />
-              <Tot label={shortfall > 0 ? 'Short by' : 'Left after'}
+              {loose.data.urd_fine > 0 && <Tot label="Old gold (URD, fine)" v={`${wt(loose.data.urd_fine)} g`} />}
+              <Tot label={fromPurchase ? 'Available to use (fine)' : 'Still to label (fine)'}
+                hint={fromPurchase ? undefined : 'Available to use from all loose metal'}
+                v={`${wt(loose.data.available_fine)} g`} gold />
+              <Tot label="These pieces need (fine)" v={`${wt(totals.fine)} g`} />
+              <Tot label={shortfall > 0 ? 'Short by (fine)' : 'Left after (fine)'}
                 v={`${wt(Math.abs(loose.data.available_fine - totals.fine))} g`} />
               {shortfall > 0 && (
                 <span className="badge badge-danger" style={{ alignSelf: 'center' }}>
@@ -672,11 +687,12 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
 
 /* ───────────────────────────── helpers ───────────────────────────── */
 
-function Tot({ label, v, gold }: { label: string; v: string; gold?: boolean }) {
+function Tot({ label, v, gold, hint }: { label: string; v: string; gold?: boolean; hint?: string }) {
   return (
     <div>
       <div className="small muted">{label}</div>
       <div className={`strong num ${gold ? 'gold' : ''}`} style={{ fontSize: 15 }}>{v}</div>
+      {hint && <div className="small muted">{hint}</div>}
     </div>
   )
 }
