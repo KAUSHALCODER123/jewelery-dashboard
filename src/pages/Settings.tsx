@@ -672,7 +672,7 @@ function InvoiceDesign({ company }: { company: any }) {
             <div className="card-head"><span className="card-title">Sections</span></div>
             <div className="card-body">
               <div className="col" style={{ gap: 9 }}>
-                <Check label="Company name header" checked={cfg.showLogo} onChange={(v) => set({ showLogo: v })} />
+                <Check label="Print company logo" checked={cfg.showLogo} onChange={(v) => set({ showLogo: v })} />
                 <Check label="Old gold (URD) table" checked={cfg.showUrd} onChange={(v) => set({ showUrd: v })} />
                 <Check label="Bank details" checked={cfg.showBank} onChange={(v) => set({ showBank: v })} />
                 <Check label="Declaration text" checked={cfg.showDeclaration} onChange={(v) => set({ showDeclaration: v })} />

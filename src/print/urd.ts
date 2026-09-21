@@ -1,4 +1,5 @@
 import { money, wt, dmy } from '../lib/format'
+import shopLogo from '../assets/parivar-jewellers.jpeg?inline'
 import { DEFAULT_INVOICE_CONFIG, type InvoiceConfig } from './invoice'
 
 const esc = (s: any) =>
@@ -44,7 +45,9 @@ export function urdBillHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
   body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10.5px; color: #000;
     margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .sheet { border: 1px solid #000; }
-  .hd { text-align: center; padding: 6px 8px 4px; }
+  .hd { text-align: center; padding: 6px 8px 4px; break-inside: avoid; }
+  .shop-logo { display: block; width: 32mm; max-width: 100%; height: auto;
+    object-fit: contain; margin: 2mm auto; break-inside: avoid; }
   .co { font-size: 20px; font-weight: 700; letter-spacing: .3px; color: ${esc(cfg.accent)}; }
   .co-sub { font-size: 10px; margin-top: 1px; }
   .ti { font-weight: 700; text-decoration: underline; font-size: 12px; margin-top: 3px; }
@@ -83,7 +86,8 @@ export function urdBillHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
 </style>
 <div class="sheet">
   <div class="hd">
-    ${cfg.showLogo ? `<div class="co">${esc(c?.name || 'Demo')}</div>` : ''}
+    ${cfg.showLogo ? `<img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">` : ''}
+    <div class="co">${esc(c?.name || 'Demo')}</div>
     ${c?.address ? `<div class="co-sub">${esc(c.address)}</div>` : ''}
     <div class="co-sub">Contact No.: ${esc(c?.phone || '')} ${c?.gstin ? `&nbsp;&nbsp; GST No: ${esc(c.gstin)}` : ''}</div>
     <div class="ti">OLD GOLD PURCHASE</div>
