@@ -111,6 +111,39 @@ app.whenReady().then(async () => {
     console.log(`PASS: TSC ${headMm} mm head, ${backMm} mm logo panel — logo centred on the fold-over back, front untouched, two copies`)
     w.destroy()
   }
+  // Awkward pieces: an 11-character tag with a long name and 999 g weights,
+  // no item and no purity, 100% purity, a Hindi name with markup characters.
+  // Tag number and purity must always print whole; only the name may give way.
+  {
+    const awkward = [
+      { tag: 'BANGLE00123', item_name: 'Antique Kada Pair with Stones', gross_wt: 999.999, net_wt: 987.654, purity: 91.6 },
+      { tag: 'RIN00012', item_name: '', gross_wt: 5.12, net_wt: 4.98, purity: 0 },
+      { tag: 'COIN00001', item_name: 'Gold coin', gross_wt: 10, net_wt: 10, purity: 100 },
+      { tag: 'PAY00021', item_name: 'चांदी पायल & <Set>', gross_wt: 28.4, net_wt: 28.4, purity: 92.5 },
+    ]
+    const html = labelSheetHtml(awkward, { headMm: 50, backMm: 30, showNet: true })
+    const w = new BrowserWindow({ show: false, width: 800, height: 400,
+      webPreferences: { sandbox: true, offscreen: true, backgroundThrottling: false } })
+    await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    const got = await w.webContents.executeJavaScript(`[...document.querySelectorAll('.tag')].map(t => {
+      const h = t.querySelector('.head').getBoundingClientRect(), tr = t.getBoundingClientRect()
+      const spans = [...t.querySelectorAll('.l1 span, .l2 span')].map(s => s.getBoundingClientRect())
+      return { inside: spans.every(r => r.right <= h.right + 0.5 && r.top >= tr.top - 0.5 && r.bottom <= tr.bottom + 0.5),
+        tag: t.querySelector('.tg').textContent, purity: t.querySelector('.pu')?.textContent || '',
+        name: t.querySelector('.nm')?.textContent || '', weights: t.querySelector('.l2').textContent }
+    })`)
+    assert.equal(got.length, 4)
+    assert.ok(got.every(g => g.inside), 'every line stays inside the head')
+    assert.deepEqual(got.map(g => g.tag), awkward.map(t => t.tag), 'tag numbers print whole')
+    assert.deepEqual(got.map(g => g.purity), ['91.6%', '', '100.0%', '92.5%'], 'purity prints whole')
+    assert.equal(got[0].name, 'Antique Kada Pair with Stones', 'the name is in the markup and only clipped visually')
+    assert.equal(got[0].weights, 'G 999.999  N 987.654')
+    const pdf = await w.webContents.printToPDF({ printBackground: true, preferCSSPageSize: true,
+      margins: { top: 0, bottom: 0, left: 0, right: 0 } })
+    fs.writeFileSync(path.join(dir, 'labels-awkward.pdf'), pdf)
+    console.log('PASS: TSC awkward pieces — tag and purity whole, long name trimmed, four tags')
+    w.destroy()
+  }
   console.log('Print samples: ' + dir)
   app.exit(0)
 }).catch(e => { console.error(e); app.exit(1) })
