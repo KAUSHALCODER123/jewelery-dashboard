@@ -82,7 +82,8 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
   // Keep the selected invoice visible even once it is fully labelled and no
   // longer appears in the list of open purchases.
   const selectedPurchase = useAsync(
-    () => fromPurchase ? window.api.purchase.read({ id: Number(fromPurchase) }) : Promise.resolve(null),
+    () => fromPurchase && fromPurchase !== 'ALL'
+      ? window.api.purchase.read({ id: Number(fromPurchase) }) : Promise.resolve(null),
     [fromPurchase]
   )
 
@@ -116,14 +117,29 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
   const metal = ['Gold', 'Silver', 'Platinum'].includes(selectedItem?.type_name)
     ? selectedItem.type_name : 'Gold'
   const loose = useAsync(() => window.api.looseStock.summary({ metal }), [metal])
+  // Every open purchase of this metal rolled into one figure — what "All
+  // purchases" labels against, oldest invoice first.
+  const allOpen = useMemo(() => {
+    const list = (openPurchases.data || []).filter((p: any) => p.metal === metal && p.pending_net > 0.005)
+    const sum = (k: string) => list.reduce((s: number, p: any) => s + num(p[k]), 0)
+    return {
+      id: 'ALL', invoice_no: `All ${list.length} open purchase${list.length === 1 ? '' : 's'}`,
+      metal, count: list.length,
+      bought_net: sum('bought_net'), tagged_net: sum('tagged_net'), tagged_pieces: sum('tagged_pieces'),
+      sold_loose_net: sum('sold_loose_net'), sold_loose_lines: sum('sold_loose_lines'),
+      pending_net: sum('pending_net'),
+    }
+  }, [openPurchases.data, metal])
   const purchasePick = useMemo(
-    () => selectedPurchase.data && String(selectedPurchase.data.id) === fromPurchase
-      ? { ...selectedPurchase.data, ...selectedPurchase.data.tally }
-      : (openPurchases.data || []).find((p: any) => String(p.id) === fromPurchase),
-    [selectedPurchase.data, openPurchases.data, fromPurchase]
+    () => fromPurchase === 'ALL' ? allOpen
+      : selectedPurchase.data && String(selectedPurchase.data.id) === fromPurchase
+        ? { ...selectedPurchase.data, ...selectedPurchase.data.tally }
+        : (openPurchases.data || []).find((p: any) => String(p.id) === fromPurchase),
+    [selectedPurchase.data, openPurchases.data, fromPurchase, allOpen]
   )
   const purchaseOptions = [...(openPurchases.data || [])]
-  if (purchasePick && !purchaseOptions.some((p: any) => p.id === purchasePick.id)) {
+  if (purchasePick && purchasePick.id !== 'ALL'
+      && !purchaseOptions.some((p: any) => p.id === purchasePick.id)) {
     purchaseOptions.unshift(purchasePick)
   }
 
@@ -223,7 +239,8 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
 
   const payload = () => ({
     itemId: Number(itemId),
-    purchaseId: mode === 'loose' && fromPurchase ? Number(fromPurchase) : null,
+    purchaseId: mode !== 'loose' || !fromPurchase ? null
+      : fromPurchase === 'ALL' ? 'ALL' : Number(fromPurchase),
     rows: filled.map((r) => ({
       // Category / salesman / shelf / size are set once for the whole batch and
       // carried onto every piece; a row that already has its own keeps it.
@@ -248,7 +265,15 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
             // Say where the invoice now stands, so a short batch is noticed at
             // once rather than at month end.
             const t = res?.tally
-            if (t && purchasePick) {
+            if (res?.tallies?.length) {
+              // From all purchases: say where each invoice the batch touched now stands.
+              const msg = res.tallies.map((x: any) =>
+                x.status === 'TALLIED' ? `${x.invoice_no} tallies`
+                  : x.status === 'PENDING' ? `${x.invoice_no}: ${wt(x.pending_net)} g still to label`
+                  : `${x.invoice_no}: ${wt(Math.abs(x.pending_net))} g OVER`
+              ).join(' · ')
+              push('ok', `${res.created} tag${res.created === 1 ? '' : 's'} made · ${msg}`)
+            } else if (t && purchasePick) {
               const msg = t.status === 'TALLIED'
                 ? `${purchasePick.invoice_no} tallies — all ${wt(t.bought_net)} g labelled`
                 : t.status === 'PENDING'
@@ -353,11 +378,19 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
             {mode === 'loose' && (
               <div style={{ minWidth: 320 }}>
                 <Field label="From purchase"
-                  hint="All loose metal draws on the whole pool; a purchase ties the labels to that invoice so it can tally">
+                  hint={fromPurchase === 'ALL'
+                    ? 'Each piece is booked to the oldest invoice that still has room for it, so the invoices tally in the order they came'
+                    : 'All loose metal draws on the whole pool; a purchase ties the labels to that invoice so it can tally'}>
                   <Select value={fromPurchase}
                     onChange={setFromPurchase}
                     options={[
                       { value: '', label: 'All loose metal — not tied to a purchase' },
+                      {
+                        value: 'ALL',
+                        label: allOpen.count
+                          ? `All purchases — ${wt(allOpen.pending_net)} g to label across ${allOpen.count} invoice${allOpen.count === 1 ? '' : 's'}`
+                          : `All purchases — nothing waiting for a ${metal.toLowerCase()} label`,
+                      },
                       ...purchaseOptions.map((p: any) => ({
                         value: String(p.id),
                         label: `${p.invoice_no} · ${p.party_name || '—'} · ${wt(p.pending_net)} g to label`,
@@ -961,18 +994,23 @@ function PrintLabels({ tags, onClose, onPrinted }: {
   const [headMm, setHeadMm] = useState(() => {
     try { return Number(localStorage.getItem('label.headMm')) || 50 } catch { return 50 }
   })
+  // The fold-over stretch after the head that carries the logo. On the shop's
+  // tags it is 30 mm; the thin tail starts right after it.
+  const [backMm, setBackMm] = useState(() => {
+    try { return Number(localStorage.getItem('label.backMm')) || 30 } catch { return 30 }
+  })
   const [opts, setOpts] = useState({
     showItem: true, showGross: true, showNet: true, showPurity: true, showLogo: true,
   })
 
   const html = useMemo(
     () => labelSheetHtml(tags, {
-      size, copies, skip, headMm, ...opts,
+      size, copies, skip, headMm, backMm, ...opts,
       // The shop name has no room on the small tag; it is the item and the
       // weights the counter needs to read.
       shopName: size === 'tsc-100x15' ? '' : (company.data?.name || ''),
     }),
-    [tags, size, copies, skip, headMm, opts, company.data]
+    [tags, size, copies, skip, headMm, backMm, opts, company.data]
   )
 
   const sizeInfo = LABEL_SIZES.find((s) => s.value === size)
@@ -1012,14 +1050,24 @@ function PrintLabels({ tags, onClose, onPrinted }: {
             </Field>
           </div>
           {size === 'tsc-100x15' && (
-            <Field label="Head length (mm)" hint="Printable part of the tag, before the thin tail">
-              <Input className="right" style={{ width: 74 }} value={headMm}
-                onChange={(e) => {
-                  const v = Math.min(96, Math.max(30, Number(e.target.value) || 50))
-                  setHeadMm(v)
-                  try { localStorage.setItem('label.headMm', String(v)) } catch { /* ignore */ }
-                }} />
-            </Field>
+            <div className="row" style={{ gap: 10 }}>
+              <Field label="Head length (mm)" hint="Printable part of the tag, before the fold">
+                <Input className="right" style={{ width: 74 }} value={headMm}
+                  onChange={(e) => {
+                    const v = Math.min(96, Math.max(30, Number(e.target.value) || 50))
+                    setHeadMm(v)
+                    try { localStorage.setItem('label.headMm', String(v)) } catch { /* ignore */ }
+                  }} />
+              </Field>
+              <Field label="Logo panel (mm)" hint="Fold-over part after the head; the thin tail starts after it">
+                <Input className="right" style={{ width: 74 }} value={backMm}
+                  onChange={(e) => {
+                    const v = Math.min(50, Math.max(12, Number(e.target.value) || 30))
+                    setBackMm(v)
+                    try { localStorage.setItem('label.backMm', String(v)) } catch { /* ignore */ }
+                  }} />
+              </Field>
+            </div>
           )}
           <div className="section-title">Show on the label</div>
           {size === 'tsc-100x15' && <Check label="Company logo" checked={opts.showLogo}

@@ -74,8 +74,10 @@ app.whenReady().then(async () => {
   const tags = [{ tag: 'CHA00001', item_name: 'chain', purity: 75, gross_wt: 3, net_wt: 3 }]
   // a 96 mm head leaves nothing to fold over, so that tag carries no logo
   assert.equal(labelSheetHtml(tags, { headMm: 96 }).includes('<img class="shop-logo"'), false)
-  for (const headMm of [30, 50, 70]) {
-    const html = labelSheetHtml(tags, { headMm, showNet: true, copies: 2 })
+  // The panel past the head is only 30 mm on the shop's tags before the thin
+  // tail begins: a 50 mm panel put the end of the shop's name into the tail.
+  for (const [headMm, backMm] of [[30, 30], [50, 30], [50, 45], [70, 30]]) {
+    const html = labelSheetHtml(tags, { headMm, backMm, showNet: true, copies: 2 })
     const w = new BrowserWindow({ show: false, width: 800, height: 300,
       webPreferences: { sandbox: true, offscreen: true, backgroundThrottling: false } })
     await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
@@ -90,7 +92,7 @@ app.whenReady().then(async () => {
         const mid = (Math.min(...parts.map(r => r.left)) + Math.max(...parts.map(r => r.right))) / 2
         return { barcodeWidth: barcode.width,
           // fold at the head's edge: the back panel mirrors the front one
-          foldsToBack: Math.abs(back.left - h.right) < 0.5 && Math.abs(back.width - Math.min(h.width, t.right - h.right)) < 0.5,
+          foldsToBack: Math.abs(back.left - h.right) < 0.5 && Math.abs(back.width - Math.min(h.width, t.right - h.right, ${backMm} * mm)) < 0.5,
           centred: Math.abs(mid - (back.left + back.right) / 2) < 0.5,
           inside: parts.every(r => r.left >= back.left + mm && r.right <= back.right - mm && r.top >= t.top + 0.9 * mm - 0.5 && r.bottom <= t.bottom - 0.9 * mm + 0.5),
           textFits: [...tag.querySelectorAll('.l1 span, .l2 span')].every(e => e.getBoundingClientRect().right <= h.right) }
@@ -98,15 +100,15 @@ app.whenReady().then(async () => {
     })()`)
     assert.equal(bounds.length, 2)
     for (const b of bounds) {
-      assert.ok(b.foldsToBack && b.centred, 'logo panel must start at the fold and centre the logo on the back')
+      assert.ok(b.foldsToBack && b.centred, 'logo panel must start at the fold, stop before the tail and centre the logo on the back')
       assert.ok(b.inside, 'logo and name must sit inside the back panel with safe margins')
       assert.ok(Math.abs(b.barcodeWidth - (headMm - 3) * 96 / 25.4) < 1, 'barcode retains full width')
       assert.ok(b.textFits, 'label text must fit on the front')
     }
     assert.equal(labelSheetHtml(tags, { showLogo: false }).includes('<img class="shop-logo"'), false)
-    fs.writeFileSync(path.join(dir, `labels-${headMm}.pdf`), await w.webContents.printToPDF({
+    fs.writeFileSync(path.join(dir, `labels-${headMm}-${backMm}.pdf`), await w.webContents.printToPDF({
       printBackground: true, preferCSSPageSize: true, margins: { top: 0, bottom: 0, left: 0, right: 0 } }))
-    console.log(`PASS: TSC ${headMm} mm head — logo centred on the fold-over back, front untouched, two copies`)
+    console.log(`PASS: TSC ${headMm} mm head, ${backMm} mm logo panel — logo centred on the fold-over back, front untouched, two copies`)
     w.destroy()
   }
   console.log('Print samples: ' + dir)

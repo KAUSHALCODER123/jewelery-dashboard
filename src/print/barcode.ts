@@ -139,6 +139,12 @@ export type LabelOptions = {
   copies?: number
   /** TSC tag only: length of the printable head in mm (the rest is the tail). */
   headMm?: number
+  /**
+   * TSC tag only: width in mm of the fold-over panel just past the head that
+   * carries the company mark. The thin tail starts after it, so anything wider
+   * runs off the label — the shop's tags give it 30 mm.
+   */
+  backMm?: number
 }
 
 const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
@@ -146,19 +152,21 @@ const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
 /**
  * The 100 × 15 mm jewellery tag the shop runs on its TSC TL240.
  *
- * A rat-tail tag, not a dumbbell: only the HEAD (about 50 mm) is printable.
- * The rest is a 3 mm wide tail that wraps around the ring or chain and sticks
- * to itself, so anything printed there is lost. The whole label — barcode,
- * tag number, item and weights — is stacked inside the head. The stretch after
- * it carries only the company mark: the tag is folded at the head's edge, so the
- * mark ends up on the back of the printed face.
+ * A rat-tail tag, not a dumbbell: only the HEAD (about 50 mm) and a short
+ * stretch after it (about 30 mm) are printable. The rest is a 3 mm wide tail
+ * that wraps around the ring or chain and sticks to itself, so anything printed
+ * there is lost. The whole label — barcode, tag number, item and weights — is
+ * stacked inside the head. The stretch after it carries only the company mark:
+ * the tag is folded at the head's edge, so the mark ends up on the back of the
+ * printed face. The mark's panel is kept to that stretch — a wider panel put
+ * the end of the shop's name past the fold into the tail, where it was cut.
  *
- *   ┌────────────────────────────────┬────────────────────────────────┐
- *   │ ▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌  │                                │
- *   │ RIN00012 · Ladies Ring · 91.6% │          company mark          │
- *   │ G 5.120  N 4.980               │                                │
- *   └────────────────────────────────┴────────────────────────────────┘
- *                head (front)                folds to the back
+ *   ┌────────────────────────────────┬────────────────────┬───────────
+ *   │ ▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌  │                    │
+ *   │ RIN00012 · Ladies Ring · 91.6% │    company mark    │ ═══ tail
+ *   │ G 5.120  N 4.980               │                    │
+ *   └────────────────────────────────┴────────────────────┴───────────
+ *                head (front)          folds to the back
  *
  * The barcode runs the full width of the head so each bar is at least three
  * printer dots wide at 203 dpi — a narrower code on this small a tag is what
@@ -166,11 +174,13 @@ const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
  */
 function tscTagHtml(
   tags: (LabelTag | null)[],
-  o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies' | 'headMm'>> & { headMm: number },
+  o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies' | 'headMm' | 'backMm'>>
+    & { headMm: number; backMm: number },
 ): string {
   const head = Math.min(96, Math.max(30, Number(o.headMm) || 50))
-  // The panel behind the head once the tag is folded at the head's edge.
-  const back = Math.min(head, 100 - head)
+  // The panel behind the head once the tag is folded at the head's edge — never
+  // past the label, and never wider than the head it folds on to.
+  const back = Math.min(head, 100 - head, Math.max(12, Number(o.backMm) || 30))
   const cells = tags.map((t) => {
     if (!t) return `<div class="tag blank"></div>`
     const l1 = [
@@ -246,11 +256,15 @@ function tscTagHtml(
   .bc svg { width: 100%; height: 5mm; display: block; }
   /*
    * The company mark goes on the blank stretch straight after the head, centred
-   * in a panel as wide as the head itself. The tag is folded at the head's edge,
-   * so that panel becomes the BACK of the printed face and the mark lands in the
-   * middle of it. The barcode and text keep the whole front to themselves.
+   * in a panel only as wide as that stretch. The tag is folded at the head's
+   * edge, so that panel becomes the BACK of the printed face and the mark lands
+   * in the middle of it. The barcode and text keep the whole front to themselves.
    *
    *     8.6 mark · 0.3 · 2.6 name = 11.5, centred in the 14.4 box
+   *
+   * The name is 28 mm wide at 6 pt, so on the usual 30 mm panel it is set a
+   * touch smaller — it must never reach the panel's edge, because past that
+   * edge is the tail.
    */
   .back {
     position: absolute; left: ${head}mm; top: 0; width: ${back}mm; height: 14.4mm;
@@ -258,8 +272,9 @@ function tscTagHtml(
     overflow: hidden; background: #fff;
   }
   .shop-logo { display: block; height: ${back >= 26 ? 8.6 : 11}mm; width: auto; flex: none; }
-  .back b { display: block; margin-top: .3mm; height: 2.6mm; line-height: 2.6mm; font-size: 6pt;
-            font-weight: 700; letter-spacing: .15mm; white-space: nowrap;
+  .back b { display: block; margin-top: .3mm; height: 2.6mm; line-height: 2.6mm;
+            font-size: ${back >= 34 ? 6 : 5.5}pt; letter-spacing: ${back >= 34 ? 0.15 : 0.08}mm;
+            font-weight: 700; white-space: nowrap;
             font-family: Georgia, "Times New Roman", serif; }
   /* The lines themselves never clip: a long name runs on to the right and is
      cut by the head box at its edge, but a descender is never cut. */
@@ -280,6 +295,7 @@ export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): strin
   const {
     size = 'tsc-100x15', showItem = true, showGross = true, showNet = false,
     showPurity = true, shopName = '', showLogo = true, skip = 0, copies = 1, headMm = 50,
+    backMm = 30,
   } = opts
   const S = SHEET[size] ?? SHEET['tsc-100x15']
 
@@ -288,7 +304,9 @@ export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): strin
   for (const t of tags) for (let c = 0; c < copies; c++) expanded.push(t)
 
   if (size === 'tsc-100x15') {
-    return tscTagHtml(expanded, { showItem, showGross, showNet, showPurity, shopName, showLogo, headMm })
+    return tscTagHtml(expanded, {
+      showItem, showGross, showNet, showPurity, shopName, showLogo, headMm, backMm,
+    })
   }
 
   // Smaller labels cannot carry as much text.

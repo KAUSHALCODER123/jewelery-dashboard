@@ -208,6 +208,41 @@ app.whenReady().then(() => {
       itemId: ringId, purchaseId: puAg, entry_date: DAY, allowOverdraw: true,
       rows: [{ gross_wt: 1, purity: 91.6, qty: 1 }],
     }))
+
+    head('7. Labels from ALL purchases — oldest invoice first')
+    // Two more gold invoices, 20 g and 15 g, on different days. The 50 g one
+    // from step 1 is already OVER, so it must not be offered any more pieces.
+    const mk = (date, net) => api.purchase.save({
+      head: { prefix: 'MI', invoice_date: date, party_id: supplier, party_name: 'Bullion House',
+              is_credit: 1, gst_pct: 0, paid_amount: 0, metal: 'Gold' },
+      items: [{ item_id: ringId, item_name: 'Ring', qty: 2, gross_wt: net, stone_wt: 0, net_wt: net,
+                purity: 91.6, rate: 6000, wastage_pct: 0, hallmark_charges: 0 }],
+    }).id
+    const puOld = mk('2026-09-01', 20)
+    const puNew = mk('2026-09-05', 15)
+    const cAll = api.looseStock.convert({
+      itemId: ringId, purchaseId: 'ALL', entry_date: DAY, allowOverdraw: true,
+      rows: [
+        { gross_wt: 12, purity: 91.6, qty: 1 },   // → oldest (20 g): 8 left
+        { gross_wt: 10, purity: 91.6, qty: 1 },   // no room in the oldest → newer (15 g): 5 left
+        { gross_wt: 8, purity: 91.6, qty: 1 },    // → oldest again: tallies
+        { gross_wt: 6, purity: 91.6, qty: 1 },    // nowhere fits → the one with most left (5 g): OVER by 1
+      ],
+    })
+    check('four tags made', cAll.created, 4)
+    check('both invoices reported', cAll.tallies.length, 2)
+    check('no single-invoice tally', cAll.tally, 'null')
+    check('oldest invoice tallies', api.purchase.tally({ id: puOld }).status, 'TALLIED')
+    check('oldest got 12 + 8', api.purchase.tally({ id: puOld }).tagged_pieces, 2)
+    check('newer invoice is over', api.purchase.tally({ id: puNew }).status, 'OVER')
+    check('newer over by 1 g', api.purchase.tally({ id: puNew }).pending_net, -1)
+    check('the over-labelled first invoice was left alone', api.purchase.tally({ id: puId }).tagged_pieces, 6)
+    check('every tag carries an invoice', api.tagStock.list({ status: 'IN_STOCK' })
+      .filter((t) => cAll.tags.includes(t.tag) && !t.purchase_no).length, 0)
+    throws('nothing open → refused, not silently untied', () => api.looseStock.convert({
+      itemId: ringId, purchaseId: 'ALL', entry_date: DAY, allowOverdraw: true,
+      rows: [{ gross_wt: 1, purity: 91.6, qty: 1 }],
+    }))
   } catch (e) {
     fail++
     console.log('  ERROR', e && e.stack ? e.stack : e)

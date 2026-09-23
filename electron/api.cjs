@@ -960,14 +960,29 @@ const looseStock = {
       // The pool is per metal: silver payal come out of the silver pool, not
       // the gold one.
       const metal = itemMetal(db, itemId)
-      const purchase = purchaseId
+      // 'ALL' spreads the batch over every open purchase of this metal, oldest
+      // invoice first, so a day's labelling clears the backlog in the order it
+      // arrived without picking each invoice by hand.
+      const fromAll = purchaseId === 'ALL'
+      const purchase = purchaseId && !fromAll
         ? db.prepare(`SELECT id, invoice_no, metal FROM purchase WHERE id = ?`).get(purchaseId)
         : null
-      if (purchaseId && !purchase) throw new Error('That purchase no longer exists')
+      if (purchaseId && !fromAll && !purchase) throw new Error('That purchase no longer exists')
       if (purchase && purchase.metal !== metal) {
         throw new Error(
           `${purchase.invoice_no} is a ${purchase.metal} purchase — these pieces are ${metal}.`
         )
+      }
+      const openPurchases = fromAll
+        ? db.prepare(
+            `SELECT id, invoice_no, invoice_date, metal FROM purchase
+             WHERE metal = ? ORDER BY invoice_date, id`
+          ).all(metal)
+          .map((p) => ({ ...p, left: purchaseTally(db, p.id).pending_net }))
+          .filter((p) => p.left > 0.005)
+        : []
+      if (fromAll && !openPurchases.length) {
+        throw new Error(`No ${metal} purchase has metal waiting to be labelled.`)
       }
 
       const before = looseStock.summary({ metal })
@@ -994,7 +1009,25 @@ const looseStock = {
       const mark = db.prepare(
         `UPDATE tag_stock SET source = 'PURCHASE', purchase_id = ? WHERE id = ?`
       )
-      for (const id of ids) mark.run(purchase ? purchase.id : null, id)
+      // From all purchases: each piece goes to the oldest invoice that still has
+      // room for its net weight; when none has room, to the one with the most
+      // left, so the overrun is flagged on a single invoice rather than spread.
+      const used = []
+      const pieceNet = filled.map((r) => calc.r3(calc.netWeight(r)))
+      ids.forEach((id, i) => {
+        let pu = purchase
+        if (fromAll) {
+          const net = pieceNet[i]
+          pu = openPurchases.find((p) => p.left + 0.005 >= net)
+            || openPurchases.reduce((best, p) => (!best || p.left > best.left ? p : best), null)
+          pu.left = calc.r3(pu.left - net)
+          if (!used.includes(pu)) used.push(pu)
+        }
+        mark.run(pu ? pu.id : null, id)
+      })
+      const tallies = fromAll
+        ? used.map((p) => ({ id: p.id, invoice_no: p.invoice_no, ...purchaseTally(db, p.id) }))
+        : []
 
       // Take the same weight out of the loose pool.
       const gross = calc.r3(filled.reduce((s, r) => s + num(r.gross_wt), 0))
@@ -1004,13 +1037,17 @@ const looseStock = {
          direction, is_tagged, entry_date)
          VALUES (?,?,?,?,'CONVERT',?,?,'OUT',0,?)`
       ).run(metal, gross, net, needed, ids[0] ?? null,
-            purchase ? `${ids.length} tags · ${purchase.invoice_no}` : `${ids.length} tags`, date)
+            purchase ? `${ids.length} tags · ${purchase.invoice_no}`
+              : fromAll ? `${ids.length} tags · ${used.map((p) => p.invoice_no).join(', ')}`
+              : `${ids.length} tags`, date)
 
       const after = looseStock.summary({ metal })
       return {
         created: ids.length,
         metal,
         tally: purchase ? purchaseTally(db, purchase.id) : null,
+        /** From all purchases: the tally of every invoice the batch touched. */
+        tallies,
         fine_converted: needed,
         loose_before: before.available_fine,
         loose_after: after.available_fine,
