@@ -146,18 +146,34 @@ function registerIpc() {
   // ── Printing ──────────────────────────────────────────────────────────
   ipcMain.handle('print:html', async (_evt, { html, silent = false }) => {
     session.require('daily')
+    // Sized like the sheet itself. Chromium lays the print out from the document,
+    // not the window, but a too-small hidden window has been seen to clip what
+    // Windows drivers receive; an A4-shaped one removes that variable.
     const w = new BrowserWindow({
-      show: false,
+      show: false, width: 900, height: 1200,
       webPreferences: { sandbox: true, contextIsolation: true },
     })
     try {
       await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-      await new Promise((r) => setTimeout(r, 250))
+      // Print only once every embedded image has decoded and the fonts are in.
+      // A fixed pause fired the print while the logo was still loading, and a
+      // sheet laid out around a half-loaded header printed short.
+      await w.webContents.executeJavaScript(`(async () => {
+        try { await document.fonts.ready } catch {}
+        await Promise.all([...document.images].map((i) => i.decode().catch(() => {})))
+      })()`).catch(() => {})
+      await new Promise((r) => setTimeout(r, 100))
+      const opts = { silent, printBackground: true, margins: { marginType: 'none' } }
+      // A sheet that declares A4 is sent as A4. Left to the driver, a printer
+      // whose default paper is Letter (18 mm shorter) lays the page out for that
+      // and the bottom of the bill never prints. Receipts and tags declare their
+      // own size or none, and keep the printer's setting.
+      if (/@page\s*\{[^}]*size:\s*A4/i.test(html)) opts.pageSize = 'A4'
       const ok = await new Promise((resolve) => {
-        w.webContents.print(
-          { silent, printBackground: true, margins: { marginType: 'none' } },
-          (success) => resolve(success)
-        )
+        w.webContents.print(opts, (success, reason) => {
+          if (!success && reason && reason !== 'cancelled') console.error('[print]', reason)
+          resolve(success)
+        })
       })
       return { ok }
     } finally {
