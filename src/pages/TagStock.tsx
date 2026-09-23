@@ -5,7 +5,7 @@ import {
   useAction, useAsync, useDebounced, useToast,
 } from '../lib/ui'
 import { fineWeight, netWeight, num, r3 } from '../lib/calc'
-import { money, toCsv, wt } from '../lib/format'
+import { dmy, money, toCsv, wt } from '../lib/format'
 import { LABEL_SIZES, labelSheetHtml, type LabelSize } from '../print/barcode'
 import { GridSettingsButton, useGridCols, type GridCol } from '../lib/grid'
 
@@ -128,6 +128,9 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
       bought_net: sum('bought_net'), tagged_net: sum('tagged_net'), tagged_pieces: sum('tagged_pieces'),
       sold_loose_net: sum('sold_loose_net'), sold_loose_lines: sum('sold_loose_lines'),
       pending_net: sum('pending_net'),
+      // Oldest first — the order the pieces will be booked in.
+      invoices: [...list].sort((a: any, b: any) =>
+        String(a.invoice_date).localeCompare(String(b.invoice_date)) || a.id - b.id),
     }
   }, [openPurchases.data, metal])
   const purchasePick = useMemo(
@@ -423,6 +426,18 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
                 <span className="badge badge-danger" style={{ alignSelf: 'center' }}>
                   {purchasePick.metal} purchase — pick a {purchasePick.metal} item
                 </span>
+              )}
+              {purchasePick.id === 'ALL' && (
+                // Every invoice in the pool, in the order the pieces will fill them.
+                <div className="row wrap small muted" style={{ width: '100%', gap: 14 }}
+                  aria-label="Open purchases, oldest first">
+                  {purchasePick.invoices.length ? purchasePick.invoices.map((p: any, i: number) => (
+                    <span key={p.id}>
+                      {i + 1}. <b>{p.invoice_no}</b> · {p.party_name || '—'} · {dmy(p.invoice_date)} ·{' '}
+                      <b>{wt(p.pending_net)} g</b> to label
+                    </span>
+                  )) : <span>No {metal.toLowerCase()} purchase has metal waiting for a label.</span>}
+                </div>
               )}
             </div>
           )}

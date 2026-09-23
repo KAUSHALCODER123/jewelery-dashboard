@@ -112,10 +112,25 @@ app.whenReady().then(async () => {
   assert.equal(api.purchase.tally({ id: purchase.id }).pending_net, 50)
   console.log('PASS: pooled summary, purchase switch, live preview and unlinked conversion')
 
-  await js(`test.select('All loose metal', '${purchase.id}')`)
+  // "All purchases": one choice that labels against every open invoice at once.
+  const allChoice = await js(`[...document.querySelectorAll('select option')]
+    .find(o => o.textContent.startsWith('All purchases'))?.textContent`)
+  assert.ok(/All purchases — 50\.000 g to label across 1 invoice$/.test(allChoice), allChoice)
+  await js("test.select('All loose metal', 'ALL')")
   await waitFor("test.total('Still to label (net)') === '50.000 g'")
-  await js("test.gross('50')")
-  await waitFor("test.total('These pieces need (fine)') === '45.800 g'")
+  assert.equal(await js("test.total('All 1 open purchase bought (net)')"), '50.000 g')
+  await js("test.gross('20')")
+  await waitFor("test.total('These pieces (net)') === '20.000 g'")
+  await js("test.click('Convert')")
+  await waitFor("test.total('Still to label (net)') === '30.000 g'")
+  assert.equal(api.purchase.tally({ id: purchase.id }).tagged_pieces, 1)
+  assert.equal(api.purchase.tally({ id: purchase.id }).pending_net, 30)
+  console.log('PASS: "All purchases" books the piece to the open invoice and keeps the running total')
+
+  await js(`test.select('All loose metal', '${purchase.id}')`)
+  await waitFor("test.total('Still to label (net)') === '30.000 g'")
+  await js("test.gross('30')")
+  await waitFor("test.total('These pieces need (fine)') === '27.480 g'")
   await js("test.click('Convert')")
   await waitFor("test.total('Still to label (net)') === '0.000 g'")
   assert.equal(api.purchase.tally({ id: purchase.id }).status, 'TALLIED')
