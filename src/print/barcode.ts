@@ -183,11 +183,11 @@ function tscTagHtml(
   const back = Math.min(head, 100 - head, Math.max(12, Number(o.backMm) || 30))
   const cells = tags.map((t) => {
     if (!t) return `<div class="tag blank"></div>`
-    const l1 = [
-      t.tag,
-      o.showItem && (t.item_name || ''),
-      o.showPurity && t.purity ? `${Number(t.purity).toFixed(1)}%` : '',
-    ].filter(Boolean).join('  ')
+    // Tag number and purity are what the counter scans and quotes, so they always
+    // print in full; a long item name is the part that gives way, trimmed with
+    // an ellipsis rather than pushing the purity off the head.
+    const purity = o.showPurity && t.purity ? `${Number(t.purity).toFixed(1)}%` : ''
+    const name = o.showItem ? (t.item_name || '') : ''
     const l2 = [
       o.showGross ? `G ${wt3(t.gross_wt)}` : '',
       o.showNet ? `N ${wt3(t.net_wt)}` : '',
@@ -199,7 +199,7 @@ function tscTagHtml(
           // Stretch to the full head width: bars get wider in proportion, so
           // the code stays valid and every bar is several printer dots wide.
           .replace('<svg ', '<svg preserveAspectRatio="none" ')}</div>
-        <div class="l1"><span>${escapeXml(l1)}</span></div>
+        <div class="l1"><span class="tg">${escapeXml(t.tag)}</span>${name ? `<span class="nm">${escapeXml(name)}</span>` : ''}${purity ? `<span class="pu">${escapeXml(purity)}</span>` : ''}</div>
         ${l2 ? `<div class="l2"><span>${escapeXml(l2)}</span></div>` : ''}
       </div>
       ${o.showLogo && back >= 12 ? `<div class="back"><img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">${back >= 26 ? '<b>PARIVAR JEWELLERS</b>' : ''}</div>` : ''}
@@ -280,7 +280,9 @@ function tscTagHtml(
      cut by the head box at its edge, but a descender is never cut. */
   .l1, .l2 { flex: none; white-space: nowrap; display: flex; align-items: center; }
   .l1 { height: 3.5mm; margin-top: 0.2mm; font-size: 9pt; font-weight: 700; line-height: 1.15;
-        font-family: "Segoe UI", Arial, sans-serif; }
+        font-family: "Segoe UI", Arial, sans-serif; gap: 1.6mm; }
+  .l1 .tg, .l1 .pu { flex: none; }
+  .l1 .nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .l2 { height: 3.7mm; margin-top: 0.2mm; font-size: 9.5pt; font-weight: 700; line-height: 1.15;
         font-family: Consolas, "Segoe UI", monospace; }
   /* a short head cannot hold the full-size lines */
