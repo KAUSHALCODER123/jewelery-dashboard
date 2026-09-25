@@ -261,6 +261,30 @@ function registerIpc() {
     return { ok: true, safety }
   })
 
+  /** What "Clear all entries" would delete, for the owner to see first. */
+  ipcMain.handle('backup:current', async () => {
+    session.require('restore_backup')
+    return { ok: true, current: backups.summarise(db.get()) }
+  })
+
+  /**
+   * Delete every entry and keep the setup — a practice run or a bad start
+   * wiped before the real books begin. Owner only, needs the word typed back,
+   * and copies the database aside first. Restarts, like a restore, so no
+   * screen keeps showing rows that are gone.
+   */
+  ipcMain.handle('backup:clearEntries', async (_e, { confirm } = {}) => {
+    session.require('restore_backup')
+    if (String(confirm || '').trim().toUpperCase() !== 'DELETE') {
+      throw new Error('Type DELETE to confirm.')
+    }
+    const { safety } = backups.clearEntries({
+      dataDir: path.join(app.getPath('userData'), 'data'), db,
+    })
+    setTimeout(() => { app.relaunch(); app.exit(0) }, 600)
+    return { ok: true, safety }
+  })
+
   // ── Messaging ─────────────────────────────────────────────────────────
   // These only hand a URL to the OS default handler. The app never contacts
   // WhatsApp/SMS/mail itself, holds no credentials, and sends nothing on its

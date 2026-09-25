@@ -203,6 +203,8 @@ declare global {
         create(): Promise<any>
         inspect(): Promise<any>
         restore(p: { filePath: string }): Promise<any>
+        current(): Promise<any>
+        clearEntries(p: { confirm: string }): Promise<any>
       }
       mobile: {
         status(): Promise<any>

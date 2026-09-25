@@ -132,6 +132,66 @@ app.whenReady().then(() => {
     fs.writeFileSync(corrupt, bytes)
     rejects('damaged file refused', () => backups.restore({ filePath: corrupt, dataDir, db }))
     check('live books untouched', api.party.list({ type: 'CUSTOMER' }).length, 2)
+
+    head('9. Every table is either kept or cleared')
+    const tables = db.get().prepare(`SELECT name FROM sqlite_master
+      WHERE type='table' AND name NOT LIKE 'sqlite_%'`).all().map((r) => r.name)
+    const unlisted = tables.filter((t) =>
+      !backups.KEEP_TABLES.includes(t) && !backups.CLEAR_TABLES.includes(t))
+    check('tables on neither list (add each to KEEP or CLEAR)', unlisted.join(', ') || 'none', 'none')
+
+    head('10. Clear all entries keeps the setup and starts the books fresh')
+    // A real bill, so the clear has to cut rows that point at each other.
+    const party = api.party.list({ type: 'CUSTOMER' })[0]
+    const tag = api.tagStock.list({ status: 'IN_STOCK' })[0]
+    const sale = api.sale.save({
+      head: {
+        prefix: 'COM', bill_date: '2026-07-23', party_id: party.id, party_name: party.name,
+        is_credit: 1, payment_mode: 'Cash', gst_pct: 3, bill_discount: 0, making_discount: 0,
+        other_amount: 0, manual_urd_amount: 0, tcs_pct: 0, amount_received: 0,
+      },
+      items: [{
+        tag: tag.tag, tag_stock_id: tag.id, item_id: itemId, item_name: 'Ring', hsn: '7113',
+        qty: 0, gross_wt: tag.gross_wt, purity: 91.6, stone_wt: 0, net_wt: tag.gross_wt,
+        rate_per_gm: 4590, mkg_per_gm: 300, hallmark_charges: 0, huid: '',
+      }],
+      urds: [],
+    })
+    check('a bill was made', sale.bill_no, 'COM1')
+    const before = backups.summarise(db.get())
+    const itemsBefore = api.item.list().length
+    const groupsBefore = api.itemGroup.list().length
+    const usersBefore = db.get().prepare(`SELECT COUNT(*) c FROM app_user`).get().c
+
+    const cleared = backups.clearEntries({ dataDir, db, stamp: 'test3' })
+    const after = backups.summarise(db.get())
+    check('customers cleared', after.counts.parties, 0)
+    check('tags cleared', after.counts.tags, 0)
+    check('bills cleared', after.counts.sales, 0)
+    check('khata cleared', db.get().prepare(`SELECT COUNT(*) c FROM ledger_entry`).get().c, 0)
+    check('company kept', after.company, 'Demo')
+    check('items kept', api.item.list().length, itemsBefore)
+    check('item groups kept', api.itemGroup.list().length, groupsBefore)
+    check('logins kept', db.get().prepare(`SELECT COUNT(*) c FROM app_user`).get().c, usersBefore)
+    check('bill numbers restart', db.get().prepare(`SELECT MAX(next_no) m FROM voucher_series`).get().m, 1)
+    check('tag numbers restart', api.tagStock.nextTag({ itemId }), 'RIN00001')
+    check('nothing left pointing at a deleted row', db.get().pragma('foreign_key_check').length, 0)
+    const next = api.sale.save({
+      head: {
+        prefix: 'COM', bill_date: '2026-07-24', party_id: null, party_name: 'Walk-in',
+        is_credit: 0, payment_mode: 'Cash', gst_pct: 3, bill_discount: 0, making_discount: 0,
+        other_amount: 0, manual_urd_amount: 0, tcs_pct: 0, amount_received: 0,
+      },
+      items: [], urds: [],
+    })
+    check('first real bill is number 1', next.bill_no, 'COM1')
+
+    head('11. The clear can be undone from its safety copy')
+    const saved = backups.inspect(cleared.safety)
+    check('safety copy holds the old bills', saved.counts.sales, before.counts.sales)
+    backups.restore({ filePath: cleared.safety, dataDir, db, stamp: 'test4' })
+    db.open(tmp)
+    check('old customers back', api.party.list({ type: 'CUSTOMER' }).length, before.counts.parties)
   } catch (e) {
     fail++
     console.error('\nUNCAUGHT:', e.stack || e.message)

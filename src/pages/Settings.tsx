@@ -241,6 +241,28 @@ export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
     if (!res?.ok) setRestoring(false)
   }
 
+  // Clearing the entries: show what is there, make the owner type DELETE, and
+  // let the main process back up, clear and restart.
+  // Owner only. The main process refuses anyone else regardless; this just
+  // keeps the button off a manager's or staff member's screen.
+  const perms = useAsync(() => window.api.auth.permissions(), [])
+  const isOwner = perms.data?.restore_backup === true
+  const [clearing, setClearing] = useState<any>(null)
+  const [clearWord, setClearWord] = useState('')
+  const [clearBusy, setClearBusy] = useState(false)
+
+  const openClear = async () => {
+    const res = await run(() => window.api.backup.current())
+    if (res?.ok) { setClearWord(''); setClearing(res.current) }
+  }
+
+  const doClear = async () => {
+    setClearBusy(true)
+    const res = await run(() => window.api.backup.clearEntries({ confirm: clearWord }))
+    // On success the app restarts a moment from now; leave the notice up.
+    if (!res?.ok) setClearBusy(false)
+  }
+
   if (!form) return <Loading rows={6} />
 
   return (
@@ -486,11 +508,72 @@ export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
                   <Icon.upload /> Choose Backup File…
                 </button>
               </div>
+              {isOwner && <>
+              <div className="divider" />
+              <div>
+                <div className="strong" style={{ marginBottom: 4 }}>Clear all entries (start fresh) — Owner only</div>
+                <p className="small muted" style={{ marginBottom: 10, maxWidth: 520 }}>
+                  For after a trial run, or a start full of practice entries. Deletes every
+                  bill, purchase, return, tag, stock entry, order, scheme, voucher and khata
+                  entry, and all customers and suppliers. Bill and tag numbers start again
+                  from 1. <b>Kept:</b> shop details, logins, items and groups, accounts, rates
+                  and settings. The current books are saved to a
+                  <span className="mono"> before-clear </span> file first, so this can be undone
+                  with Restore. To fix just one wrong bill, open it and delete it instead.
+                </p>
+                <button className="btn btn-danger" onClick={openClear}>
+                  <Icon.trash /> Clear All Entries…
+                </button>
+              </div>
+              </>}
             </div>
           </div>
         </div>
         <GoogleDrive />
         </>
+      )}
+
+      {clearing && (
+        <Modal
+          title="Clear all entries"
+          onClose={() => { if (!clearBusy) setClearing(null) }}
+          footer={
+            <>
+              <span className="spacer" />
+              <button className="btn" onClick={() => setClearing(null)} disabled={clearBusy}>
+                Cancel
+              </button>
+              <button className="btn btn-danger" onClick={doClear}
+                disabled={clearBusy || clearWord.trim().toUpperCase() !== 'DELETE'}>
+                {clearBusy ? <span className="spinner" /> : <Icon.trash />}
+                {clearBusy ? 'Clearing…' : 'Delete all entries'}
+              </button>
+            </>
+          }
+        >
+          <p className="small" style={{ marginBottom: 12 }}>
+            This deletes everything below from <b>{clearing.company || 'this shop'}</b>, and
+            every other entry with it. Your shop details, logins, items, accounts, rates and
+            settings stay.
+          </p>
+          <table className="data" style={{ marginBottom: 14 }}>
+            <tbody>
+              <tr><td>Customers &amp; suppliers</td><td className="r mono">{clearing.counts.parties}</td></tr>
+              <tr><td>Tags</td><td className="r mono">{clearing.counts.tags}</td></tr>
+              <tr><td>Sales bills</td><td className="r mono">{clearing.counts.sales}</td></tr>
+              <tr><td>Purchases</td><td className="r mono">{clearing.counts.purchases}</td></tr>
+            </tbody>
+          </table>
+          <p className="small muted" style={{ marginBottom: 12 }}>
+            A copy of today's books is saved first as a <span className="mono">before-clear</span> file
+            in the database folder. To undo, use <b>Restore from a backup</b> and choose that file.
+            The app restarts when it is done.
+          </p>
+          <Field label="Type DELETE to confirm">
+            <Input value={clearWord} autoFocus disabled={clearBusy}
+              onChange={(e) => setClearWord(e.target.value)} />
+          </Field>
+        </Modal>
       )}
 
       {restore && (

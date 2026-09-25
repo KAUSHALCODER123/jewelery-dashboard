@@ -103,4 +103,68 @@ function restore({ filePath, dataDir, db, stamp }) {
   return { safety, livePath }
 }
 
-module.exports = { inspect, restore, summarise, REQUIRED_TABLES }
+/*
+ * Clearing the entries — for a shop that practised on the software, or made a
+ * mess of its first days, and wants to start its real books clean.
+ *
+ * Every table is on exactly one of these two lists; the test suite fails if a
+ * new table is added to neither, so nobody has to remember to come back here.
+ *
+ *   KEEP   the shop's setup: company and settings, logins, item masters,
+ *          accounts, rates, scheme definitions and bill-number series.
+ *   CLEAR  everything that happened: bills, purchases, returns, tags and stock,
+ *          orders, karagir and refinery work, schemes joined, vouchers, both
+ *          ledgers — and the customers and suppliers themselves.
+ *
+ * Stock and khata balances are sums over these entries, so emptying them leaves
+ * every balance at zero with nothing to recalculate. Tag numbers restart too:
+ * the next one is worked out from the tags that exist.
+ */
+const KEEP_TABLES = [
+  'company', 'settings', 'app_user', 'branch', 'grid_pref',
+  'item_type', 'item_group', 'design', 'item', 'rate_master', 'metal_rate',
+  'account', 'voucher_series', 'gss_scheme',
+]
+const CLEAR_TABLES = [
+  'sale', 'sale_item', 'sale_urd', 'sale_payment', 'sale_metal',
+  'sale_return', 'sale_return_item',
+  'purchase', 'purchase_item', 'purchase_return', 'purchase_return_item',
+  'urd_bill', 'refinery', 'refinery_item', 'stock_settlement',
+  'tag_stock', 'loose_stock', 'item_stock', 'stock_transfer', 'stock_transfer_item',
+  'order_booking', 'order_item', 'order_urd', 'karagir_issue', 'karagir_receive',
+  'gss_account', 'gss_receipt',
+  'voucher', 'ledger_entry', 'metal_entry',
+  'party', 'party_metal_opening',
+]
+
+/**
+ * Empty every CLEAR table and restart the bill numbers, after copying the whole
+ * database aside. One transaction: it all happens or none of it does.
+ */
+function clearEntries({ dataDir, db, stamp }) {
+  const live = db.get()
+  const at = stamp || new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const safety = path.join(dataDir, `before-clear-${at}.db`)
+  live.pragma('wal_checkpoint(TRUNCATE)')
+  fs.copyFileSync(path.join(dataDir, 'parivar.db'), safety)
+
+  const present = new Set(
+    live.prepare(`SELECT name FROM sqlite_master WHERE type='table'`).all().map((r) => r.name)
+  )
+  const tables = CLEAR_TABLES.filter((t) => present.has(t))
+  const removed = {}
+  live.transaction(() => {
+    // Checked once at commit, not row by row, so the order tables are emptied
+    // in does not matter — only that nothing kept still points at them.
+    live.pragma('defer_foreign_keys = ON')
+    for (const t of tables) removed[t] = live.prepare(`DELETE FROM ${t}`).run().changes
+    live.prepare(`UPDATE voucher_series SET next_no = 1`).run()
+    if (present.has('sqlite_sequence')) {
+      const del = live.prepare(`DELETE FROM sqlite_sequence WHERE name = ?`)
+      for (const t of tables) del.run(t)
+    }
+  })()
+  return { safety, removed }
+}
+
+module.exports = { inspect, restore, summarise, clearEntries, REQUIRED_TABLES, KEEP_TABLES, CLEAR_TABLES }

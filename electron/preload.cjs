@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld('api', {
     inspect: () => ipcRenderer.invoke('backup:inspect'),
     /** Replace the live books with that backup, then restart the app. */
     restore: (p) => ipcRenderer.invoke('backup:restore', p),
+    /** Counts of what is in the books now. Changes nothing. */
+    current: () => ipcRenderer.invoke('backup:current'),
+    /** Delete every entry, keep the setup, then restart. Needs { confirm: 'DELETE' }. */
+    clearEntries: (p) => ipcRenderer.invoke('backup:clearEntries', p),
   },
   gdrive: group('gdrive', [
     'status', 'saveCredentials', 'connect', 'disconnect',
