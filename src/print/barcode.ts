@@ -145,6 +145,12 @@ export type LabelOptions = {
    * runs off the label — the shop's tags give it 30 mm.
    */
   backMm?: number
+  /**
+   * TSC tag only: how far to the RIGHT of the tag's own edge the printer lays
+   * the page's left edge, in mm (negative: to the left). Measured off a printed
+   * tag; the layout is moved back by this much so the fold lands on the fold.
+   */
+  shiftMm?: number
 }
 
 const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
@@ -152,7 +158,7 @@ const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
 /**
  * The 100 × 15 mm jewellery tag the shop runs on its TSC TL240.
  *
- * A rat-tail tag, not a dumbbell: only the HEAD (about 50 mm) and a short
+ * A rat-tail tag, not a dumbbell: only the HEAD (30 mm on the shop's tags) and a
  * stretch after it (about 30 mm) are printable. The rest is a 3 mm wide tail
  * that wraps around the ring or chain and sticks to itself, so anything printed
  * there is lost. The whole label — barcode, tag number, item and weights — is
@@ -174,35 +180,70 @@ const wt3 = (n: any) => (Number(n) || 0).toFixed(3)
  */
 function tscTagHtml(
   tags: (LabelTag | null)[],
-  o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies' | 'headMm' | 'backMm'>>
-    & { headMm: number; backMm: number },
+  o: Required<Omit<LabelOptions, 'size' | 'skip' | 'copies' | 'headMm' | 'backMm' | 'shiftMm'>>
+    & { headMm: number; backMm: number; shiftMm: number },
 ): string {
-  const head = Math.min(96, Math.max(30, Number(o.headMm) || 50))
+  const head = Math.min(96, Math.max(30, Number(o.headMm) || 30))
   // The panel behind the head once the tag is folded at the head's edge — never
   // past the label, and never wider than the head it folds on to.
   const back = Math.min(head, 100 - head, Math.max(12, Number(o.backMm) || 30))
+  /*
+   * Where the printer really puts things. The shop's TL240 laid the page's left
+   * edge 7 mm INTO the tag, so the whole print slid right: the barcode ran over
+   * the fold on to the back and the shop's name ran into the tail. Nothing can
+   * be printed left of the page's edge, so with a positive shift the front
+   * starts at the page's edge and is that much narrower; the fold and the back
+   * panel move left by the shift and land where they really are on the tag.
+   */
+  const shift = Math.min(10, Math.max(-10, Number(o.shiftMm) || 0))
+  const fold = head - shift                 // the fold, in page millimetres
+  const frontL = Math.max(0, -shift)        // the tag's own left edge, if on the page
+  // 1.5 mm from the tag's edge, but never less than a hair from the page's.
+  const padL = Math.max(0.3, 1.5 - Math.max(0, shift))
+  const backW = Math.min(back, 100 - fold)
+  /*
+   * The text lines shrink to the front they have. With the 7 mm shift the front
+   * is only about 21 mm, and "G 15.200  N 15.000" at the usual size ran past the
+   * fold, which cut off the net weight's last digits. Widths are worked out from
+   * the fonts: Consolas is fixed at 0.55 em a character; Segoe UI bold capitals
+   * and digits run about 0.62 em. 1 pt = 0.3528 mm.
+   */
+  const avail = fold - frontL - padL - 1.5 - 0.3   // text width, less a hair
+  const l1Base = fold - frontL < 45 ? 7 : 9
+  const l2Base = fold - frontL < 45 ? 7.5 : 9.5
+  const fitPt = (base: number, chars: number, em: number, fixedMm = 0) =>
+    chars ? Math.min(base, Math.floor(((avail - fixedMm) / (chars * em * 0.3528)) * 10) / 10) : base
   const cells = tags.map((t) => {
     if (!t) return `<div class="tag blank"></div>`
     // Tag number and purity are what the counter scans and quotes, so they always
     // print in full; a long item name is the part that gives way, trimmed with
     // an ellipsis rather than pushing the purity off the head.
     const purity = o.showPurity && t.purity ? `${Number(t.purity).toFixed(1)}%` : ''
-    const name = o.showItem ? (t.item_name || '') : ''
+    let name = o.showItem ? (t.item_name || '') : ''
     const l2 = [
       o.showGross ? `G ${wt3(t.gross_wt)}` : '',
       o.showNet ? `N ${wt3(t.net_wt)}` : '',
       o.shopName || '',
     ].filter(Boolean).join('  ')
+    // the name may give way, so only the tag number and purity must fit
+    // (the name's span keeps its 1.6 mm gaps even when squeezed to nothing)
+    // A name squeezed into less than about 5 mm prints as a stray letter and an
+    // ellipsis, so on a front that narrow it is left off.
+    const fixedW = (pt: number) => (t.tag.length + purity.length) * 0.62 * pt * 0.3528
+    if (name && avail - fixedW(l1Base) - 1.6 * (purity ? 2 : 1) < 5) name = ''
+    const l1Pt = fitPt(l1Base, t.tag.length + purity.length, 0.62,
+      1.6 * ((name ? 1 : 0) + (purity ? 1 : 0)))
+    const l2Pt = fitPt(l2Base, l2.length, 0.55)
     return `<div class="tag">
       <div class="head">
         <div class="bc">${barcodeSvg(t.tag, { moduleWidth: 1, height: 22, showText: false })
           // Stretch to the full head width: bars get wider in proportion, so
           // the code stays valid and every bar is several printer dots wide.
           .replace('<svg ', '<svg preserveAspectRatio="none" ')}</div>
-        <div class="l1"><span class="tg">${escapeXml(t.tag)}</span>${name ? `<span class="nm">${escapeXml(name)}</span>` : ''}${purity ? `<span class="pu">${escapeXml(purity)}</span>` : ''}</div>
-        ${l2 ? `<div class="l2"><span>${escapeXml(l2)}</span></div>` : ''}
+        <div class="l1"${l1Pt < l1Base ? ` style="font-size:${l1Pt}pt"` : ''}><span class="tg">${escapeXml(t.tag)}</span>${name ? `<span class="nm">${escapeXml(name)}</span>` : ''}${purity ? `<span class="pu">${escapeXml(purity)}</span>` : ''}</div>
+        ${l2 ? `<div class="l2"${l2Pt < l2Base ? ` style="font-size:${l2Pt}pt"` : ''}><span>${escapeXml(l2)}</span></div>` : ''}
       </div>
-      ${o.showLogo && back >= 12 ? `<div class="back"><img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">${back >= 26 ? '<b>PARIVAR JEWELLERS</b>' : ''}</div>` : ''}
+      ${o.showLogo && backW >= 12 ? `<div class="back"><img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">${backW >= 26 ? '<b>PARIVAR JEWELLERS</b>' : ''}</div>` : ''}
     </div>`
   }).join('')
 
@@ -224,7 +265,7 @@ function tscTagHtml(
   .tag {
     position: relative; width: 100mm; height: 14.4mm; overflow: hidden;
     /* faint guide for the on-screen preview only: where the head ends */
-    background: linear-gradient(to right, transparent ${head}mm, #eee ${head}mm, #eee 100%);
+    background: linear-gradient(to right, transparent ${fold}mm, #eee ${fold}mm, #eee 100%);
   }
   .tag + .tag { break-before: page; page-break-before: always; }
   .tag.blank { visibility: hidden; }
@@ -249,7 +290,8 @@ function tscTagHtml(
    * line any more — only the head box as a whole, and only past its edge.
    */
   .head {
-    width: ${head}mm; height: 14.4mm; padding: 0.9mm 1.5mm 0;
+    margin-left: ${frontL}mm; width: ${fold - frontL}mm; height: 14.4mm;
+    padding: 0.9mm 1.5mm 0 ${padL}mm;
     display: flex; flex-direction: column; overflow: hidden;
   }
   .bc { line-height: 0; height: 5mm; flex: none; }
@@ -267,13 +309,13 @@ function tscTagHtml(
    * edge is the tail.
    */
   .back {
-    position: absolute; left: ${head}mm; top: 0; width: ${back}mm; height: 14.4mm;
+    position: absolute; left: ${fold}mm; top: 0; width: ${backW}mm; height: 14.4mm;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     overflow: hidden; background: #fff;
   }
-  .shop-logo { display: block; height: ${back >= 26 ? 8.6 : 11}mm; width: auto; flex: none; }
+  .shop-logo { display: block; height: ${backW >= 26 ? 8.6 : 11}mm; width: auto; flex: none; }
   .back b { display: block; margin-top: .3mm; height: 2.6mm; line-height: 2.6mm;
-            font-size: ${back >= 34 ? 6 : 5.5}pt; letter-spacing: ${back >= 34 ? 0.15 : 0.08}mm;
+            font-size: ${backW >= 34 ? 6 : 5.5}pt; letter-spacing: ${backW >= 34 ? 0.15 : 0.08}mm;
             font-weight: 700; white-space: nowrap;
             font-family: Georgia, "Times New Roman", serif; }
   /* The lines themselves never clip: a long name runs on to the right and is
@@ -286,7 +328,7 @@ function tscTagHtml(
   .l2 { height: 3.7mm; margin-top: 0.2mm; font-size: 9.5pt; font-weight: 700; line-height: 1.15;
         font-family: Consolas, "Segoe UI", monospace; }
   /* a short head cannot hold the full-size lines */
-  .l1 { font-size: ${head < 45 ? 7 : 9}pt; } .l2 { font-size: ${head < 45 ? 7.5 : 9.5}pt; }
+  .l1 { font-size: ${fold - frontL < 45 ? 7 : 9}pt; } .l2 { font-size: ${fold - frontL < 45 ? 7.5 : 9.5}pt; }
   @media print { .tag { background: none; } }
 </style>
 ${cells}`
@@ -296,8 +338,8 @@ ${cells}`
 export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): string {
   const {
     size = 'tsc-100x15', showItem = true, showGross = true, showNet = false,
-    showPurity = true, shopName = '', showLogo = true, skip = 0, copies = 1, headMm = 50,
-    backMm = 30,
+    showPurity = true, shopName = '', showLogo = true, skip = 0, copies = 1, headMm = 30,
+    backMm = 30, shiftMm = 0,
   } = opts
   const S = SHEET[size] ?? SHEET['tsc-100x15']
 
@@ -307,7 +349,7 @@ export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): strin
 
   if (size === 'tsc-100x15') {
     return tscTagHtml(expanded, {
-      showItem, showGross, showNet, showPurity, shopName, showLogo, headMm, backMm,
+      showItem, showGross, showNet, showPurity, shopName, showLogo, headMm, backMm, shiftMm,
     })
   }
 

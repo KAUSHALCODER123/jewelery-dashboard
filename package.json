@@ -1,7 +1,7 @@
 {
   "name": "parivar-jewellery-erp",
   "productName": "Parivar Jewellery ERP",
-  "version": "1.26.5",
+  "version": "1.26.6",
   "description": "Jewellery ERP desktop software — sales, invoicing, purchase, item creation, CRM and refining",
   "main": "electron/main.cjs",
   "author": "Parivar",

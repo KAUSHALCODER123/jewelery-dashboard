@@ -111,6 +111,35 @@ app.whenReady().then(async () => {
     console.log(`PASS: TSC ${headMm} mm head, ${backMm} mm logo panel — logo centred on the fold-over back, front untouched, two copies`)
     w.destroy()
   }
+  // The shop's TL240 starts the page 7 mm into the tag (a 30 + 30 mm tag folded
+  // at its centre). The fold, the back panel and the logo must move left by the
+  // shift so they land where they really are; the front starts at the page edge.
+  for (const shiftMm of [7, -4]) {
+    const html = labelSheetHtml([{ tag: 'BANGLE00123', item_name: 'Kada', purity: 91.6, gross_wt: 999.999, net_wt: 987.654 }], { headMm: 30, backMm: 30, shiftMm, showNet: true })
+    const w = new BrowserWindow({ show: false, width: 800, height: 300,
+      webPreferences: { sandbox: true, offscreen: true, backgroundThrottling: false } })
+    await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
+    const b = await w.webContents.executeJavaScript(`(async () => {
+      await Promise.all([...document.images].map(i => i.decode()))
+      const mm = 96 / 25.4, t = document.querySelector('.tag').getBoundingClientRect()
+      const h = document.querySelector('.head').getBoundingClientRect(),
+        back = document.querySelector('.back').getBoundingClientRect(),
+        bc = document.querySelector('svg').getBoundingClientRect(),
+        parts = [...document.querySelectorAll('.back > *')].map(e => e.getBoundingClientRect())
+      const mid = (Math.min(...parts.map(r => r.left)) + Math.max(...parts.map(r => r.right))) / 2
+      return { fold: (h.right - t.left) / mm, backLeft: (back.left - t.left) / mm,
+        backWidth: back.width / mm, barcodeLeft: (bc.left - t.left) / mm, barcodeRight: (bc.right - t.left) / mm,
+        logoMid: (mid - t.left) / mm,
+        textFits: [...document.querySelectorAll('.l1 span, .l2 span')].filter(e => !e.classList.contains('nm')).every(e => e.getBoundingClientRect().right <= h.right - 1.4 * mm) }
+    })()`)
+    const fold = 30 - shiftMm
+    assert.ok(Math.abs(b.fold - fold) < 0.1 && Math.abs(b.backLeft - fold) < 0.1, `fold at ${fold} mm on the page`)
+    assert.ok(Math.abs(b.backWidth - 30) < 0.1 && Math.abs(b.logoMid - (fold + 15)) < 0.3, 'logo centred on the real back')
+    assert.ok(b.barcodeLeft >= Math.max(0, -shiftMm) - 0.01 && b.barcodeRight <= fold - 1.4, 'barcode stays on the front, on the page')
+    assert.ok(b.textFits, 'tag number, purity and both weights end before the fold, even at 999 g')
+    console.log(`PASS: TSC printer shift ${shiftMm} mm — fold and logo land on the real tag`)
+    w.destroy()
+  }
   // Awkward pieces: an 11-character tag with a long name and 999 g weights,
   // no item and no purity, 100% purity, a Hindi name with markup characters.
   // Tag number and purity must always print whole; only the name may give way.

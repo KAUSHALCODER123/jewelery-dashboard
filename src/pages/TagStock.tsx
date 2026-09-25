@@ -1007,25 +1007,35 @@ function PrintLabels({ tags, onClose, onPrinted }: {
   // How long the printable head of the rat-tail tag is. Remembered per machine
   // since it is a property of the tag stock the shop buys, not of the batch.
   const [headMm, setHeadMm] = useState(() => {
-    try { return Number(localStorage.getItem('label.headMm')) || 50 } catch { return 50 }
+    try { return Number(localStorage.getItem('label.headMm')) || 30 } catch { return 30 }
   })
   // The fold-over stretch after the head that carries the logo. On the shop's
   // tags it is 30 mm; the thin tail starts right after it.
   const [backMm, setBackMm] = useState(() => {
     try { return Number(localStorage.getItem('label.backMm')) || 30 } catch { return 30 }
   })
+  // How far right of the tag's edge this printer starts the page. The shop's
+  // TL240 was measured at 7 mm off a printed tag, so that is the default.
+  // Kept as typed, so a lone "-" can stand while a minus number is entered.
+  const [shiftText, setShiftText] = useState(() => {
+    try {
+      const v = localStorage.getItem('label.shiftMm')
+      return v !== null && v !== '' && Number.isFinite(Number(v)) ? v : '7'
+    } catch { return '7' }
+  })
+  const shiftMm = Math.min(10, Math.max(-10, Number(shiftText) || 0))
   const [opts, setOpts] = useState({
     showItem: true, showGross: true, showNet: true, showPurity: true, showLogo: true,
   })
 
   const html = useMemo(
     () => labelSheetHtml(tags, {
-      size, copies, skip, headMm, backMm, ...opts,
+      size, copies, skip, headMm, backMm, shiftMm, ...opts,
       // The shop name has no room on the small tag; it is the item and the
       // weights the counter needs to read.
       shopName: size === 'tsc-100x15' ? '' : (company.data?.name || ''),
     }),
-    [tags, size, copies, skip, headMm, backMm, opts, company.data]
+    [tags, size, copies, skip, headMm, backMm, shiftMm, opts, company.data]
   )
 
   const sizeInfo = LABEL_SIZES.find((s) => s.value === size)
@@ -1069,7 +1079,7 @@ function PrintLabels({ tags, onClose, onPrinted }: {
               <Field label="Head length (mm)" hint="Printable part of the tag, before the fold">
                 <Input className="right" style={{ width: 74 }} value={headMm}
                   onChange={(e) => {
-                    const v = Math.min(96, Math.max(30, Number(e.target.value) || 50))
+                    const v = Math.min(96, Math.max(30, Number(e.target.value) || 30))
                     setHeadMm(v)
                     try { localStorage.setItem('label.headMm', String(v)) } catch { /* ignore */ }
                   }} />
@@ -1083,6 +1093,20 @@ function PrintLabels({ tags, onClose, onPrinted }: {
                   }} />
               </Field>
             </div>
+          )}
+          {size === 'tsc-100x15' && (
+            <Field label="Printer shift (mm)"
+              hint="If the print lands too far right on the tag, enter by how much (too far left: a minus number)">
+              <Input className="right" style={{ width: 74 }} value={shiftText}
+                onChange={(e) => {
+                  const raw = e.target.value.trim()
+                  if (!/^-?\d*\.?\d*$/.test(raw)) return
+                  setShiftText(raw)
+                  if (Number.isFinite(Number(raw)) && raw !== '-' && raw !== '') {
+                    try { localStorage.setItem('label.shiftMm', raw) } catch { /* ignore */ }
+                  }
+                }} />
+            </Field>
           )}
           <div className="section-title">Show on the label</div>
           {size === 'tsc-100x15' && <Check label="Company logo" checked={opts.showLogo}
