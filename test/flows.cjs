@@ -341,6 +341,10 @@ app.whenReady().then(async () => {
     ok('unscanned rows stay red', scanResult.missing > 0)
     check('found counter', scanResult.tiles[1], '1')
     ok('unknown tag flagged separately', scanResult.extras.includes('BOGUS999'))
+    const itemWise = await js(`
+      const card = [...document.querySelectorAll('.card')].find(c => c.querySelector('.card-title')?.textContent === 'Item-wise')
+      return card ? card.querySelectorAll('tbody tr').length : 0`)
+    ok('item-wise totals shown on verification', itemWise > 0)
 
     // ── 8. Gold scheme enrolment ──────────────────────────────────────
     head('8. Gold Scheme — create and enrol')

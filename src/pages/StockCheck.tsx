@@ -16,14 +16,24 @@ export default function StockCheck() {
   const [extras, setExtras] = useState<string[]>([])
   const [entry, setEntry] = useState('')
   const [filter, setFilter] = useState('all')
+  // Count one item at a time (all the CP, then all the Kanchan) with its own
+  // totals, instead of one lump weight for the whole shop.
+  const [itemFilter, setItemFilter] = useState('ALL')
   const [confirmReset, setConfirmReset] = useState(false)
   const [lastHit, setLastHit] = useState<{ tag: string; ok: boolean } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const rows = stock.data || []
+  const allRows = stock.data || []
+  const itemOptions = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of allRows) m.set(String(r.item_id), r.item_name)
+    return [...m].sort((a, b) => a[1].localeCompare(b[1]))
+  }, [allRows])
+  const rows = itemFilter === 'ALL'
+    ? allRows : allRows.filter((r: any) => String(r.item_id) === itemFilter)
   const byTag = useMemo(
-    () => new Map(rows.map((r: any) => [String(r.tag).toUpperCase(), r])),
-    [rows]
+    () => new Map(allRows.map((r: any) => [String(r.tag).toUpperCase(), r])),
+    [allRows]
   )
 
   const submit = (raw: string) => {
@@ -48,6 +58,19 @@ export default function StockCheck() {
     filter === 'found' ? found : filter === 'missing' ? missing : rows
 
   const sum = (list: any[], key: string) => list.reduce((s, r) => s + num(r[key]), 0)
+
+  /** Pieces and weight per item: expected, found, missing. */
+  const byItem = useMemo(() => {
+    const m = new Map<string, any>()
+    for (const r of rows) {
+      const k = String(r.item_id)
+      const g = m.get(k) || { name: r.item_name, pcs: 0, net: 0, foundPcs: 0, foundNet: 0 }
+      g.pcs += 1; g.net += num(r.net_wt)
+      if (scanned.has(String(r.tag).toUpperCase())) { g.foundPcs += 1; g.foundNet += num(r.net_wt) }
+      m.set(k, g)
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [rows, scanned])
 
   const exportCsv = async () => {
     const csv = toCsv(
@@ -100,23 +123,32 @@ export default function StockCheck() {
         </div>
       </div>
 
+      <div className="row" style={{ gap: 8, marginBottom: 12, alignItems: 'center' }}>
+        <span className="small muted">Item</span>
+        <Select value={itemFilter} onChange={(v) => { setItemFilter(v); setFilter('all') }}
+          options={[
+            { value: 'ALL', label: `All items (${allRows.length} pcs)` },
+            ...itemOptions.map(([id, name]) => ({ value: id, label: name })),
+          ]} />
+      </div>
+
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
         <div className="stat">
           <div className="stat-label">Expected</div>
           <div className="stat-value num">{rows.length}</div>
-          <div className="stat-meta">{wt(sum(rows, 'final_wt'))} g fine</div>
+          <div className="stat-meta">{wt(sum(rows, 'net_wt'))} g net · {wt(sum(rows, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
           <div className="stat-label">Found</div>
           <div className="stat-value num" style={{ color: 'var(--ok)' }}>{found.length}</div>
-          <div className="stat-meta">{wt(sum(found, 'final_wt'))} g fine</div>
+          <div className="stat-meta">{wt(sum(found, 'net_wt'))} g net · {wt(sum(found, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
           <div className="stat-label">Missing</div>
           <div className="stat-value num" style={{ color: missing.length ? 'var(--danger)' : undefined }}>
             {missing.length}
           </div>
-          <div className="stat-meta">{wt(sum(missing, 'final_wt'))} g fine</div>
+          <div className="stat-meta">{wt(sum(missing, 'net_wt'))} g net · {wt(sum(missing, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
           <div className="stat-label">Not In Stock</div>
@@ -142,6 +174,37 @@ export default function StockCheck() {
               These tags were scanned but are not in the in-stock list â€” they may already be
               sold, melted, or belong to another branch.
             </p>
+          </div>
+        </div>
+      )}
+
+      {byItem.length > 0 && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-head"><span className="card-title">Item-wise</span></div>
+          <div className="card-body flush">
+            <div className="table-wrap" style={{ maxHeight: 300 }}>
+              <table className="data">
+                <thead>
+                  <tr><th>Item</th>
+                    <th className="r">Expected Pcs</th><th className="r">Expected Net Wt</th>
+                    <th className="r">Found Pcs</th><th className="r">Found Net Wt</th>
+                    <th className="r">Missing Pcs</th><th className="r">Missing Net Wt</th></tr>
+                </thead>
+                <tbody>
+                  {byItem.map((g) => (
+                    <tr key={g.name}>
+                      <td className="strong">{g.name}</td>
+                      <td className="r num">{g.pcs}</td>
+                      <td className="r num">{wt(g.net)}</td>
+                      <td className="r num">{g.foundPcs}</td>
+                      <td className="r num">{wt(g.foundNet)}</td>
+                      <td className="r num">{g.pcs - g.foundPcs}</td>
+                      <td className="r num">{wt(g.net - g.foundNet)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

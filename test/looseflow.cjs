@@ -160,6 +160,9 @@ app.whenReady().then(() => {
     check('Save & Print finds the new piece', made.length, 1)
     check('with its item name for the label', made[0].item_name ? 'yes' : 'no', 'yes')
     check('an empty id list finds nothing', api.tagStock.list({ ids: [] }).length, 0)
+    const payalRow = api.item.list().find((x) => x.id === payalId)
+    check('item list shows the pieces in stock', payalRow.in_stock_count, 1)
+    check('and their net weight', payalRow.in_stock_net, 10)
     const payal = api.item.list().find((x) => x.id === payalId)
     throws('switching a tagged item with tags on it to loose', () =>
       api.item.save({ ...payal, stock_mode: 'LOOSE_WT' }))

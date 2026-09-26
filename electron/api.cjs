@@ -420,6 +420,10 @@ const item = {
                 d.name AS design_name,
                 (SELECT COUNT(*) FROM tag_stock ts
                   WHERE ts.item_id = i.id AND ts.status = 'IN_STOCK') AS in_stock_count,
+                (SELECT COALESCE(SUM(ts.gross_wt), 0) FROM tag_stock ts
+                  WHERE ts.item_id = i.id AND ts.status = 'IN_STOCK') AS in_stock_gross,
+                (SELECT COALESCE(SUM(ts.net_wt), 0) FROM tag_stock ts
+                  WHERE ts.item_id = i.id AND ts.status = 'IN_STOCK') AS in_stock_net,
                 (SELECT COALESCE(SUM(CASE WHEN s.direction = 'IN' THEN s.gross_wt
                                           ELSE -s.gross_wt END), 0)
                    FROM item_stock s WHERE s.item_id = i.id) AS loose_wt
