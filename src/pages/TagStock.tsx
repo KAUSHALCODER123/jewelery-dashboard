@@ -257,7 +257,8 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
     })),
   })
 
-  const save = async () => {
+  /** Save the grid; with andPrint, open the label dialog on the new pieces. */
+  const save = async (andPrint = false) => {
     if (!itemId) return run(async () => { throw new Error('Select an item first') })
     if (!filled.length) return run(async () => { throw new Error('Enter at least one row') })
     setSaving(true)
@@ -298,6 +299,11 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
       setRows([blankRow(defaults)]); existing.reload(); items.reload(); loose.reload()
       openPurchases.reload()
       selectedPurchase.reload()
+      const ids: number[] = Array.isArray(ok) ? ok : ok?.ids || []
+      if (andPrint && ids.length) {
+        const made = await window.api.tagStock.list({ ids })
+        if (made?.length) setLabelling(made)
+      }
     }
   }
 
@@ -591,12 +597,19 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
                 <Tot label="Pieces" v={String(filled.length)} />
                 <span className="spacer" style={{ marginLeft: 'auto' }} />
                 <button className="btn" onClick={() => setRows([blankRow(defaults)])}>Clear</button>
-                <button className="btn btn-primary" onClick={save}
+                <button className="btn" onClick={() => save()}
                   disabled={saving || !filled.length || shortfall > 0}
                   title={shortfall > 0 ? 'Not enough loose metal on hand' : undefined}>
                   {saving ? <span className="spinner" /> : <Icon.save />}
                   {mode === 'loose' ? 'Convert' : 'Save'}{' '}
                   {filled.length ? `${filled.length} tag${filled.length === 1 ? '' : 's'}` : 'tags'}
+                </button>
+                <button className="btn btn-primary" onClick={() => save(true)}
+                  disabled={saving || !filled.length || shortfall > 0}
+                  title={shortfall > 0 ? 'Not enough loose metal on hand'
+                    : 'Save these tags and open the barcode label print straight away'}>
+                  {saving ? <span className="spinner" /> : <Icon.print />}
+                  {mode === 'loose' ? 'Convert' : 'Save'} &amp; Print
                 </button>
               </div>
             </>

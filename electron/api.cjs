@@ -507,8 +507,12 @@ function makeTag(db, itemId) {
 }
 
 const tagStock = {
-  list: ({ status, search, itemId, printed } = {}) => {
+  list: ({ status, search, itemId, printed, ids } = {}) => {
     const clauses = []
+    // Exactly these pieces — used to print labels straight after a save.
+    if (Array.isArray(ids)) {
+      clauses.push(ids.length ? `ts.id IN (${ids.map((id) => Number(id) || 0).join(',')})` : '0')
+    }
     if (status && status !== 'ALL') clauses.push(`ts.status = @status`)
     if (itemId) clauses.push(`ts.item_id = @itemId`)
     if (search) clauses.push(`(ts.tag LIKE '%'||@search||'%' OR i.name LIKE '%'||@search||'%')`)
@@ -1044,6 +1048,7 @@ const looseStock = {
       const after = looseStock.summary({ metal })
       return {
         created: ids.length,
+        ids,
         metal,
         tally: purchase ? purchaseTally(db, purchase.id) : null,
         /** From all purchases: the tally of every invoice the batch touched. */

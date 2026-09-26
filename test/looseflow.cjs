@@ -151,10 +151,15 @@ app.whenReady().then(() => {
       api.item.save({ ...mani, stock_mode: 'TAG' }))
     check('it is still loose', api.item.list().find((x) => x.id === maniId).stock_mode, 'LOOSE_WT')
 
-    api.tagStock.saveBatch({
+    const madeIds = api.tagStock.saveBatch({
       itemId: payalId,
       rows: [{ gross_wt: 10, purity: 91.6, entry_date: DAY }],
     })
+    // Save & Print reads back exactly the pieces it just made.
+    const made = api.tagStock.list({ ids: madeIds })
+    check('Save & Print finds the new piece', made.length, 1)
+    check('with its item name for the label', made[0].item_name ? 'yes' : 'no', 'yes')
+    check('an empty id list finds nothing', api.tagStock.list({ ids: [] }).length, 0)
     const payal = api.item.list().find((x) => x.id === payalId)
     throws('switching a tagged item with tags on it to loose', () =>
       api.item.save({ ...payal, stock_mode: 'LOOSE_WT' }))
