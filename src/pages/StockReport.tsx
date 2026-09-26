@@ -4,6 +4,7 @@ import { Empty, Loading, Segmented, Select, useAction, useAsync, useDebounced } 
 import { money, wt } from '../lib/format'
 import { num, fineWeight, netWeight } from '../lib/calc'
 import { GridSettingsButton, ReportActions, useGridCols, type GridCol } from '../lib/grid'
+import { PrintLabels } from './TagStock'
 
 /* Columns a stock-take is allowed to correct. Net and fine weight are absent on
    purpose: they are derived from these, and the engine recomputes them on save
@@ -68,6 +69,9 @@ export default function StockReport() {
   // Only the cells actually touched, keyed by tag id — so a save writes what the
   // user changed and nothing else.
   const [edits, setEdits] = useState<Record<number, any>>({})
+  // Pieces whose weight or purity just changed: their printed label is wrong.
+  const [relabel, setRelabel] = useState<number[]>([])
+  const [labelling, setLabelling] = useState<any[] | null>(null)
   const q = useDebounced(search, 250)
 
   const rep = useAsync(
@@ -100,7 +104,15 @@ export default function StockReport() {
     const payload = Object.entries(edits).map(([id, e]) => ({ id: Number(id), ...e }))
     const ok = await run(() => window.api.tagStock.updateRows({ rows: payload }),
       `${payload.length} ${payload.length === 1 ? 'piece' : 'pieces'} updated`)
-    if (ok !== undefined) { setEdits({}); setEditing(false); rep.reload() }
+    if (ok !== undefined) {
+      setEdits({}); setEditing(false); rep.reload()
+      setRelabel(ok?.relabel || [])
+    }
+  }
+
+  const printRelabel = async () => {
+    const pieces = await window.api.tagStock.list({ ids: relabel })
+    if (pieces?.length) setLabelling(pieces)
   }
 
   const tot = {
@@ -212,6 +224,26 @@ export default function StockReport() {
         <ReportActions build={exportData} />
       </div>
       {grid.settings}
+
+      {!editing && relabel.length > 0 && (
+        <div className="note row" style={{ marginBottom: 12, gap: 10, alignItems: 'center' }}>
+          <Icon.alert width={16} height={16} />
+          <span>
+            {relabel.length} {relabel.length === 1 ? 'piece' : 'pieces'} changed weight or
+            purity — the {relabel.length === 1 ? 'label on it is' : 'labels on them are'} out of date.
+          </span>
+          <span className="spacer" />
+          <button className="btn btn-primary btn-sm" onClick={printRelabel}>
+            <Icon.print /> Print labels
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setRelabel([])}
+            title="Later — they stay under Not printed on Tag & Barcode">Later</button>
+        </div>
+      )}
+      {labelling && (
+        <PrintLabels tags={labelling} onClose={() => setLabelling(null)}
+          onPrinted={() => setRelabel([])} />
+      )}
 
       {editing && (
         <div className="note" style={{ marginBottom: 12 }}>

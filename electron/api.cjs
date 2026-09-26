@@ -674,6 +674,7 @@ const tagStock = {
     ]
     const tx = db.transaction(() => {
       let updated = 0
+      const relabel = []
       for (const raw of rows || []) {
         if (!raw?.id) continue
         const cur = db.prepare(`SELECT * FROM tag_stock WHERE id = ?`).get(raw.id)
@@ -685,6 +686,12 @@ const tagStock = {
         for (const k of EDITABLE) if (raw[k] !== undefined) r[k] = raw[k]
         r.net_wt = calc.netWeight(r)
         r.final_wt = calc.fineWeight(r.net_wt, r.purity)
+        // The label prints gross, net and purity. When one of them moves the
+        // label on the piece is wrong, so it goes back to "Not printed" and
+        // turns up in the reprint list on Tag & Barcode.
+        const labelStale = num(cur.gross_wt) !== num(r.gross_wt)
+          || num(cur.net_wt) !== num(r.net_wt) || num(cur.purity) !== num(r.purity)
+        r.label_printed_at = labelStale ? '' : (cur.label_printed_at || '')
 
         db.prepare(
           `UPDATE tag_stock SET gross_wt=@gross_wt, black_beads=@black_beads, bag_wt=@bag_wt,
@@ -693,8 +700,9 @@ const tagStock = {
            net_wt=@net_wt, purity=@purity, final_wt=@final_wt, mkg_per_gm=@mkg_per_gm,
            hallmark_charges=@hallmark_charges, purchase_rate=@purchase_rate, qty=@qty,
            huid=@huid, location=@location, category=@category, salesman=@salesman,
-           shelf_tray=@shelf_tray, size=@size WHERE id=@id`
+           shelf_tray=@shelf_tray, size=@size, label_printed_at=@label_printed_at WHERE id=@id`
         ).run(r)
+        if (labelStale) relabel.push(r.id)
 
         db.prepare(`DELETE FROM loose_stock WHERE doc_type='OPENING' AND doc_id=?`).run(r.id)
         db.prepare(
@@ -704,7 +712,8 @@ const tagStock = {
               r.id, r.tag, r.entry_date || today())
         updated++
       }
-      return { updated }
+      /** Pieces whose printed label no longer matches — offered for reprint. */
+      return { updated, relabel }
     })
     return tx()
   },

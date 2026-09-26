@@ -1010,7 +1010,7 @@ function OpeningMetalModal({ onClose, onSaved }: { onClose: () => void; onSaved:
 
 /* ───────────────────────────── label printing ───────────────────────────── */
 
-function PrintLabels({ tags, onClose, onPrinted }: {
+export function PrintLabels({ tags, onClose, onPrinted }: {
   tags: any[]; onClose: () => void; onPrinted: () => void
 }) {
   const company = useAsync(() => window.api.company.read(), [])

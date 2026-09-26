@@ -735,6 +735,17 @@ app.whenReady().then(async () => {
     check('gross weight saved', after?.gross_wt, 9)
     check('purity saved', after?.purity, 75)
     check('fine weight recomputed by the engine', after?.final_wt, 6.75)
+    const relabel = await js(`
+      await __t.wait(400)
+      const bar = [...document.querySelectorAll('.note')].find(n => /labels? on (it|them) (is|are) out of date/.test(n.textContent))
+      if (!bar) return { bar: false, modal: '' }
+      __t.click('Print labels', bar); await __t.wait(1200)
+      const title = document.querySelector('.modal')?.textContent || ''
+      __t.click('Cancel', document.querySelector('.modal').parentElement); await __t.wait(300)
+      return { bar: true, modal: title }
+    `)
+    ok('after a weight change the stock report offers to reprint the label', relabel.bar)
+    ok('and Print labels opens the label sheet for that piece', /Print Barcode Labels — 1 tag/.test(relabel.modal))
 
     // ── 10. Karagir job work — the metal reconciliation ───────────────
     head('10. Karagir job work')

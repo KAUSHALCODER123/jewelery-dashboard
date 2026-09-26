@@ -183,6 +183,15 @@ app.whenReady().then(() => {
     check('the group total counts it under 22K', byGroup.find((x) => x.key === '18K Gold').count, 1)
     api.tagStock.updateRows({ rows: [{ id: cp2.id, purity: 80 }] })
     check('a purity no group has keeps the item group', tagsOf(cpId)[1].group_name, '18K Gold')
+
+    head('10. A changed weight or purity sends the label back for reprint')
+    api.tagStock.markPrinted({ ids: [cp1.id], copies: 1 })
+    const moved = api.tagStock.updateRows({ rows: [{ id: cp1.id, location: 'Locker' }] })
+    check('moving a piece leaves its label alone', moved.relabel.length, 0)
+    check('still marked printed', tagsOf(cpId)[0].label_printed_at ? 'yes' : 'no', 'yes')
+    const reweighed = api.tagStock.updateRows({ rows: [{ id: cp1.id, gross_wt: 3.25 }] })
+    check('re-weighing it asks for a new label', reweighed.relabel[0], cp1.id)
+    check('and it is back under Not printed', tagsOf(cpId)[0].label_printed_at, '')
   } catch (e) {
     fail++
     console.log('  ERROR', e && e.stack ? e.stack : e)
