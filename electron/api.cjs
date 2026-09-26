@@ -513,7 +513,7 @@ function makeTag(db, itemId) {
 const tagStock = {
   list: ({ status, search, itemId, printed, ids } = {}) => {
     const clauses = []
-    // Exactly these pieces — used to print labels straight after a save.
+    // Exactly these pieces â€” used to print labels straight after a save.
     if (Array.isArray(ids)) {
       clauses.push(ids.length ? `ts.id IN (${ids.map((id) => Number(id) || 0).join(',')})` : '0')
     }
@@ -1567,7 +1567,8 @@ const sale = {
     if (from) clauses.push(`s.bill_date >= @from`)
     if (to) clauses.push(`s.bill_date <= @to`)
     if (search)
-      clauses.push(`(s.bill_no LIKE '%'||@search||'%' OR s.party_name LIKE '%'||@search||'%')`)
+      clauses.push(`(s.bill_no LIKE '%'||@search||'%' OR s.party_name LIKE '%'||@search||'%'
+                     OR s.mobile LIKE '%'||@search||'%')`)
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
     return get()
       .prepare(`SELECT s.* FROM sale s ${where} ORDER BY s.bill_date DESC, s.id DESC LIMIT 500`)

@@ -19,11 +19,13 @@ const blank = (party_type: string) => ({
   metals: METALS.map((m) => ({ metal: m, weight: 0, dr_cr: 'Dr' })),
 })
 
-export default function Parties({ type }: { type: 'CUSTOMER' | 'SUPPLIER' }) {
+export default function Parties({ type, go, openNew }: {
+  type: 'CUSTOMER' | 'SUPPLIER'; go?: (n: string, p?: any) => void; openNew?: boolean
+}) {
   const label = type === 'CUSTOMER' ? 'Customer' : 'Supplier'
   const [search, setSearch] = useState('')
   const q = useDebounced(search, 250)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<any>(() => (openNew ? blank(type) : null))
   const [confirming, setConfirming] = useState<any>(null)
   const run = useAction()
 
@@ -125,7 +127,21 @@ export default function Parties({ type }: { type: 'CUSTOMER' | 'SUPPLIER' }) {
                           {b.side ? <span className={b.side === 'Dr' ? 'danger strong' : 'ok strong'}>₹{b.text} {b.side}</span>
                             : <span className="muted">0.00</span>}
                         </td>
-                        <td className="r" onClick={(e) => e.stopPropagation()}>
+                        <td className="r" style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                          {go && type === 'CUSTOMER' && (
+                            <button className="btn btn-ghost btn-icon btn-sm" title="New bill for this customer"
+                              onClick={() => go('sales.new', { partyId: r.id })}><Icon.invoice /></button>
+                          )}
+                          {go && (
+                            <button className="btn btn-ghost btn-icon btn-sm"
+                              title={type === 'CUSTOMER' ? 'Receive payment' : 'Make payment'}
+                              onClick={() => go('receipts', { partyId: r.id, kind: type === 'CUSTOMER' ? 'RECEIPT' : 'PAYMENT' })}>
+                              <Icon.receipt /></button>
+                          )}
+                          {go && (
+                            <button className="btn btn-ghost btn-icon btn-sm" title="Open ledger"
+                              onClick={() => go('ledger', { partyId: r.id })}><Icon.ledger /></button>
+                          )}
                           <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirming(r)} aria-label="Delete">
                             <Icon.trash />
                           </button>

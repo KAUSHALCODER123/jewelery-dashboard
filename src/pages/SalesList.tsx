@@ -44,7 +44,7 @@ export default function SalesList({ go }: { go: (n: string, p?: any) => void }) 
         <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ width: 150 }} />
         <div className="search-box">
           <Icon.search />
-          <input className="input" placeholder="Bill no or customer…" value={search}
+          <input className="input" placeholder="Bill no, customer or mobile…" value={search}
             onChange={(e) => setSearch(e.target.value)} />
         </div>
         <span className="spacer" />
@@ -95,6 +95,8 @@ export default function SalesList({ go }: { go: (n: string, p?: any) => void }) 
                         </button>
                         <button className="btn btn-ghost btn-icon btn-sm" title="Send on WhatsApp"
                           onClick={() => whatsapp(r.id)}><Icon.whatsapp /></button>
+                        <button className="btn btn-ghost btn-icon btn-sm" title="Return goods from this bill"
+                          onClick={() => go('returns', { saleId: r.id })}><Icon.back /></button>
                       </td>
                     </tr>
                   ))}

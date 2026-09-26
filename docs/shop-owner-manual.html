@@ -237,15 +237,16 @@
 <figure><img src="shots/sales.png" alt="Sales Invoice"><figcaption>The bill: customer, items grid, old gold, payment, and the live bill summary.</figcaption></figure>
 <ol class="steps">
   <li><b>Customer</b>: type a name and pick, or leave blank for a walk-in. Their khata balance appears at once. <b>+</b> creates a new customer without leaving the bill.</li>
-  <li><b>Scan the tag</b> in the Tag column, or type the item name and choose the piece from the list. Weight, purity, making and hallmark fill in from the tag.</li>
-  <li>Type today's <b>Rate/10gm</b>. Making can be a percentage of the metal value or a per-gram figure from the tag.</li>
+  <li><b>Scan the tag</b> in the Tag column, or type the item name and choose the piece from the list. Weight, purity, making and hallmark fill in from the tag. The cursor then waits on the next line, so the next piece can be scanned straight away. A tag that is not found, already sold, or already on this bill is named in a message.</li>
+  <li>Type today's <b>Rate/10gm</b> once. Every further piece of the same purity picks up that rate by itself. Making can be a percentage of the metal value or a per-gram figure from the tag.</li>
   <li>Bill Summary on the right updates live: goods, making, discount, GST (CGST + SGST or IGST), total.</li>
   <li><b>Payment</b>: mode (Cash, UPI, Card, NEFT, Cheque) and Amount Received. <b>Split this payment</b> when part is cash and part is card.</li>
-  <li><span class="ui">Save</span>, then <span class="ui">Print</span>, <span class="ui">PDF</span> or <span class="ui">WhatsApp</span>.</li>
+  <li><span class="ui">Save</span> (Ctrl+S), <span class="ui">Save &amp; Print</span> (Ctrl+P), or <span class="ui">Save &amp; New</span> to save and start the next customer's bill at once. <span class="ui">PDF</span> and <span class="ui">WhatsApp</span> are beside them.</li>
 </ol>
 <figure><img src="shots/sales-filled.png" alt="Bill with a piece and rate"><figcaption>One scanned piece at ₹62,000 per 10 g: goods, GST and total worked out.</figcaption></figure>
 <h3>Other things the bill can do</h3>
 <ul>
+  <li><b>Start from the customer</b>: on Customers, Ledger or Outstanding, the small buttons on a customer's row open a new bill, a receipt or their ledger with the customer already picked. In the Sales Register, the return button on a bill opens a return with that bill's pieces filled in. The Dashboard figures open their full report when clicked.</li>
   <li><b>Untagged item</b>: type a name with no tag for metal sold before it was labelled. Its weight comes off the loose pool. The <b>From Purchase</b> column lets you say which invoice it came from, so that invoice's tally comes down.</li>
   <li><b>Loose items</b> (mani, fuli): pick the lot and type the grams taken.</li>
   <li><b>Card fee</b>: if the bank's swipe charge is set on your bank account, the customer's share is added and your share is booked as an expense.</li>

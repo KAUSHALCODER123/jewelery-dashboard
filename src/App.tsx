@@ -301,23 +301,23 @@ function Page({ route, go }: { route: Route; go: (n: string, p?: any) => void })
     case 'dashboard': return <Dashboard go={go} />
     case 'items': return <Items />
     case 'tags': return <TagStock purchaseId={route.params?.purchaseId} />
-    case 'customers': return <Parties type="CUSTOMER" key="cust" />
-    case 'suppliers': return <Parties type="SUPPLIER" key="supp" />
+    case 'customers': return <Parties type="CUSTOMER" key="cust" go={go} openNew={route.params?.new} />
+    case 'suppliers': return <Parties type="SUPPLIER" key="supp" go={go} />
     case 'sales': return <SalesList go={go} />
-    case 'returns': return <Returns />
+    case 'returns': return <Returns saleId={route.params?.saleId} />
     case 'oldgold': return <OldGold billId={route.params?.id} />
     case 'oldgold.report': return <OldGoldReport go={go} />
-    case 'sales.new': return <SalesInvoice go={go} saleId={route.params?.id} />
+    case 'sales.new': return <SalesInvoice go={go} saleId={route.params?.id} partyId={route.params?.partyId} />
     case 'purchase': return <Purchase go={go} />
-    case 'receipts': return <Receipts />
+    case 'receipts': return <Receipts partyId={route.params?.partyId} voucherKind={route.params?.kind} />
     case 'orders': return <Orders go={go} />
     case 'refining': return <Refining />
     case 'schemes': return <Schemes />
     case 'stockcheck': return <StockCheck />
     case 'stock': return <StockReport />
     case 'daybook': return <DayBook />
-    case 'ledger': return <Ledger partyId={route.params?.partyId} />
-    case 'outstanding': return <Outstanding />
+    case 'ledger': return <Ledger partyId={route.params?.partyId} go={go} />
+    case 'outstanding': return <Outstanding go={go} />
     case 'books': return <AccountBooks />
     case 'registers': return <Registers />
     case 'gst': return <GstReports />

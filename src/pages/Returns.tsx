@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Icon } from '../lib/icons'
 import {
   Autocomplete, Empty, Field, Input, Loading, Modal, Segmented, useAction, useAsync,
@@ -14,11 +14,12 @@ import { num } from '../lib/calc'
  * original stays exactly as it was; the return reverses stock, money and metal on
  * the day the goods actually came back.
  */
-export default function Returns() {
+export default function Returns({ saleId }: { saleId?: number } = {}) {
   const [kind, setKind] = useState<'SALE' | 'PURCHASE'>('SALE')
   const [from, setFrom] = useState(monthStartISO())
   const [to, setTo] = useState(todayISO())
-  const [editing, setEditing] = useState<any>(null)
+  // Opened from a bill in the Sales Register: the return starts on that bill.
+  const [editing, setEditing] = useState<any>(() => (saleId ? { kind: 'SALE', saleId } : null))
   const run = useAction()
   const isSale = kind === 'SALE'
 
@@ -123,7 +124,7 @@ export default function Returns() {
       </div>
 
       {editing && (
-        <ReturnModal kind={editing.kind} onClose={() => setEditing(null)}
+        <ReturnModal kind={editing.kind} saleId={editing.saleId} onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); list.reload() }} />
       )}
     </div>
@@ -136,8 +137,8 @@ const blankLine = () => ({
   rate_per_gm: '', mkg_per_gm: '',
 })
 
-function ReturnModal({ kind, onClose, onSaved }: {
-  kind: 'SALE' | 'PURCHASE'; onClose: () => void; onSaved: () => void
+function ReturnModal({ kind, saleId, onClose, onSaved }: {
+  kind: 'SALE' | 'PURCHASE'; saleId?: number; onClose: () => void; onSaved: () => void
 }) {
   const isSale = kind === 'SALE'
   const [f, setF] = useState<any>({
@@ -180,6 +181,11 @@ function ReturnModal({ kind, onClose, onSaved }: {
       blankLine(),
     ])
   }
+
+  useEffect(() => {
+    if (saleId && isSale) pullBill({ id: saleId })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saleId])
 
   const filled = lines.filter((l) => num(l.gross_wt) > 0 || num(l.qty) > 0)
   const goods = filled.reduce((s, l) => s + num(l.net_wt || l.gross_wt) * num(l.rate_per_gm), 0)

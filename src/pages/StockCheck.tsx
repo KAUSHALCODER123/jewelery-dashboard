@@ -136,19 +136,19 @@ export default function StockCheck() {
         <div className="stat">
           <div className="stat-label">Expected</div>
           <div className="stat-value num">{rows.length}</div>
-          <div className="stat-meta">{wt(sum(rows, 'net_wt'))} g net · {wt(sum(rows, 'final_wt'))} g fine</div>
+          <div className="stat-meta">{wt(sum(rows, 'net_wt'))} g net Â· {wt(sum(rows, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
           <div className="stat-label">Found</div>
           <div className="stat-value num" style={{ color: 'var(--ok)' }}>{found.length}</div>
-          <div className="stat-meta">{wt(sum(found, 'net_wt'))} g net · {wt(sum(found, 'final_wt'))} g fine</div>
+          <div className="stat-meta">{wt(sum(found, 'net_wt'))} g net Â· {wt(sum(found, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
           <div className="stat-label">Missing</div>
           <div className="stat-value num" style={{ color: missing.length ? 'var(--danger)' : undefined }}>
             {missing.length}
           </div>
-          <div className="stat-meta">{wt(sum(missing, 'net_wt'))} g net · {wt(sum(missing, 'final_wt'))} g fine</div>
+          <div className="stat-meta">{wt(sum(missing, 'net_wt'))} g net Â· {wt(sum(missing, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
           <div className="stat-label">Not In Stock</div>

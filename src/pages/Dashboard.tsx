@@ -11,22 +11,22 @@ export default function Dashboard({ go }: { go: (n: string, p?: any) => void }) 
 
   const tiles = [
     {
-      label: 'Today’s Sales', icon: Icon.invoice,
+      label: 'Today’s Sales', to: 'sales', icon: Icon.invoice,
       value: <>₹<CountUp value={data.todaySales.v} format={(n) => money(n)} /></>,
       meta: `${data.todaySales.n} bill${data.todaySales.n === 1 ? '' : 's'}`,
     },
     {
-      label: 'This Month', icon: Icon.chart,
+      label: 'This Month', to: 'sales', icon: Icon.chart,
       value: <>₹<CountUp value={data.monthSales.v} format={(n) => money(n)} /></>,
       meta: `${data.monthSales.n} bills`,
     },
     {
-      label: 'Stock in Hand', icon: Icon.stock,
+      label: 'Stock in Hand', to: 'stock', icon: Icon.stock,
       value: <><CountUp value={data.stock.fine} format={(n) => wt(n)} /> <span style={{ fontSize: 14, color: 'var(--text-3)' }}>g fine</span></>,
       meta: `${data.stock.pieces} pieces · ${wt(data.stock.gross)} g gross`,
     },
     {
-      label: 'Receivable', icon: Icon.users,
+      label: 'Receivable', to: 'outstanding', icon: Icon.users,
       value: <>₹<CountUp value={data.receivable} format={(n) => money(n)} /></>,
       meta: `${data.customers} customers`,
     },
@@ -38,7 +38,8 @@ export default function Dashboard({ go }: { go: (n: string, p?: any) => void }) 
         {tiles.map((t, i) => {
           const I = t.icon
           return (
-            <div className="stat" key={t.label} style={{ animationDelay: `${i * 45}ms` }}>
+            <div className="stat clickable" key={t.label} style={{ animationDelay: `${i * 45}ms`, cursor: 'pointer' }}
+              role="button" title="Open the full report" onClick={() => go(t.to)}>
               <div className="stat-label"><I width={14} height={14} /> {t.label}</div>
               <div className="stat-value num">{t.value}</div>
               <div className="stat-meta">{t.meta}</div>
@@ -52,7 +53,7 @@ export default function Dashboard({ go }: { go: (n: string, p?: any) => void }) 
           <Icon.plus /> New Sales Invoice
         </button>
         <button className="btn" onClick={() => go('tags')}><Icon.tag /> Add Stock</button>
-        <button className="btn" onClick={() => go('customers')}><Icon.users /> New Customer</button>
+        <button className="btn" onClick={() => go('customers', { new: true })}><Icon.users /> New Customer</button>
         <button className="btn" onClick={() => go('receipts')}><Icon.receipt /> Receive Payment</button>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Icon } from '../lib/icons'
 import {
   Autocomplete, Empty, Field, Input, Loading, Modal, Segmented, Select,
@@ -19,12 +19,22 @@ const blank = () => ({
   manual_no: '',
 })
 
-export default function Receipts() {
+export default function Receipts({ partyId, voucherKind }: { partyId?: number; voucherKind?: string } = {}) {
   const [from, setFrom] = useState(monthStartISO())
   const [to, setTo] = useState(todayISO())
-  const [kind, setKind] = useState('RECEIPT')
+  const [kind, setKind] = useState(voucherKind === 'PAYMENT' ? 'PAYMENT' : 'RECEIPT')
   const [editing, setEditing] = useState<any>(null)
   const run = useAction()
+
+  // Opened from a customer, the ledger or Outstanding: the receipt starts with
+  // that party picked, so it is not searched for a second time.
+  useEffect(() => {
+    if (!partyId) return
+    window.api.party.read({ id: partyId }).then((p: any) => {
+      if (p) setEditing({ ...blank(), kind, party_id: p.id, party_name: p.name })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partyId])
 
   const isSettle = kind === 'SETTLE'
   const list = useAsync(
@@ -134,6 +144,9 @@ export default function Receipts() {
 function VoucherModal({ v, onClose, onSaved }: { v: any; onClose: () => void; onSaved: () => void }) {
   const [f, setF] = useState(v)
   const [balance, setBalance] = useState<number | null>(null)
+  useEffect(() => {
+    if (v.party_id) window.api.party.balance({ id: v.party_id }).then((b: any) => setBalance(b.balance))
+  }, [v.party_id])
   // A voucher settles either a party's khata or a head in the chart of accounts.
   // The second is how a shop expense — electricity, tea, rent — is recorded.
   const [against, setAgainst] = useState<'PARTY' | 'ACCOUNT'>('PARTY')

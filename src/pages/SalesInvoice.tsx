@@ -78,7 +78,9 @@ const ITEM_COLS: GridCol[] = [
   { key: 'item_total', label: 'Line Total', width: 96 },
 ]
 
-export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) => void; saleId?: number }) {
+export default function SalesInvoice({ go, saleId, partyId }: {
+  go: (n: string, p?: any) => void; saleId?: number; partyId?: number
+}) {
   const run = useAction()
   const grid = useGridCols('sale.items', ITEM_COLS)
   const cols = grid.cols
@@ -263,7 +265,12 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
 
   /** Fill a line from a scanned/selected stock tag. */
   const applyTag = (i: number, ts: any) => {
+    // Same purity as a line above means the same metal and karat, so the rate
+    // typed there is the rate for this piece too — no retyping per line.
+    const sameRate = items.slice(0, i).reverse()
+      .find((r) => num(r.rate_per_gm) > 0 && num(r.purity) === num(ts.purity))?.rate_per_gm
     setItem(i, {
+      ...(sameRate && !num(items[i]?.rate_per_gm) ? { rate_per_gm: sameRate } : {}),
       tag: ts.tag, tag_stock_id: ts.id, item_id: ts.item_id, purchase_id: '',
       item_name: ts.item_name, hsn: ts.hsn || '',
       gross_wt: ts.gross_wt, stone_wt: ts.stone_wt, net_wt: ts.net_wt,
@@ -314,6 +321,13 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
     // A scheme belongs to one customer, so changing customer clears the choice.
     setHead((h: any) => ({ ...h, loyalty_redeem: 0, gss_id: '', gss_redeem: '', gss_return: '' }))
   }
+
+  // Opened from a customer's row: the bill starts with that customer picked.
+  useEffect(() => {
+    if (!partyId || saleId) return
+    window.api.party.read({ id: partyId }).then((p: any) => { if (p) pickCustomer(p) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partyId, saleId])
 
   /**
    * Reverse calculation — the counter quotes a round figure and works backwards.
@@ -409,6 +423,13 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
     if (res) go('sales.new', { id: res.id })
   }
 
+  /** Save and clear the screen for the next customer. */
+  const saveNew = async () => {
+    const res = await doSave()
+    // A fresh route remounts the page: blank bill, next number reserved.
+    if (res) go('sales.new', { fresh: Date.now() })
+  }
+
   const savePrint = async () => {
     const res = head.id ? { id: head.id } : await doSave()
     if (!res) return
@@ -452,6 +473,23 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
     setPayments([]); setShowUrd(false)
     setCustQuery(''); setCustBalance(null); setLoyalty(null); go('sales.new')
   }
+
+  // Ctrl+S saves, Ctrl+P saves and prints — from any field on the bill.
+  const keys = useRef({ saveOnly, savePrint, blocked: false })
+  keys.current = { saveOnly, savePrint, blocked: busy || overSettled }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || document.querySelector('.modal')) return
+      const k = e.key.toLowerCase()
+      if (k !== 's' && k !== 'p') return
+      e.preventDefault()
+      if (keys.current.blocked) return
+      if (k === 's') keys.current.saveOnly()
+      else keys.current.savePrint()
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   const bal = custBalance != null ? drcr(custBalance) : null
 
@@ -580,12 +618,25 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
                       switch (c.key) {
                         case 'tag': return (
                           <td key={c.key}>
-                            <input className="mono" value={r.tag} placeholder="scan"
+                            <input className="mono" value={r.tag} placeholder="scan" data-tag-row={i}
                               onChange={(e) => setItem(i, { tag: e.target.value })}
                               onKeyDown={async (e) => {
                                 if (e.key !== 'Enter') return
-                                const found = await window.api.tagStock.findByTag({ tag: (e.target as HTMLInputElement).value })
-                                if (found && found.status === 'IN_STOCK') applyTag(i, found)
+                                const typed = (e.target as HTMLInputElement).value.trim()
+                                if (!typed) return
+                                const found = await window.api.tagStock.findByTag({ tag: typed })
+                                // Say why a scan did nothing, instead of leaving the
+                                // counter guessing.
+                                const why = !found ? `Tag ${typed} not found`
+                                  : found.status !== 'IN_STOCK' ? `Tag ${found.tag} is ${String(found.status).toLowerCase().replace('_', ' ')}, not in stock`
+                                  : items.some((x, ix) => ix !== i && x.tag_stock_id === found.id) ? `Tag ${found.tag} is already on this bill`
+                                  : ''
+                                if (why) { run(async () => { throw new Error(why) }); return }
+                                applyTag(i, found)
+                                // Ready for the next scan straight away.
+                                setTimeout(() => {
+                                  document.querySelector<HTMLInputElement>(`input[data-tag-row="${i + 1}"]`)?.focus()
+                                }, 50)
                               }} />
                           </td>
                         )
@@ -1018,11 +1069,15 @@ export default function SalesInvoice({ go, saleId }: { go: (n: string, p?: any) 
         </button>
         <button className="btn" onClick={savePdf}><Icon.download /> PDF</button>
         <button className="btn" onClick={saveOnly} disabled={busy || overSettled}
-          title={overSettled ? OVER_SETTLED : undefined}>
+          title={overSettled ? OVER_SETTLED : 'Save (Ctrl+S)'}>
           {busy ? <span className="spinner" /> : <Icon.save />} Save
         </button>
+        <button className="btn" onClick={saveNew} disabled={busy || overSettled}
+          title={overSettled ? OVER_SETTLED : 'Save this bill and start a fresh one'}>
+          <Icon.plus /> Save & New
+        </button>
         <button className="btn btn-primary" onClick={savePrint} disabled={busy || overSettled}
-          title={overSettled ? OVER_SETTLED : undefined}>
+          title={overSettled ? OVER_SETTLED : 'Save & Print (Ctrl+P)'}>
           <Icon.print /> Save & Print
         </button>
       </div>

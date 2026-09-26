@@ -125,8 +125,8 @@ export default function Items() {
                           )
                           : (it.in_stock_count > 0
                               ? <span className="badge badge-ok"
-                                  title={`Gross ${Number(it.in_stock_gross).toFixed(3)} g · Net ${Number(it.in_stock_net).toFixed(3)} g`}>
-                                  {it.in_stock_count} pcs · {Number(it.in_stock_net).toFixed(3)} g
+                                  title={`Gross ${Number(it.in_stock_gross).toFixed(3)} g Â· Net ${Number(it.in_stock_net).toFixed(3)} g`}>
+                                  {it.in_stock_count} pcs Â· {Number(it.in_stock_net).toFixed(3)} g
                                 </span>
                               : <span className="muted">0</span>)}
                       </td>

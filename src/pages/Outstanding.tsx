@@ -10,7 +10,7 @@ const METALS = ['Gold', 'Silver', 'Platinum']
  * Debtor / Creditor lists — the same outstanding read two ways, money or by
  * metal weight (docs/VIDEO-SPEC-2.md §5). Metal is never turned into rupees.
  */
-export default function Outstanding() {
+export default function Outstanding({ go }: { go?: (n: string, p?: any) => void } = {}) {
   const [basis, setBasis] = useState<'money' | 'metal'>('money')
   const [metal, setMetal] = useState('Gold')
   const rep = useAsync(
@@ -65,8 +65,10 @@ export default function Outstanding() {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-            <OutTable title="Debtors — they owe us (Dr)" rows={d.debtors} total={d.debtorTotal} fmt={fmt} />
-            <OutTable title="Creditors — we owe them (Cr)" rows={d.creditors} total={d.creditorTotal} fmt={fmt} />
+            <OutTable title="Debtors — they owe us (Dr)" rows={d.debtors} total={d.debtorTotal} fmt={fmt}
+              go={go} action={isMetal ? undefined : 'RECEIPT'} />
+            <OutTable title="Creditors — we owe them (Cr)" rows={d.creditors} total={d.creditorTotal} fmt={fmt}
+              go={go} action={isMetal ? undefined : 'PAYMENT'} />
           </div>
           {isMetal && (
             <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
@@ -80,8 +82,9 @@ export default function Outstanding() {
   )
 }
 
-function OutTable({ title, rows, total, fmt }: {
+function OutTable({ title, rows, total, fmt, go, action }: {
   title: string; rows: any[]; total: number; fmt: (n: number) => string
+  go?: (n: string, p?: any) => void; action?: 'RECEIPT' | 'PAYMENT'
 }) {
   return (
     <div className="card">
@@ -89,11 +92,11 @@ function OutTable({ title, rows, total, fmt }: {
       <div className="card-body flush">
         <table className="data">
           <thead>
-            <tr><th>Party</th><th>Mobile</th><th className="r">Balance</th></tr>
+            <tr><th>Party</th><th>Mobile</th><th className="r">Balance</th>{go && <th></th>}</tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={3} className="muted" style={{ textAlign: 'center', padding: 16 }}>Nothing outstanding</td></tr>
+              <tr><td colSpan={go ? 4 : 3} className="muted" style={{ textAlign: 'center', padding: 16 }}>Nothing outstanding</td></tr>
             )}
             {rows.map((r) => (
               <tr key={r.id}>
@@ -103,13 +106,26 @@ function OutTable({ title, rows, total, fmt }: {
                 </td>
                 <td className="muted">{r.mobile || '—'}</td>
                 <td className="r num">{fmt(r.balance)}</td>
+                {go && (
+                  <td className="r" style={{ whiteSpace: 'nowrap' }}>
+                    {action && (
+                      <button className="btn btn-ghost btn-icon btn-sm"
+                        title={action === 'RECEIPT' ? 'Receive payment' : 'Make payment'}
+                        onClick={() => go('receipts', { partyId: r.id, kind: action })}>
+                        <Icon.receipt />
+                      </button>
+                    )}
+                    <button className="btn btn-ghost btn-icon btn-sm" title="Open ledger"
+                      onClick={() => go('ledger', { partyId: r.id })}><Icon.ledger /></button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
           {rows.length > 0 && (
             <tfoot>
               <tr className="strong" style={{ borderTop: '2px solid var(--border)' }}>
-                <td colSpan={2}>Total</td><td className="r num">{fmt(total)}</td>
+                <td colSpan={2}>Total</td><td className="r num">{fmt(total)}</td>{go && <td></td>}
               </tr>
             </tfoot>
           )}

@@ -303,6 +303,71 @@ app.whenReady().then(async () => {
     ok('stock consumed by the UI bill',
       api.tagStock.list({ status: 'SOLD' }).length === 1)
 
+    // ── 5b. Shortcuts that save the counter steps ──
+    head('5b. Shortcuts — scan, start from a customer, return from a bill')
+    const inStock = api.tagStock.list({ status: 'IN_STOCK' })
+    const inStockTag = inStock[0].tag
+    // A second piece of the same purity, to see the rate carried down to it.
+    const twinTag = inStock.find((t) => t.id !== inStock[0].id && t.purity === inStock[0].purity)?.tag
+    const soldTag = api.tagStock.list({ status: 'SOLD' })[0].tag
+    await nav('Sales Invoice')
+    const scan = await js(`
+      __t.click('New Bill'); await __t.wait(700)
+      const enter = async (row, v) => {
+        const box = document.querySelector('input[data-tag-row="' + row + '"]')
+        box.focus(); __t.set(box, v)
+        box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+        await __t.wait(700)
+      }
+      await enter(0, 'NOSUCH99')
+      const notFound = __t.toasts().join(' | ')
+      await enter(0, '${soldTag}')
+      const sold = __t.toasts().join(' | ')
+      await enter(0, '${inStockTag}')
+      const focusRow = document.activeElement?.dataset?.tagRow ?? ''
+      __t.set(__t.gridInput('Rate/10Gm'), '45900'); await __t.wait(300)
+      let carried = ''
+      if ('${twinTag || ''}') {
+        await enter(1, '${twinTag || ''}')
+        const rows = document.querySelectorAll('.grid-edit tbody tr')
+        const idx = [...document.querySelectorAll('.grid-edit thead th')].findIndex(th => th.textContent.trim() === 'Rate/10Gm')
+        carried = rows[1]?.children[idx]?.querySelector('input')?.value || ''
+      }
+      return { notFound, sold, focusRow, carried }
+    `)
+    ok('an unknown tag says so', /NOSUCH99 not found/.test(scan.notFound))
+    ok('a sold tag says so', /is sold, not in stock/.test(scan.sold))
+    check('after a scan the cursor waits on the next line', scan.focusRow, '1')
+    if (twinTag) ok('the rate carries down to a piece of the same purity', /45,?900/.test(scan.carried))
+
+    await nav('Customers')
+    const fromCust = await js(`
+      document.querySelector('button[title="New bill for this customer"]').click()
+      await __t.wait(1500)
+      return document.querySelector('.ac input.input')?.value || ''
+    `)
+    ok('a bill started from a customer row has the customer', fromCust.length > 0)
+
+    await nav('Customers')
+    const rcptFromCust = await js(`
+      document.querySelector('button[title="Receive payment"]').click()
+      await __t.wait(1500)
+      const m = document.querySelector('.modal')
+      return m ? (m.querySelector('.ac input.input')?.value || '') : ''
+    `)
+    ok('a receipt started from a customer row has the customer', rcptFromCust.length > 0)
+    await js(`__t.click('Cancel', document.querySelector('.modal').parentElement); await __t.wait(300)`)
+
+    await nav('Sales Register')
+    const retFromBill = await js(`
+      document.querySelector('button[title="Return goods from this bill"]').click()
+      await __t.wait(1500)
+      const m = document.querySelector('.modal')
+      return m ? [...m.querySelectorAll('input')].map(i => i.value).join(' ') : ''
+    `)
+    ok('a return started from a bill has that bill', /COM1/.test(retFromBill))
+    await js(`__t.click('Cancel', document.querySelector('.modal').parentElement); await __t.wait(300)`)
+
     // ── 6. Receipts ───────────────────────────────────────────────────
     head('6. Receipts — collect against the khata')
     await nav('Receipts')

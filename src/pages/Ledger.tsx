@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { Autocomplete, Empty, Input, Loading, Segmented, useAsync } from '../lib/ui'
 import { dmy, money, toCsv, todayISO, wt } from '../lib/format'
 
-export default function Ledger({ partyId }: { partyId?: number }) {
+export default function Ledger({ partyId, go }: { partyId?: number; go?: (n: string, p?: any) => void }) {
   const [pid, setPid] = useState<number | null>(partyId ?? null)
   const [query, setQuery] = useState('')
   const [from, setFrom] = useState('')
@@ -93,6 +93,21 @@ export default function Ledger({ partyId }: { partyId?: number }) {
             fetch={(q) => window.api.party.list({ type: 'ALL', search: q })}
             render={(p: any) => <span><b>{p.name}</b><span className="muted"> · {p.party_type === 'CUSTOMER' ? 'Customer' : 'Supplier'}</span></span>} />
         </div>
+        {pid && go && (
+          <>
+            <button className="btn btn-sm"
+              onClick={() => go('receipts', {
+                partyId: pid, kind: d?.party?.party_type === 'SUPPLIER' ? 'PAYMENT' : 'RECEIPT',
+              })}>
+              <Icon.receipt /> {d?.party?.party_type === 'SUPPLIER' ? 'Pay' : 'Receive'}
+            </button>
+            {d?.party?.party_type !== 'SUPPLIER' && (
+              <button className="btn btn-sm" onClick={() => go('sales.new', { partyId: pid })}>
+                <Icon.invoice /> New Bill
+              </button>
+            )}
+          </>
+        )}
         <Segmented value={book} onChange={(v) => setBook(v as 'money' | 'metal' | 'both')}
           options={[
             { value: 'money', label: 'Money' },
