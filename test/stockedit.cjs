@@ -161,6 +161,28 @@ app.whenReady().then(() => {
     check('purity reads zero, not NaN',
       api.reports.stock({ status: 'IN_STOCK', groupBy: 'item' })
         .groups.find((x) => x.key === 'Loose Beads').purity, 0)
+
+    head('9. A piece is shown in the group of its own purity')
+    // The shop's CP: an item kept under 18K Gold, one piece corrected to 91.6.
+    const g18 = g('18K Gold')
+    const cpId = api.item.save({
+      name: 'CP', item_type_id: g18.item_type_id, item_group_id: g18.id, design_id: null,
+      weight_mode: 'WEIGHT', uom: 'GRAM', hsn: '7113', image: '',
+    })
+    api.tagStock.saveBatch({
+      itemId: cpId,
+      rows: [{ gross_wt: 3, purity: 75, entry_date: DAY }, { gross_wt: 2, purity: 75, entry_date: DAY }],
+    })
+    const [cp1, cp2] = tagsOf(cpId)
+    check('an 18K piece reads 18K Gold', cp1.group_name, '18K Gold')
+    api.tagStock.updateRows({ rows: [{ id: cp2.id, purity: 91.6 }] })
+    check('corrected to 91.6 it reads 22K Gold', tagsOf(cpId)[1].group_name, '22K Gold')
+    check('and the scan on the bill says so too',
+      api.tagStock.findByTag({ tag: cp2.tag }).group_name, '22K Gold')
+    const byGroup = api.reports.stock({ status: 'IN_STOCK', groupBy: 'group' }).groups
+    check('the group total counts it under 22K', byGroup.find((x) => x.key === '18K Gold').count, 1)
+    api.tagStock.updateRows({ rows: [{ id: cp2.id, purity: 80 }] })
+    check('a purity no group has keeps the item group', tagsOf(cpId)[1].group_name, '18K Gold')
   } catch (e) {
     fail++
     console.log('  ERROR', e && e.stack ? e.stack : e)

@@ -510,6 +510,23 @@ function makeTag(db, itemId) {
   return `${prefix}${String(max + 1).padStart(5, '0')}`
 }
 
+/**
+ * The group a piece is shown under. A group is a karat of a metal (18K Gold,
+ * 22K Gold), so a piece is shown in the group of its own metal whose purity it
+ * carries — a 91.6 piece of an item kept under 18K Gold reads 22K Gold, and the
+ * group totals count it there. The item's own group wins a tie, a purity no
+ * group matches keeps the item's group, and the Old Gold / Old Silver groups
+ * (metal bought back, not pieces for sale) are never picked. Needs `ts` (tag_stock) and `g` (the
+ * item's group) in scope.
+ */
+const PIECE_GROUP = `CASE WHEN g.id IS NULL OR ABS(g.purity - ts.purity) < 0.05 THEN g.name
+  ELSE COALESCE((
+    SELECT g2.name FROM item_group g2
+    WHERE g2.item_type_id = g.item_type_id AND ABS(g2.purity - ts.purity) < 0.05
+      AND g2.name NOT LIKE 'Old %'
+    ORDER BY g2.id LIMIT 1
+  ), g.name) END`
+
 const tagStock = {
   list: ({ status, search, itemId, printed, ids } = {}) => {
     const clauses = []
@@ -526,7 +543,7 @@ const tagStock = {
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
     return get()
       .prepare(
-        `SELECT ts.*, i.name AS item_name, g.name AS group_name, i.uom,
+        `SELECT ts.*, i.name AS item_name, ${PIECE_GROUP} AS group_name, i.uom,
                 pu.invoice_no AS purchase_no
          FROM tag_stock ts
          JOIN item i ON i.id = ts.item_id
@@ -718,7 +735,7 @@ const tagStock = {
   findByTag: ({ tag }) =>
     get()
       .prepare(
-        `SELECT ts.*, i.name AS item_name, i.hsn, g.name AS group_name
+        `SELECT ts.*, i.name AS item_name, i.hsn, ${PIECE_GROUP} AS group_name
          FROM tag_stock ts JOIN item i ON i.id = ts.item_id
          LEFT JOIN item_group g ON g.id = i.item_group_id
          WHERE ts.tag = ? COLLATE NOCASE`
@@ -731,7 +748,7 @@ const tagStock = {
       .prepare(
         `SELECT ts.id, ts.tag, ts.gross_wt, ts.net_wt, ts.stone_wt, ts.purity,
                 ts.mkg_per_gm, ts.hallmark_charges, ts.huid, ts.qty, ts.location, ts.status,
-                i.id AS item_id, i.name AS item_name, i.hsn, g.name AS group_name
+                i.id AS item_id, i.name AS item_name, i.hsn, ${PIECE_GROUP} AS group_name
          FROM tag_stock ts JOIN item i ON i.id = ts.item_id
          LEFT JOIN item_group g ON g.id = i.item_group_id
          WHERE (i.name LIKE '%'||@q||'%' OR ts.tag LIKE '%'||@q||'%')
@@ -4568,7 +4585,7 @@ const reports = {
 
     // Non-moving: in stock, tagged before the cutoff, never sold.
     const nonMoving = db.prepare(
-      `SELECT ts.tag, i.name AS item_name, g.name AS group_name, ts.entry_date,
+      `SELECT ts.tag, i.name AS item_name, ${PIECE_GROUP} AS group_name, ts.entry_date,
               ts.gross_wt, ts.final_wt, ts.purchase_rate,
               ROUND(ts.final_wt * ts.purchase_rate, 2) AS cost_value,
               CAST(julianday('now','localtime') - julianday(ts.entry_date) AS INTEGER) AS age_days
