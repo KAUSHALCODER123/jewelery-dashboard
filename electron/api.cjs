@@ -439,8 +439,10 @@ const item = {
 
   save: (p) => {
     const db = get()
-    const tag_prefix =
-      (p.tag_prefix || p.name || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase()
+    const previous = p.id ? db.prepare('SELECT tag_prefix FROM item WHERE id = ?').get(p.id) : null
+    const requestedPrefix = String(p.tag_prefix ?? previous?.tag_prefix ?? '').trim().toUpperCase()
+    if (requestedPrefix && !/^[A-Z][A-Z0-9-]{0,11}$/.test(requestedPrefix)) throw new Error('Tag prefix must start with a letter and contain up to 12 letters, digits or hyphens.')
+    const tag_prefix = requestedPrefix || (p.name || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'
     const row = { reorder_level: 0, stock_mode: 'TAG', ...p, tag_prefix }
     if (row.stock_mode !== 'LOOSE_WT') row.stock_mode = 'TAG'
     if (p.id) {
@@ -498,13 +500,14 @@ const item = {
 function makeTag(db, itemId) {
   const it = db.prepare(`SELECT name, tag_prefix FROM item WHERE id = ?`).get(itemId)
   const prefix =
-    (it?.tag_prefix || it?.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase()
+    it?.tag_prefix || (it?.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'
   const rows = db
     .prepare(`SELECT tag FROM tag_stock WHERE tag LIKE ? || '%'`)
     .all(prefix)
   let max = 0
   for (const r of rows) {
-    const n = parseInt(String(r.tag).slice(prefix.length), 10)
+    const suffix = String(r.tag).slice(prefix.length)
+    const n = /^\d+$/.test(suffix) ? Number(suffix) : NaN
     if (Number.isFinite(n) && n > max) max = n
   }
   return `${prefix}${String(max + 1).padStart(5, '0')}`

@@ -767,3 +767,8 @@ tr.row-bad { background: var(--danger-soft) !important; }
 .menu-pop button.danger:hover { background: var(--danger-soft); color: var(--danger); }
 .menu-pop .sep { height: 1px; background: var(--line-soft); margin: 4px 0; }
 }
+
+.invoice-canvas { display:grid; gap:6px; max-height:480px; overflow:auto; padding:8px; background:var(--surface-3); }
+.invoice-cell { border:1px dashed var(--line); min-height:64px; padding:6px; min-width:0; }
+.invoice-block { display:flex; width:100%; white-space:normal; cursor:grab; margin-top:4px; }
+tr:focus { outline:2px solid var(--accent, #D4AF37); outline-offset:-2px; }

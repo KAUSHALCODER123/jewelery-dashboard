@@ -239,7 +239,9 @@ export function Autocomplete<T>({
   }, [])
 
   return (
-    <div className={`ac ${className}`} ref={box}>
+    <div className={`ac ${className}`} ref={box} onBlur={e => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false)
+    }}>
       <input
         ref={inputRef}
         className="input"
@@ -268,6 +270,7 @@ export function Autocomplete<T>({
                 type="button"
                 className="ac-item"
                 data-active={i === active}
+                onFocus={(e) => { setActive(i); e.currentTarget.scrollIntoView({ block: 'nearest' }) }}
                 onMouseEnter={() => setActive(i)}
                 onClick={() => { onPick(it); setOpen(false) }}
               >

@@ -79,7 +79,7 @@ export function barcodeSvg(value: string, opts: BarcodeOptions = {}): string {
   const total = height + textH
   const label = showText
     ? `<text x="${(x / 2).toFixed(2)}" y="${total - 1}" text-anchor="middle"
-         font-family="Consolas, monospace" font-size="${fontSize}"
+         font-family="Courier New, monospace" font-size="${fontSize}"
          letter-spacing="0.5">${escapeXml(value)}</text>`
     : ''
 
@@ -205,7 +205,7 @@ function tscTagHtml(
    * The text lines shrink to the front they have. With the 7 mm shift the front
    * is only about 21 mm, and "G 15.200  N 15.000" at the usual size ran past the
    * fold, which cut off the net weight's last digits. Widths are worked out from
-   * the fonts: Consolas is fixed at 0.55 em a character; Segoe UI bold capitals
+   * the fonts: Courier New uses a plain zero and is fixed at 0.60 em a character; Segoe UI bold capitals
    * and digits run about 0.62 em. 1 pt = 0.3528 mm.
    */
   const avail = fold - frontL - padL - 1.5 - 0.3   // text width, less a hair
@@ -233,7 +233,7 @@ function tscTagHtml(
     if (name && avail - fixedW(l1Base) - 1.6 * (purity ? 2 : 1) < 5) name = ''
     const l1Pt = fitPt(l1Base, t.tag.length + purity.length, 0.62,
       1.6 * ((name ? 1 : 0) + (purity ? 1 : 0)))
-    const l2Pt = fitPt(l2Base, l2.length, 0.55)
+    const l2Pt = fitPt(l2Base, l2.length, 0.60)
     return `<div class="tag">
       <div class="head">
         <div class="bc">${barcodeSvg(t.tag, { moduleWidth: 1, height: 22, showText: false })
@@ -326,7 +326,7 @@ function tscTagHtml(
   .l1 .tg, .l1 .pu { flex: none; }
   .l1 .nm { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .l2 { height: 3.7mm; margin-top: 0.2mm; font-size: 9.5pt; font-weight: 700; line-height: 1.15;
-        font-family: Consolas, "Segoe UI", monospace; }
+        font-family: "Courier New", monospace; }
   /* a short head cannot hold the full-size lines */
   .l1 { font-size: ${fold - frontL < 45 ? 7 : 9}pt; } .l2 { font-size: ${fold - frontL < 45 ? 7.5 : 9.5}pt; }
   @media print { .tag { background: none; } }
@@ -400,7 +400,7 @@ export function labelSheetHtml(tags: LabelTag[], opts: LabelOptions = {}): strin
   .l1 { font-size: ${compact ? 5 : 6.5}pt; font-weight: 600; line-height: 1;
         white-space: nowrap; overflow: hidden; }
   .l2 { font-size: ${compact ? 5 : 6.5}pt; line-height: 1; margin-top: .3mm;
-        font-family: Consolas, monospace; }
+        font-family: "Courier New", monospace; }
   .bc { line-height: 0; margin: .3mm 0; }
   .bc svg { max-width: ${S.w - S.padX * 2}mm; height: auto; display: block; }
 </style>

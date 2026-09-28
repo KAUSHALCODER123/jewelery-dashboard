@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import { Check, Field, Input, Loading, Modal, Segmented, Select, useAction, useAsync } from '../lib/ui'
 import { DEFAULT_INVOICE_CONFIG, invoiceHtml, loadConfig, type InvoiceConfig } from '../print/invoice'
 import { num } from '../lib/calc'
+import InvoiceLayoutEditor from './InvoiceLayoutEditor'
 import Users from './Users'
 import GoogleDrive from './GoogleDrive'
 import MobileAccess from './MobileAccess'
@@ -196,6 +197,7 @@ export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
   const [tab, setTab] = useState<
     'company' | 'invoice' | 'series' | 'accounts' | 'rates' | 'users' | 'data' | 'mobile'
   >((initialTab as any) || 'company')
+  const [tabNavigation, setTabNavigation] = useState(() => localStorage.getItem('tab-list-navigation') === 'true')
   const [form, setForm] = useState<any>(null)
   const info = useAsync(() => window.api.app.info(), [])
   const company = useAsync(() => window.api.company.read(), [])
@@ -286,6 +288,12 @@ export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
 
       {tab === 'company' && (
         <>
+          <div className="card" style={{ marginBottom: 14 }}><div className="card-body">
+            <Check label="Navigate list rows with Tab / Shift+Tab" checked={tabNavigation} onChange={value => {
+              setTabNavigation(value); localStorage.setItem('tab-list-navigation', String(value)); window.dispatchEvent(new Event('list-navigation-change'))
+            }} />
+            <p className="hint">Focused rows and controls scroll into view. Saved on this computer. In search suggestions, Tab moves through results and Enter chooses one.</p>
+          </div></div>
           <div className="card" style={{ marginBottom: 14 }}>
             <div className="card-head"><span className="card-title">Shop Details</span>
               <span className="hint" style={{ marginLeft: 'auto' }}>Printed on every invoice</span></div>
@@ -784,6 +792,7 @@ function InvoiceDesign({ company }: { company: any }) {
         </div>
       </div>
 
+      <InvoiceLayoutEditor cfg={cfg} onChange={set} />
       <div className="sticky-actions">
         <button className="btn" onClick={() => setCfg({ ...DEFAULT_INVOICE_CONFIG })}>Reset to default</button>
         <span className="spacer" />

@@ -8,6 +8,7 @@ import {
 const BLANK = {
   id: null as number | null,
   name: '',
+  tag_prefix: '',
   item_type_id: '',
   item_group_id: '',
   design_id: '',
@@ -231,14 +232,12 @@ export default function Items() {
                 or silver stock.
               </div>
             ) : (
-              <div className="span-2 hint">
-                Tag prefix will be <span className="mono strong">
-                  {(editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'}
-                </span> — tags generate as e.g.{' '}
-                <span className="mono">
-                  {((editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM')}00001
-                </span>
-              </div>
+              <Field label="Tag prefix" className="span-2" hint="Up to 12 letters, digits or hyphens; start with a letter. Applies to new tags only. Leave blank to use the item name.">
+                <Input value={editing.tag_prefix || ''} maxLength={12}
+                  placeholder={(editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'}
+                  onChange={(e) => setEditing({ ...editing, tag_prefix: e.target.value.toUpperCase() })} />
+                <span className="hint">Example: {editing.tag_prefix || (editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'}00001</span>
+              </Field>
             )}
           </div>
         </Modal>

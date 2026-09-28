@@ -1,3 +1,4 @@
+import { useListNavigation } from './lib/listNavigation'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Icon, Logo } from './lib/icons'
 import { useAsync } from './lib/ui'
@@ -114,6 +115,7 @@ const TITLES: Record<string, { title: string; sub?: string }> = {
 }
 
 export default function App() {
+  useListNavigation()
   const [user, setUser] = useState<any>(null)
   const [checking, setChecking] = useState(true)
   const [perms, setPerms] = useState<any>({})

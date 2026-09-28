@@ -1,4 +1,5 @@
 import { money, wt, dmy } from '../lib/format'
+import { applyLayout, normalizeLayout, type InvoiceLayout } from './layout'
 import shopLogo from '../assets/parivar-jewellers.jpeg?inline'
 
 const esc = (s: any) =>
@@ -15,6 +16,11 @@ export type InvoiceConfig = {
   showSignature: boolean
   showPendingBalance: boolean
   cols: Record<string, boolean>
+  layout?: InvoiceLayout
+  columnOrder?: string[]
+  columnLabels?: Record<string, string>
+  columnWidths?: Record<string, number>
+  minRows?: number
   footerNote: string
 }
 
@@ -36,7 +42,7 @@ export function loadConfig(raw?: string | null): InvoiceConfig {
   if (!raw) return DEFAULT_INVOICE_CONFIG
   try {
     const p = JSON.parse(raw)
-    return { ...DEFAULT_INVOICE_CONFIG, ...p, cols: { ...DEFAULT_INVOICE_CONFIG.cols, ...(p.cols || {}) } }
+    return { ...DEFAULT_INVOICE_CONFIG, ...p, layout: normalizeLayout(p.layout), cols: { ...DEFAULT_INVOICE_CONFIG.cols, ...(p.cols || {}) } }
   } catch {
     return DEFAULT_INVOICE_CONFIG
   }
@@ -51,8 +57,9 @@ const pendingMetal = (s: any) =>
 const wt3 = (n: number) => Number(n || 0).toFixed(3)
 
 export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
-  const cfg: InvoiceConfig = { ...DEFAULT_INVOICE_CONFIG, ...(cfgIn || {}) }
-  if (cfg.paper === 'THERMAL') return thermalHtml(data, cfg)
+  const cfg = loadConfig(JSON.stringify(cfgIn || {}))
+  if (!/^#[0-9a-f]{6}$/i.test(cfg.accent)) cfg.accent = DEFAULT_INVOICE_CONFIG.accent
+  if (cfg.paper === 'THERMAL' && !cfg.layout && !cfg.columnOrder && !cfg.columnLabels && !cfg.columnWidths && cfg.minRows === undefined) return thermalHtml(data, cfg)
 
   const { company: c, sale: s, party: p, pending_balance, amount_in_words } = data
   const pendingWt = pendingMetal(s)
@@ -78,10 +85,17 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
       get: (it: any) => money((Number(it.rate_per_gm) || 0) * 10) },
     { k: 'mkg', label: 'Mkg', w: 44, on: C.mkg, cls: 'r', get: (it: any) => money(it.mkg_per_gm) },
     { k: 'amt', label: 'Amount', w: 72, on: true, cls: 'r', get: (it: any) => money(it.total_amount) },
-  ].filter((x) => x.on)
+  ].filter((x) => cfg.cols[x.k] !== false && x.on !== false)
+  if (!columns.length) columns.push({ k: 'name', label: 'Item Name', w: 0, on: true, cls: '', get: (it: any) => esc(it.item_name) })
+  const order = cfg.columnOrder || []
+  columns.sort((a, b) => (order.indexOf(a.k) < 0 ? 999 : order.indexOf(a.k)) - (order.indexOf(b.k) < 0 ? 999 : order.indexOf(b.k)))
+  for (const col of columns) {
+    col.label = cfg.columnLabels?.[col.k] || col.label
+    col.w = Math.max(0, Math.min(300, Number(cfg.columnWidths?.[col.k] ?? col.w) || 0))
+  }
 
   const head = columns
-    .map((col) => `<th${col.w ? ` style="width:${col.w}px"` : ''}>${col.label}</th>`)
+    .map((col) => `<th${col.w ? ` style="width:${col.w}px"` : ''}>${esc(col.label)}</th>`)
     .join('')
 
   const rows = (s.items || [])
@@ -90,7 +104,7 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     .join('')
 
   const filler = Array.from(
-    { length: Math.max(0, 8 - (s.items?.length || 0)) },
+    { length: Math.max(0, Math.min(100, Math.max(0, Number(cfg.minRows ?? 8) || 0)) - (s.items?.length || 0)) },
     () => `<tr class="filler"><td colspan="${columns.length}">&nbsp;</td></tr>`
   ).join('')
 
@@ -126,11 +140,12 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
   const line = (k: string, v: string, cls = '') =>
     `<tr class="${cls}"><td class="k">${k}</td><td class="v">${v}</td></tr>`
 
-  return `<!doctype html>
+  const html = `<!doctype html>
 <meta charset="utf-8">
 <title>Invoice ${esc(s.bill_no)}</title>
 <style>
-  @page { size: A4; margin: 10mm; }
+  @page { size: ${cfg.paper === 'THERMAL' ? 'auto' : 'A4'}; margin: ${cfg.paper === 'THERMAL' ? '3mm' : '10mm'}; }
+  ${cfg.paper === 'THERMAL' ? 'body { width:72mm; max-width:100%; }' : ''}
   * { box-sizing: border-box; }
   body { font-family: "Segoe UI", Arial, sans-serif; font-size: 10.5px; color: #000;
     margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -180,6 +195,7 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
   .urd-tbl th, .urd-tbl td { border: 1px solid #999; padding: 2px 4px; }
 </style>
 <div class="sheet">
+  <!--block:header-->
   <div class="hd">
     ${cfg.showLogo ? `<img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">` : ''}
     <div class="co">${esc(c?.name || 'Demo')}</div>
@@ -188,6 +204,7 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     <div class="ti">${esc(cfg.title)}</div>
   </div>
 
+  <!--block:customer-->
   <div class="meta">
     <div class="l">
       <div><b>Name</b>: ${esc(s.party_name || 'Cash Customer')}</div>
@@ -203,13 +220,16 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     </div>
   </div>
 
+  <!--block:items-->
   <table class="items">
     <thead><tr>${head}</tr></thead>
     <tbody>${rows}${filler}<tr class="tot-row">${totalCells}</tr></tbody>
   </table>
 
+  <!--block:oldgold-->
   ${urdBlock}
 
+  <!--block:totals-->
   <div class="split">
     <div class="left">
       <div class="words"><b>Amount In Words:</b> ${esc(amount_in_words)}</div>
@@ -242,15 +262,19 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     </div>
   </div>
 
+  <!--block:declaration-->
   ${cfg.showDeclaration && c?.declaration ? `<div class="decl">${esc(c.declaration)}</div>` : ''}
+  <!--block:note-->
   ${cfg.footerNote ? `<div class="note">${esc(cfg.footerNote)}</div>` : ''}
 
+  <!--block:signature-->
   ${cfg.showSignature ? `<div class="sign">
     <div class="s1">Customer Sign</div>
     <div class="s2">${cfg.showPendingBalance ? `Pending Balance: ${money(pending_balance)}` : ''}</div>
     <div class="s3">For ${esc(c?.name || 'Demo')}</div>
   </div>` : ''}
 </div>`
+  return applyLayout(html, cfg.layout, data)
 }
 
 /** 3-inch thermal receipt — for counter estimates and quick bills. */
