@@ -5,6 +5,8 @@ export function useListNavigation() {
     let enabled = localStorage.getItem('tab-list-navigation') === 'true'
     const refresh = () => {
       enabled = localStorage.getItem('tab-list-navigation') === 'true'
+      // Off and nothing left to undo: skip the scan, which runs on every DOM change.
+      if (!enabled && !document.querySelector('[data-tab-navigation]')) return
       document.querySelectorAll<HTMLTableRowElement>('table.data tbody tr').forEach(row => {
         if (enabled && !row.hasAttribute('tabindex')) { row.tabIndex = 0; row.dataset.tabNavigation = 'true' }
         if (!enabled && row.dataset.tabNavigation) { row.removeAttribute('tabindex'); delete row.dataset.tabNavigation }

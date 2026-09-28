@@ -1,3 +1,5 @@
+import { money, dmy } from '../lib/format'
+
 export const BLOCKS = [
   ['header', 'Shop header'], ['customer', 'Customer & bill details'], ['items', 'Item table'],
   ['oldgold', 'Old gold'], ['totals', 'Totals & bank'], ['declaration', 'Declaration'],
@@ -31,6 +33,14 @@ export function normalizeLayout(raw: any): InvoiceLayout | undefined {
   }) }
 }
 const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
+/** A bound field prints the way the rest of the bill prints it: dates as dd/Mon/yyyy, rupees with commas. */
+function display(source: string, v: any) {
+  if (v == null || v === '') return ''
+  if (source.endsWith('_date')) return dmy(v)
+  if (/(amount|balance)$/.test(source)) return money(v)
+  return v
+}
+
 export function applyLayout(html: string, raw: InvoiceLayout | undefined, data: any) {
   const layout = normalizeLayout(raw)
   if (!layout) return html
@@ -43,7 +53,7 @@ export function applyLayout(html: string, raw: InvoiceLayout | undefined, data: 
   const rows = Array.from({ length: layout.rows }, (_, i) => {
     const fields = layout.fields.filter(f => f.row === i + 1).sort((a, b) => a.column - b.column)
     return `<div class="layout-row" style="display:grid;grid-template-columns:repeat(${layout.columns},minmax(0,1fr));min-height:8px">${fields.map(f => {
-      const value = f.source === 'text' ? f.value : f.source.split('.').reduce((v, k) => v?.[k], data)
+      const value = f.source === 'text' ? f.value : display(f.source, f.source.split('.').reduce((v, k) => v?.[k], data))
       const content = f.kind === 'custom' ? `<div style="padding:6px;white-space:pre-wrap;overflow-wrap:anywhere"><b>${esc(f.label)}</b>${f.label ? ': ' : ''}${esc(value)}</div>` : sections[f.kind] || ''
       return `<div style="min-width:0;grid-column:${f.column}/span ${f.span};font-size:${f.fontSize}px;text-align:${f.align}">${content}</div>`
     }).join('')}</div>`

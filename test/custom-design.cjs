@@ -8,16 +8,17 @@ app.whenReady().then(async () => {
   const db = require('../electron/db.cjs'); db.open(tmp)
   const api = require('../electron/api.cjs')
   const group = api.itemGroup.list().find(g => g.name === '22K Gold')
-  let item = { name: 'Ring', tag_prefix: 'RING-22', item_type_id: group.item_type_id, item_group_id: group.id, design_id: null, weight_mode: 'WEIGHT', uom: 'GRAM', hsn: '7113', image: '' }
+  let item = { name: 'Ring', tag_prefix: 'RING-22K', item_type_id: group.item_type_id, item_group_id: group.id, design_id: null, weight_mode: 'WEIGHT', uom: 'GRAM', hsn: '7113', image: '' }
   item.id = api.item.save(item)
   api.tagStock.saveBatch({ itemId: item.id, rows: [{ gross_wt: 10, purity: 91.6 }] })
-  assert.equal(api.tagStock.nextTag({ itemId: item.id }), 'RING-2200002')
+  assert.equal(api.tagStock.nextTag({ itemId: item.id }), 'RING-22K00002')
   api.item.save({ ...item, tag_prefix: 'NEW' })
   assert.equal(api.tagStock.nextTag({ itemId: item.id }), 'NEW00001')
-  assert.equal(api.tagStock.list({ itemId: item.id })[0].tag, 'RING-2200001')
+  assert.equal(api.tagStock.list({ itemId: item.id })[0].tag, 'RING-22K00001')
   api.item.save(item)
-  assert.equal(api.tagStock.nextTag({ itemId: item.id }), 'RING-2200002')
+  assert.equal(api.tagStock.nextTag({ itemId: item.id }), 'RING-22K00002')
   assert.throws(() => api.item.save({ ...item, tag_prefix: '12 BAD' }))
+  assert.throws(() => api.item.save({ ...item, tag_prefix: 'G2' }))
   const bundle = path.join(tmp, 'invoice.cjs')
   require('esbuild').buildSync({ entryPoints: [path.join(__dirname, '../src/print/invoice.ts')], bundle: true, platform: 'node', format: 'cjs', outfile: bundle, loader: { '.jpeg': 'dataurl' } })
   const { invoiceHtml, loadConfig } = require(bundle)
@@ -37,6 +38,16 @@ app.whenReady().then(async () => {
   assert.ok(html.includes('&lt;script&gt;'))
   assert.ok(!html.includes('<script>'))
   assert.ok(html.indexOf('Value &lt;tax&gt;') < html.indexOf('Item Name'))
+  // Column settings made for A4 must not turn the thermal receipt into a squeezed A4 sheet.
+  assert.ok(invoiceHtml(data, loadConfig(JSON.stringify({ paper: 'THERMAL', columnOrder: ['amt'] }))).includes('Thank you'))
+  // Bound fields print formatted, and the optional stone-weight column can be switched on.
+  const dated = invoiceHtml({ ...data, sale: { ...data.sale, total_amount: 60440.4 } }, loadConfig(JSON.stringify({ cols: { stone: true }, layout: { columns: 1, rows: 3, fields: [
+    { id: 'd', kind: 'custom', label: 'Dated', source: 'sale.bill_date', row: 1, column: 1, span: 1 },
+    { id: 't', kind: 'custom', label: 'Total', source: 'sale.total_amount', row: 2, column: 1, span: 1 },
+    { id: 'items', kind: 'items', row: 3, column: 1, span: 1 }] } })))
+  assert.ok(dated.includes('Dated</b>: 28/Sep/2026'), 'date formatted')
+  assert.ok(/Total<\/b>: 60,440\.40/.test(dated), 'amount formatted')
+  assert.ok(dated.includes('St.Wt'))
   const w = new BrowserWindow({ show: false, webPreferences: { sandbox: true } })
   await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
   assert.equal(await w.webContents.executeJavaScript('document.querySelectorAll("table.items tbody tr").length'), 46)

@@ -288,7 +288,9 @@ export default function Settings({ tab: initialTab }: { tab?: string } = {}) {
 
       {tab === 'company' && (
         <>
-          <div className="card" style={{ marginBottom: 14 }}><div className="card-body">
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div className="card-head"><span className="card-title">Keyboard</span></div>
+            <div className="card-body">
             <Check label="Navigate list rows with Tab / Shift+Tab" checked={tabNavigation} onChange={value => {
               setTabNavigation(value); localStorage.setItem('tab-list-navigation', String(value)); window.dispatchEvent(new Event('list-navigation-change'))
             }} />
@@ -689,13 +691,6 @@ const SAMPLE = (company: any) => ({
   },
 })
 
-const COLS = [
-  { k: 'hsn', label: 'HSN' }, { k: 'purity', label: 'Purity' },
-  { k: 'huid', label: 'HUID' }, { k: 'qty', label: 'Qty' },
-  { k: 'gross', label: 'Gross Wt' }, { k: 'net', label: 'Net Wt' },
-  { k: 'rate', label: 'Rate' }, { k: 'mkg', label: 'Making' },
-]
-
 function InvoiceDesign({ company }: { company: any }) {
   const run = useAction()
   const [cfg, setCfg] = useState<InvoiceConfig | null>(null)
@@ -709,7 +704,6 @@ function InvoiceDesign({ company }: { company: any }) {
   if (!cfg) return <Loading rows={4} />
 
   const set = (patch: Partial<InvoiceConfig>) => setCfg({ ...cfg, ...patch })
-  const setCol = (k: string, v: boolean) => setCfg({ ...cfg, cols: { ...cfg.cols, [k]: v } })
 
   const save = () => run(
     () => window.api.settings.set({ key: 'invoice_config', value: JSON.stringify(cfg) }),
@@ -743,18 +737,6 @@ function InvoiceDesign({ company }: { company: any }) {
                   <Input value={cfg.footerNote} placeholder="e.g. Goods once sold will not be taken back"
                     onChange={(e) => set({ footerNote: e.target.value })} />
                 </Field>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="card-head"><span className="card-title">Item Columns</span></div>
-            <div className="card-body">
-              <div className="col" style={{ gap: 9 }}>
-                {COLS.map((c) => (
-                  <Check key={c.k} label={c.label} checked={!!cfg.cols[c.k]}
-                    onChange={(v) => setCol(c.k, v)} />
-                ))}
               </div>
             </div>
           </div>

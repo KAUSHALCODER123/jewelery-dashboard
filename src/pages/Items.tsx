@@ -232,7 +232,7 @@ export default function Items() {
                 or silver stock.
               </div>
             ) : (
-              <Field label="Tag prefix" className="span-2" hint="Up to 12 letters, digits or hyphens; start with a letter. Applies to new tags only. Leave blank to use the item name.">
+              <Field label="Tag prefix" className="span-2" hint="Up to 12 letters, digits or hyphens. Starts with a letter and must not end in a digit. Applies to new tags only; existing tags keep their number. Leave blank to use the item name.">
                 <Input value={editing.tag_prefix || ''} maxLength={12}
                   placeholder={(editing.name || 'ITM').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'}
                   onChange={(e) => setEditing({ ...editing, tag_prefix: e.target.value.toUpperCase() })} />

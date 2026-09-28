@@ -3,7 +3,12 @@ import { BLOCKS, SOURCES, defaultLayout, normalizeLayout, type LayoutField } fro
 import { type InvoiceConfig } from '../print/invoice'
 import { Field, Input, Select } from '../lib/ui'
 
-const COLUMNS = ['no', 'name', 'hsn', 'purity', 'huid', 'qty', 'gross', 'net', 'rate', 'mkg', 'amt']
+const COLUMN_NAMES: Record<string, string> = {
+  no: 'Sr No', name: 'Item Name', hsn: 'HSN', purity: 'Purity', huid: 'HUID', qty: 'Qty',
+  gross: 'Gross Wt', net: 'Net Wt', rate: 'Rate/10g', mkg: 'Making/g', amt: 'Amount',
+  stone: 'Stone Wt', mkgamt: 'Making Amt', hallmark: 'Hallmark',
+}
+const COLUMNS = Object.keys(COLUMN_NAMES)
 export default function InvoiceLayoutEditor({ cfg, onChange }: { cfg: InvoiceConfig; onChange: (p: Partial<InvoiceConfig>) => void }) {
   const [selected, select] = useState('header')
   const layout = cfg.layout
@@ -67,11 +72,12 @@ export default function InvoiceLayoutEditor({ cfg, onChange }: { cfg: InvoiceCon
       <Field label="Minimum item rows" hint="Adds blank rows for short bills; never removes actual items.">
         <Input type="number" min={0} max={100} value={cfg.minRows ?? 8} onChange={e => onChange({ minRows: Math.max(0, Math.min(100, Number(e.target.value))) })} /></Field>
       <p className="hint">Drag item columns to reorder, or use the arrow buttons. Rename headings and set widths (0 = automatic).</p>
-      <div className="table-wrap"><table className="data"><thead><tr><th>Show</th><th>Heading</th><th>Width (px)</th><th>Order</th></tr></thead><tbody>
+      <div className="table-wrap"><table className="data"><thead><tr><th>Show</th><th>Column</th><th>Heading</th><th>Width (px)</th><th>Order</th></tr></thead><tbody>
         {order.map((key, i) => <tr key={key} draggable onDragStart={e => e.dataTransfer.setData('application/invoice-column', key)}
           onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); const from = e.dataTransfer.getData('application/invoice-column'); if (order.includes(from)) moveColumn(from, key) }}>
-          <td><input type="checkbox" aria-label={`Show ${key}`} checked={cfg.cols[key] !== false} onChange={e => onChange({ cols: { ...cfg.cols, [key]: e.target.checked } })} /></td>
-          <td><Input aria-label={`${key} heading`} placeholder={key} value={cfg.columnLabels?.[key] ?? ''} onChange={e => onChange({ columnLabels: { ...cfg.columnLabels, [key]: e.target.value } })} /></td>
+          <td><input type="checkbox" aria-label={`Show ${key}`} checked={cfg.cols[key] ?? true} onChange={e => onChange({ cols: { ...cfg.cols, [key]: e.target.checked } })} /></td>
+          <td className="small muted">{COLUMN_NAMES[key]}</td>
+          <td><Input aria-label={`${key} heading`} placeholder={COLUMN_NAMES[key]} value={cfg.columnLabels?.[key] ?? ''} onChange={e => onChange({ columnLabels: { ...cfg.columnLabels, [key]: e.target.value } })} /></td>
           <td><Input aria-label={`${key} width`} type="number" min={0} max={300} value={cfg.columnWidths?.[key] ?? 0} onChange={e => onChange({ columnWidths: { ...cfg.columnWidths, [key]: Number(e.target.value) } })} /></td>
           <td><button className="btn btn-sm" disabled={!i} aria-label={`Move ${key} up`} onClick={() => moveColumn(key, order[i - 1])}>↑</button>
             <button className="btn btn-sm" disabled={i === order.length - 1} aria-label={`Move ${key} down`} onClick={() => moveColumn(order[i + 1], key)}>↓</button></td>

@@ -441,7 +441,11 @@ const item = {
     const db = get()
     const previous = p.id ? db.prepare('SELECT tag_prefix FROM item WHERE id = ?').get(p.id) : null
     const requestedPrefix = String(p.tag_prefix ?? previous?.tag_prefix ?? '').trim().toUpperCase()
-    if (requestedPrefix && !/^[A-Z][A-Z0-9-]{0,11}$/.test(requestedPrefix)) throw new Error('Tag prefix must start with a letter and contain up to 12 letters, digits or hyphens.')
+    // A prefix ending in a digit would run into its own serial: G2's G200001
+    // reads as piece 200001 of G. So it must end in a letter or a hyphen.
+    if (requestedPrefix && !/^[A-Z](?:[A-Z0-9-]{0,10}[A-Z-])?$/.test(requestedPrefix)) {
+      throw new Error('Tag prefix: up to 12 letters, digits or hyphens, starting with a letter and not ending in a digit (use RING-22K, not RING-22).')
+    }
     const tag_prefix = requestedPrefix || (p.name || '').replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'ITM'
     const row = { reorder_level: 0, stock_mode: 'TAG', ...p, tag_prefix }
     if (row.stock_mode !== 'LOOSE_WT') row.stock_mode = 'TAG'

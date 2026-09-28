@@ -34,7 +34,8 @@ export const DEFAULT_INVOICE_CONFIG: InvoiceConfig = {
   showUrd: true,
   showSignature: true,
   showPendingBalance: true,
-  cols: { hsn: true, purity: true, huid: true, qty: true, gross: true, net: true, rate: true, mkg: true },
+  cols: { hsn: true, purity: true, huid: true, qty: true, gross: true, net: true, rate: true, mkg: true,
+    stone: false, mkgamt: false, hallmark: false },
   footerNote: '',
 }
 
@@ -59,7 +60,9 @@ const wt3 = (n: number) => Number(n || 0).toFixed(3)
 export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
   const cfg = loadConfig(JSON.stringify(cfgIn || {}))
   if (!/^#[0-9a-f]{6}$/i.test(cfg.accent)) cfg.accent = DEFAULT_INVOICE_CONFIG.accent
-  if (cfg.paper === 'THERMAL' && !cfg.layout && !cfg.columnOrder && !cfg.columnLabels && !cfg.columnWidths && cfg.minRows === undefined) return thermalHtml(data, cfg)
+  // The column settings are made on the A4 sheet. Only a custom layout, which
+  // the shop builds on purpose, is allowed to replace the thermal receipt.
+  if (cfg.paper === 'THERMAL' && !cfg.layout) return thermalHtml(data, cfg)
 
   const { company: c, sale: s, party: p, pending_balance, amount_in_words } = data
   const pendingWt = pendingMetal(s)
@@ -84,8 +87,12 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     { k: 'rate', label: 'Rate/10g', w: 64, on: C.rate, cls: 'r',
       get: (it: any) => money((Number(it.rate_per_gm) || 0) * 10) },
     { k: 'mkg', label: 'Mkg', w: 44, on: C.mkg, cls: 'r', get: (it: any) => money(it.mkg_per_gm) },
+    // Off by default; the shop adds them from Invoice Design.
+    { k: 'stone', label: 'St.Wt', w: 46, on: C.stone, cls: 'r', get: (it: any) => Number(it.stone_wt) ? wt(it.stone_wt) : '' },
+    { k: 'mkgamt', label: 'Mkg Amt', w: 60, on: C.mkgamt, cls: 'r', get: (it: any) => money(it.mkg_amount) },
+    { k: 'hallmark', label: 'Hallmark', w: 52, on: C.hallmark, cls: 'r', get: (it: any) => Number(it.hallmark_charges) ? money(it.hallmark_charges) : '' },
     { k: 'amt', label: 'Amount', w: 72, on: true, cls: 'r', get: (it: any) => money(it.total_amount) },
-  ].filter((x) => cfg.cols[x.k] !== false && x.on !== false)
+  ].filter((x) => !!x.on && cfg.cols[x.k] !== false)
   if (!columns.length) columns.push({ k: 'name', label: 'Item Name', w: 0, on: true, cls: '', get: (it: any) => esc(it.item_name) })
   const order = cfg.columnOrder || []
   columns.sort((a, b) => (order.indexOf(a.k) < 0 ? 999 : order.indexOf(a.k)) - (order.indexOf(b.k) < 0 ? 999 : order.indexOf(b.k)))
