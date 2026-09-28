@@ -40,9 +40,23 @@ function fineWeight(net, purity) {
 }
 
 /** Compute one sale line. Returns the line with derived fields filled in. */
-function saleLine(line) {
+function saleLine(line, opts) {
   const net = line.net_wt != null && line.net_wt !== '' ? nn(line.net_wt) : netWeight(line)
   const basis = nn(line.qty) > 0 && net === 0 ? nn(line.qty) : net
+  // Direct amount: the counter types what the piece sells for, and the rate is
+  // only printed. Making, stone and hallmark are all inside that figure, so none
+  // is charged again. On a GST bill the typed figure already includes the tax,
+  // so the line's taxable value is backed out of it: 2,00,000 at 3% is
+  // 1,94,174.76 plus 5,825.24 GST.
+  if (opts && opts.direct) {
+    const entered_amount = r2(nn(line.entered_amount))
+    const total_amount = opts.gstPct > 0 ? r2(entered_amount / (1 + opts.gstPct / 100)) : entered_amount
+    return {
+      ...line, net_wt: r3(net), entered_amount, total_amount,
+      mkg_per_gm: 0, mkg_pct: 0, mkg_amount: 0, stone_amount: 0, diamond_amount: 0,
+      hallmark_charges: 0, item_total: total_amount,
+    }
+  }
   const total_amount = r2(basis * nn(line.rate_per_gm))
   // Making can be charged three ways, in order of precedence: a rupee figure
   // typed straight onto the line, a percentage of the metal value, or a rate per
@@ -131,9 +145,12 @@ function metalSettlement(lines, urdLines, rows) {
  * `metals` (see metalSettlement) instead of the per-line rate.
  */
 function saleTotals(head, items, urds, metals) {
-  const lines = (items || []).map(saleLine)
+  const direct = !!head.direct_amount
+  const gst_pct = head.gst_not_required ? 0 : num(head.gst_pct)
+  const lines = (items || []).map((l) => saleLine(l, direct ? { direct, gstPct: gst_pct } : undefined))
   const urdLines = (urds || []).map(urdLine)
-  const weightwise = !!head.weightwise
+  // A typed amount has no fine weight to settle, so a direct bill is never weight-wise.
+  const weightwise = !!head.weightwise && !direct
   const metalRows = weightwise ? metalSettlement(lines, urdLines, metals) : []
 
   // Stone and diamond value is a cash component of the goods regardless of how
@@ -163,8 +180,13 @@ function saleTotals(head, items, urds, metals) {
   const loyalty_discount = num(head.loyalty_discount)
   const taxable = r2(Math.max(0, bill_amount - bill_discount - making_discount - loyalty_discount))
 
-  const gst_pct = head.gst_not_required ? 0 : num(head.gst_pct)
-  const gst_amount = r2(taxable * (gst_pct / 100))
+  // With typed amounts and no discount, the tax is what is left of the typed
+  // total after the taxable value, so the bill comes to exactly what was typed
+  // instead of a paisa either side.
+  const entered = r2(lines.reduce((s, l) => s + num(l.entered_amount), 0))
+  const gst_amount = direct && gst_pct > 0 && taxable === bill_amount
+    ? r2(entered - taxable)
+    : r2(taxable * (gst_pct / 100))
 
   // A card-swipe fee passed on to the customer is part of what they owe, so it
   // rides with Other Charges — after tax, because it is a bank fee and not
@@ -194,6 +216,7 @@ function saleTotals(head, items, urds, metals) {
     metals: metalRows,
     totals: {
       weightwise: weightwise ? 1 : 0,
+      direct_amount: direct ? 1 : 0,
       pending_wt: r3(metalRows.reduce((s, m) => s + m.pending_wt, 0)),
       goods_amount,
       stone_amount: r2(lines.reduce((s, l) => s + num(l.stone_amount), 0)),

@@ -23,6 +23,7 @@ const blankItem = () => ({
   item_name: '', hsn: '', qty: '', gross_wt: '', purity: '', stone_wt: '',
   stone_rate: '', diamond_wt: '', diamond_rate: '',
   net_wt: '', rate_per_gm: '', mkg_per_gm: '', mkg_pct: '', hallmark_charges: '', huid: '',
+  entered_amount: '',
 })
 
 const blankUrd = () => ({
@@ -37,7 +38,7 @@ const blankHead = () => ({
   party_id: null as number | null, party_name: '', address: '', mobile: '', area: '',
   state: 'Maharashtra', salesman: '',
   is_credit: 0, payment_mode: 'Cash',
-  gst_not_required: 0, weightwise: 0,
+  gst_not_required: 0, weightwise: 0, direct_amount: 0,
   gst_pct: 3, bill_discount: 0, making_discount: 0, other_amount: 0,
   manual_urd_amount: 0, tcs_pct: 0, amount_received: 0, loyalty_redeem: 0,
   gss_id: '', gss_rate: '', gss_redeem: '', gss_return: '',
@@ -387,7 +388,8 @@ export default function SalesInvoice({ go, saleId, partyId }: {
   })
 
   const validate = () => {
-    const filled = items.filter((r) => r.item_name && (num(r.gross_wt) > 0 || num(r.qty) > 0))
+    const filled = items.filter((r) => r.item_name && (num(r.gross_wt) > 0 || num(r.qty) > 0 ||
+      (head.direct_amount && num(r.entered_amount) > 0)))
     if (!filled.length) throw new Error('Add at least one item to the bill')
     if (head.is_credit && !head.party_id) throw new Error('A credit bill needs a customer')
     if (splitOn && splitDiff !== 0) {
@@ -540,11 +542,15 @@ export default function SalesInvoice({ go, saleId, partyId }: {
             <Field label="Series">
               <Select value={head.prefix} disabled={!!head.id}
                 // An estimate is a quotation, not a tax invoice, so it carries no
-                // GST by default. The box below stays editable for the odd case.
+                // GST by default, and it is written as a typed amount rather than
+                // weight x rate + making. The boxes below stay editable for the odd case.
                 onChange={(v) => {
                   const s = (series.data || []).find((x: any) => x.prefix === v)
                   const estimate = /estimate/i.test(`${v} ${s?.label || ''}`)
-                  setHead({ ...head, prefix: v, gst_not_required: estimate ? 1 : 0 })
+                  setHead({
+                    ...head, prefix: v, gst_not_required: estimate ? 1 : 0,
+                    direct_amount: estimate ? 1 : head.direct_amount,
+                  })
                 }}
                 options={(series.data || []).map((s: any) => ({ value: s.prefix, label: `${s.prefix} — ${s.label}` }))} />
             </Field>
@@ -684,15 +690,25 @@ export default function SalesInvoice({ go, saleId, partyId }: {
                         )
                         // A percentage overrides whatever per-gram making the
                         // tag carried — the two must never both be charged.
-                        case 'mkg_pct': return (
+                        // A direct-amount bill charges no making: it is inside the typed amount.
+                        case 'mkg_pct': if (head.direct_amount) return <td key={c.key}><input readOnly disabled /></td>
+                        return (
                           <NumCell key={c.key} v={r.mkg_pct}
                             on={(v) => setItem(i, { mkg_pct: v, mkg_per_gm: '', mkg_amount: '' })} />
                         )
-                        case 'mkg_amount': case 'total_amount': case 'item_total': return (
+                        // Direct amount: the amount is typed, GST included on a GST bill.
+                        // The raw text is bound (not the computed figure) so '2000.' can
+                        // be typed on the way to '2000.50'.
+                        case 'total_amount': case 'item_total': if (head.direct_amount) return (
+                          <NumCell key={c.key} v={items[i]?.entered_amount}
+                            on={(v) => setItem(i, { entered_amount: v })} />
+                        )
+                        // falls through
+                        case 'mkg_amount': return (
                           <td key={c.key}>
                             <input className="right" readOnly
                               style={c.key === 'item_total' ? { fontWeight: 600 } : undefined}
-                              value={r[c.key] ? money(r[c.key]) : ''} />
+                              value={r[c.key] && !head.direct_amount ? money(r[c.key]) : ''} />
                           </td>
                         )
                         default: return (
@@ -898,8 +914,9 @@ export default function SalesInvoice({ go, saleId, partyId }: {
               {/* ── Reverse calculation ─────────────────────────────
                   "Make it ₹1,50,000." Weight and rate are already on the line,
                   so the making is the only thing left to move — fit it, and the
-                  bill lands on the figure with GST and everything else intact. */}
-              <div className="span-2">
+                  bill lands on the figure with GST and everything else intact.
+                  A direct-amount bill has no making to move — the amount is typed. */}
+              {!head.direct_amount && <div className="span-2">
                 <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
                   <Field label="Bill Should Come To (₹)" className="grow"
                     hint="Fits the making so the total lands on this figure">
@@ -913,7 +930,7 @@ export default function SalesInvoice({ go, saleId, partyId }: {
                   </button>
                 </div>
                 {fitNote && <p className="small ok" style={{ margin: '2px 2px 6px' }}>{fitNote}</p>}
-              </div>
+              </div>}
               <Field label="Bill Discount (₹)">
                 <Input className="right" inputMode="decimal" value={head.bill_discount || ''}
                   onChange={(e) => setHead({ ...head, bill_discount: e.target.value })} />
@@ -996,8 +1013,12 @@ export default function SalesInvoice({ go, saleId, partyId }: {
               <div className="span-2 row wrap" style={{ gap: 16 }}>
                 <Check label="GST not required" checked={!!head.gst_not_required}
                   onChange={(b) => setHead({ ...head, gst_not_required: b ? 1 : 0 })} />
-                <Check label="Weight-wise bill" checked={!!head.weightwise}
-                  onChange={(b) => setHead({ ...head, weightwise: b ? 1 : 0 })} />
+                {!head.direct_amount && (
+                  <Check label="Weight-wise bill" checked={!!head.weightwise}
+                    onChange={(b) => setHead({ ...head, weightwise: b ? 1 : 0 })} />
+                )}
+                <Check label="Direct amount (type the amount; rate only prints)" checked={!!head.direct_amount}
+                  onChange={(b) => setHead({ ...head, direct_amount: b ? 1 : 0, ...(b ? { weightwise: 0 } : {}) })} />
               </div>
             </div>
           </div>
@@ -1013,9 +1034,10 @@ export default function SalesInvoice({ go, saleId, partyId }: {
               {t.loyalty_discount > 0 && (
                 <Row k={`Loyalty Discount (${redeemPts} pts)`} v={`− ${money(t.loyalty_discount)}`} />
               )}
-              <Row k="Making Amount" v={money(t.making_amount)} />
+              {!head.direct_amount && <Row k="Making Amount" v={money(t.making_amount)} />}
               {t.hallmark_amount > 0 && <Row k="Hallmark" v={money(t.hallmark_amount)} />}
-              <Row k="Bill Amount" v={money(t.bill_amount)} cls="sep" />
+              <Row k={head.direct_amount && t.gst_amount > 0 ? 'Taxable Amount' : 'Bill Amount'}
+                v={money(t.bill_amount)} cls="sep" />
               {(t.bill_discount > 0 || t.making_discount > 0) &&
                 <Row k="Discount" v={`− ${money(t.bill_discount + t.making_discount)}`} />}
               {/* Split on screen the way it is split on the printed bill: a 3%

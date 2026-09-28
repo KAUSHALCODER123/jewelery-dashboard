@@ -149,6 +149,10 @@ function migrate() {
   addCol('sale', 'gss_weight', 'REAL NOT NULL DEFAULT 0')
   addCol('sale', 'gss_rate', 'REAL NOT NULL DEFAULT 0')
   addCol('sale', 'gss_return', 'REAL NOT NULL DEFAULT 0')
+  // Direct-amount bills: the line's typed amount (GST included on a GST bill)
+  // is kept as typed, so reopening the bill shows the figure that was agreed.
+  addCol('sale', 'direct_amount', 'INTEGER NOT NULL DEFAULT 0')
+  addCol('sale_item', 'entered_amount', 'REAL NOT NULL DEFAULT 0')
   // Accounts enrolled before the account carried its own terms inherit them
   // from their scheme template, which is where they lived at the time.
   db.exec(`

@@ -1858,7 +1858,7 @@ const sale = {
            gss_id=@gss_id, gss_amount=@gss_amount, gss_weight=@gss_weight,
            gss_rate=@gss_rate, gss_return=@gss_return,
            card_charge_customer=@card_charge_customer, card_charge_shop=@card_charge_shop,
-           making_disc_pct=@making_disc_pct WHERE id=@id`
+           making_disc_pct=@making_disc_pct, direct_amount=@direct_amount WHERE id=@id`
         ).run(row)
       } else {
         id = db
@@ -1870,7 +1870,7 @@ const sale = {
              tcs_pct, tcs_amount, total_amount, amount_received, net_balance,
              loyalty_earned, loyalty_redeemed, loyalty_discount,
              gss_id, gss_amount, gss_weight, gss_rate, gss_return,
-             card_charge_customer, card_charge_shop, making_disc_pct)
+             card_charge_customer, card_charge_shop, making_disc_pct, direct_amount)
              VALUES (@prefix,@bill_no,@manual_no,@bill_date,@due_date,@party_id,@party_name,
              @address,@mobile,@area,@state,@salesman,@is_credit,@payment_mode,@gst_not_required,
              @weightwise,@goods_amount,@making_amount,@hallmark_amount,@bill_amount,@gst_pct,
@@ -1878,7 +1878,7 @@ const sale = {
              @manual_urd_amount,@tcs_pct,@tcs_amount,@total_amount,@amount_received,@net_balance,
              @loyalty_earned,@loyalty_redeemed,@loyalty_discount,
              @gss_id,@gss_amount,@gss_weight,@gss_rate,@gss_return,
-             @card_charge_customer,@card_charge_shop,@making_disc_pct)`
+             @card_charge_customer,@card_charge_shop,@making_disc_pct,@direct_amount)`
           )
           .run(row).lastInsertRowid
       }
@@ -1888,11 +1888,11 @@ const sale = {
         `INSERT INTO sale_item (sale_id, line_no, tag, tag_stock_id, item_id, item_name, hsn, qty,
          gross_wt, purity, stone_wt, stone_rate, stone_amount, diamond_wt, diamond_rate,
          diamond_amount, net_wt, rate_per_gm, mkg_per_gm, mkg_pct, mkg_amount, total_amount,
-         hallmark_charges, huid, item_total, purchase_id)
+         hallmark_charges, huid, item_total, purchase_id, entered_amount)
          VALUES (@sale_id,@line_no,@tag,@tag_stock_id,@item_id,@item_name,@hsn,@qty,@gross_wt,
          @purity,@stone_wt,@stone_rate,@stone_amount,@diamond_wt,@diamond_rate,@diamond_amount,
          @net_wt,@rate_per_gm,@mkg_per_gm,@mkg_pct,@mkg_amount,@total_amount,
-         @hallmark_charges,@huid,@item_total,@purchase_id)`
+         @hallmark_charges,@huid,@item_total,@purchase_id,@entered_amount)`
       )
       computed.items.forEach((l, i) => {
         // A tag_stock_id that names no piece would trip the line's foreign key
@@ -1938,6 +1938,7 @@ const sale = {
           // The grid clears the making fields to '' when the other one is used.
           // Those are REAL columns, so coerce rather than store an empty string.
           mkg_per_gm: num(l.mkg_per_gm), mkg_pct: num(l.mkg_pct),
+          entered_amount: t.direct_amount ? num(l.entered_amount) : 0,
         })
         // A loose item leaves the lot by weight — 10 g off the 100 g of mani.
         // There is no tag to mark sold, so this row IS the stock movement.

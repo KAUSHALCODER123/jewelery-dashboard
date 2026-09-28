@@ -66,7 +66,10 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
 
   const { company: c, sale: s, party: p, pending_balance, amount_in_words } = data
   const pendingWt = pendingMetal(s)
-  const C = cfg.cols
+  // A direct-amount bill charged no making — it is inside the typed amount —
+  // so its making columns would only print zeros.
+  const direct = !!Number(s.direct_amount)
+  const C = direct ? { ...cfg.cols, mkg: false, mkgamt: false } : cfg.cols
 
   const gstHalf = (Number(s.gst_amount) || 0) / 2
   const halfPct = ((Number(s.gst_pct) || 0) / 2).toFixed(2).replace(/\.?0+$/, '')
@@ -92,7 +95,7 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     { k: 'mkgamt', label: 'Mkg Amt', w: 60, on: C.mkgamt, cls: 'r', get: (it: any) => money(it.mkg_amount) },
     { k: 'hallmark', label: 'Hallmark', w: 52, on: C.hallmark, cls: 'r', get: (it: any) => Number(it.hallmark_charges) ? money(it.hallmark_charges) : '' },
     { k: 'amt', label: 'Amount', w: 72, on: true, cls: 'r', get: (it: any) => money(it.total_amount) },
-  ].filter((x) => !!x.on && cfg.cols[x.k] !== false)
+  ].filter((x) => !!x.on && C[x.k] !== false)
   if (!columns.length) columns.push({ k: 'name', label: 'Item Name', w: 0, on: true, cls: '', get: (it: any) => esc(it.item_name) })
   const order = cfg.columnOrder || []
   columns.sort((a, b) => (order.indexOf(a.k) < 0 ? 999 : order.indexOf(a.k)) - (order.indexOf(b.k) < 0 ? 999 : order.indexOf(b.k)))
@@ -253,7 +256,7 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
     </div>
     <div class="right">
       <table class="tot">
-        ${line('Making Amt:', money(s.making_amount))}
+        ${direct ? '' : line('Making Amt:', money(s.making_amount))}
         ${line('Basic Amt:', money(s.bill_amount))}
         ${Number(s.gst_amount) ? line(`CGST ${halfPct}%:`, money(gstHalf)) : ''}
         ${Number(s.gst_amount) ? line(`SGST ${halfPct}%:`, money(gstHalf)) : ''}
@@ -328,7 +331,7 @@ ${row('Customer', esc(s.party_name || 'Cash'))}
 ${(s.items || []).map((it: any) => `
   <div class="it">
     <div class="n">${esc(it.item_name)}${it.tag ? ` (${esc(it.tag)})` : ''}</div>
-    <div class="d"><span>${wt(it.net_wt)} g × ${money(it.rate_per_gm)}</span><span>${money(it.total_amount)}</span></div>
+    <div class="d"><span>${wt(it.net_wt)} g${Number(s.direct_amount) ? '' : ` × ${money(it.rate_per_gm)}`}</span><span>${money(it.total_amount)}</span></div>
     ${Number(it.mkg_amount) ? `<div class="d"><span>Making</span><span>${money(it.mkg_amount)}</span></div>` : ''}
   </div>`).join('')}
 <hr>
