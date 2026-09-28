@@ -18,7 +18,8 @@ const blankItem = () => ({
   // a stone rather than like gold.
   is_loose: 0,
   // An untagged line can say which purchase invoice it was sold out of, so
-  // the weight comes off that invoice's labels tally. '' = the loose pool.
+  // the weight comes off that invoice's labels tally. '' = Loose gold: the
+  // oldest purchase with metal left (see oldestOpenPurchase in electron/db.cjs).
   purchase_id: '' as any,
   item_name: '', hsn: '', qty: '', gross_wt: '', purity: '', stone_wt: '',
   stone_rate: '', diamond_wt: '', diamond_rate: '',
@@ -655,8 +656,9 @@ export default function SalesInvoice({ go, saleId, partyId }: {
                               <input readOnly value={r.tag_stock_id ? 'tagged' : ''} />
                             ) : (
                               <select value={r.purchase_id || ''}
+                                title="Loose gold: the grams come off the oldest purchase that still has metal left"
                                 onChange={(e) => setItem(i, { purchase_id: e.target.value })}>
-                                <option value="">Loose pool</option>
+                                <option value="">Loose gold</option>
                                 {(openPurchases.data || []).map((p: any) => (
                                   <option key={p.id} value={String(p.id)}>
                                     {p.invoice_no} · {wt(p.pending_net)} g left · {p.metal}

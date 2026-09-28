@@ -17,7 +17,81 @@ function open(userDataDir) {
   db.exec(schema)
   migrate()
   seed()
+  backfillLooseSales()
   return db
+}
+
+/**
+ * The purchase an untagged "Loose pool" sale line is booked to: the oldest
+ * purchase of that metal, dated on or before the bill, that still has metal
+ * waiting for a label. Without this the grams left the loose pool but no
+ * purchase's "still to label" ever went down, so All purchases on Tag & Barcode
+ * kept showing 64 g after 9 g of it was sold. Same order as labelling from All
+ * purchases: oldest first, else the one with most left, so an overrun shows on
+ * one invoice. Null when no purchase has anything left (opening stock, old gold).
+ * Left = bought net - tagged net - untagged net sold + returned, as in purchaseTally().
+ */
+function oldestOpenPurchase(dbh, metal, net, onDate) {
+  const open = dbh.prepare(
+    `SELECT p.id,
+       (SELECT COALESCE(SUM(pi.net_wt),0) FROM purchase_item pi LEFT JOIN item i ON i.id = pi.item_id
+         WHERE pi.purchase_id = p.id AND pi.direction = 'IN'
+           AND COALESCE(i.stock_mode, 'TAG') <> 'LOOSE_WT')
+       - (SELECT COALESCE(SUM(net_wt),0) FROM tag_stock WHERE purchase_id = p.id)
+       - (SELECT COALESCE(SUM(net_wt),0) FROM sale_item
+           WHERE purchase_id = p.id AND tag_stock_id IS NULL)
+       + (SELECT COALESCE(SUM(net_wt),0) FROM sale_return_item
+           WHERE purchase_id = p.id AND tag_stock_id IS NULL) AS left_net
+     FROM purchase p
+     WHERE p.metal = ? AND p.invoice_date <= ?
+     ORDER BY p.invoice_date, p.id`
+  ).all(metal || 'Gold', onDate || '9999-12-31').filter((p) => p.left_net > 0.005)
+  if (!open.length) return null
+  const fits = open.find((p) => p.left_net + 0.005 >= net)
+  return (fits || open.reduce((a, p) => (p.left_net > a.left_net ? p : a))).id
+}
+
+/** Books Loose pool lines saved before v1.28.2 to a purchase, once, oldest bill first. */
+function backfillLooseSales() {
+  const KEY = 'loose_sale_purchase_backfill'
+  if (db.prepare(`SELECT 1 FROM settings WHERE key = ?`).get(KEY)) return
+  db.transaction(() => {
+    const lines = db.prepare(
+      `SELECT si.id, si.net_wt, s.bill_date,
+              CASE WHEN it.name IN ('Gold', 'Silver', 'Platinum') THEN it.name ELSE 'Gold' END AS metal
+       FROM sale_item si
+       JOIN sale s ON s.id = si.sale_id
+       LEFT JOIN item i ON i.id = si.item_id
+       LEFT JOIN item_group g ON g.id = i.item_group_id
+       LEFT JOIN item_type it ON it.id = g.item_type_id
+       WHERE si.tag_stock_id IS NULL AND si.purchase_id IS NULL AND si.net_wt > 0
+         AND COALESCE(i.stock_mode, 'TAG') <> 'LOOSE_WT'
+       ORDER BY s.bill_date, s.id, si.line_no`
+    ).all()
+    const set = db.prepare(`UPDATE sale_item SET purchase_id = ? WHERE id = ?`)
+    for (const l of lines) {
+      const pid = oldestOpenPurchase(db, l.metal, l.net_wt, l.bill_date)
+      if (pid) set.run(pid, l.id)
+    }
+    // Returns of those lines go back on the same purchase.
+    const rets = db.prepare(
+      `SELECT ri.id, ri.item_id, r.against_sale_id FROM sale_return_item ri
+       JOIN sale_return r ON r.id = ri.return_id
+       LEFT JOIN item i ON i.id = ri.item_id
+       WHERE ri.tag_stock_id IS NULL AND ri.purchase_id IS NULL AND r.against_sale_id IS NOT NULL
+         AND COALESCE(i.stock_mode, 'TAG') <> 'LOOSE_WT'`
+    ).all()
+    const soldFrom = db.prepare(
+      `SELECT purchase_id FROM sale_item
+       WHERE sale_id = ? AND tag_stock_id IS NULL AND purchase_id IS NOT NULL
+       ORDER BY (item_id IS ?) DESC, line_no LIMIT 1`)
+    const setRet = db.prepare(`UPDATE sale_return_item SET purchase_id = ? WHERE id = ?`)
+    for (const r of rets) {
+      const pid = soldFrom.get(r.against_sale_id, r.item_id ?? null)?.purchase_id
+      if (pid) setRet.run(pid, r.id)
+    }
+    db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?)`).run(KEY, new Date().toISOString())
+  })()
 }
 
 /**
@@ -72,6 +146,8 @@ function migrate() {
   addCol('sale_item', 'mkg_pct', 'REAL NOT NULL DEFAULT 0')
   // Untagged sale lines can name the purchase they were sold out of.
   addCol('sale_item', 'purchase_id', 'INTEGER')
+  // A return of untagged metal names the purchase its sale line was booked to.
+  addCol('sale_return_item', 'purchase_id', 'INTEGER')
   // Standalone old gold bills: which money account the customer was paid from.
   addCol('urd_bill', 'payment_mode', "TEXT DEFAULT 'Cash'")
   addCol('urd_bill', 'narration', "TEXT DEFAULT ''")
@@ -337,4 +413,4 @@ function peekDocNo(docType, prefix) {
   return `${prefix}${row ? row.next_no : 1}`
 }
 
-module.exports = { open, get, close, nextDocNo, peekDocNo, defaultFyStart }
+module.exports = { open, get, close, nextDocNo, peekDocNo, defaultFyStart, oldestOpenPurchase }

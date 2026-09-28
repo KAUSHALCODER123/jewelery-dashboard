@@ -2,7 +2,7 @@
  * All database operations, exposed to the renderer over IPC as `api.<channel>(payload)`.
  * Every write that touches more than one table runs inside a transaction.
  */
-const { get, nextDocNo, peekDocNo } = require('./db.cjs')
+const { get, nextDocNo, peekDocNo, oldestOpenPurchase } = require('./db.cjs')
 const calc = require('./calc.cjs')
 
 const num = calc.num
@@ -946,7 +946,8 @@ const looseStock = {
     const bal = (where, params = {}) =>
       db.prepare(
         `SELECT COALESCE(SUM(CASE WHEN direction='IN' THEN fine_wt ELSE -fine_wt END),0) fine,
-                COALESCE(SUM(CASE WHEN direction='IN' THEN gross_wt ELSE -gross_wt END),0) gross
+                COALESCE(SUM(CASE WHEN direction='IN' THEN gross_wt ELSE -gross_wt END),0) gross,
+                COALESCE(SUM(CASE WHEN direction='IN' THEN net_wt ELSE -net_wt END),0) net
          FROM loose_stock WHERE metal = @metal AND ${where}`
       ).get({ metal, ...params })
 
@@ -970,6 +971,11 @@ const looseStock = {
       urd_fine: calc.r3(urd.fine),
       tagged_fine: calc.r3(tagged.fine),
       available_fine: calc.r3(loose.fine + urd.fine),
+      // Net grams, for the Tag & Barcode band: the counter reads weights the way
+      // the purchase line does. Fine stays the basis of the overdraw check.
+      loose_net: calc.r3(loose.net),
+      urd_net: calc.r3(urd.net),
+      available_net: calc.r3(loose.net + urd.net),
       total_fine: calc.r3(loose.fine + urd.fine + tagged.fine),
       sources: sources.map((s) => ({ ...s, fine: calc.r3(s.fine) })),
     }
@@ -1912,8 +1918,14 @@ const sale = {
         // metal comes off that invoice's tally instead of just the loose pool.
         // Only a hand-typed metal line can: a tagged piece already belongs to
         // its purchase, and beads were never waiting for a label.
-        const purchase_id = !l.tag_stock_id && !l.is_loose ? (num(l.purchase_id) || null) : null
-        if (purchase_id) {
+        const untaggedMetal = !l.tag_stock_id && !l.is_loose
+        const picked = untaggedMetal ? (num(l.purchase_id) || null) : null
+        // Loose pool: book it to the oldest purchase with metal left, so that
+        // purchase's "still to label" goes down (see oldestOpenPurchase).
+        const purchase_id = picked || (untaggedMetal && num(l.net_wt) > 0
+          ? oldestOpenPurchase(db, l.metal || 'Gold', num(l.net_wt), row.bill_date)
+          : null)
+        if (picked) {
           const pu = db.prepare(`SELECT id, invoice_no, metal FROM purchase WHERE id = ?`).get(purchase_id)
           if (!pu) throw new Error(`Line ${i + 1}: that purchase no longer exists.`)
           if (pu.metal !== (l.metal || 'Gold')) {
@@ -2416,6 +2428,15 @@ function purchaseTally(db, id) {
             COALESCE(SUM(net_wt * purity / 100),0) fine
      FROM sale_item WHERE purchase_id = ? AND tag_stock_id IS NULL`
   ).get(id)
+  // ...less any of it the customer brought back, which is on the shelf again.
+  const returned = db.prepare(
+    `SELECT COALESCE(SUM(gross_wt),0) gross, COALESCE(SUM(net_wt),0) net,
+            COALESCE(SUM(net_wt * purity / 100),0) fine
+     FROM sale_return_item WHERE purchase_id = ? AND tag_stock_id IS NULL`
+  ).get(id)
+  soldLoose.gross -= returned.gross
+  soldLoose.net -= returned.net
+  soldLoose.fine -= returned.fine
   const pending_gross = calc.r3(bought.gross - tagged.gross - soldLoose.gross)
   const pending_net = calc.r3(bought.net - tagged.net - soldLoose.net)
   const status = bought.net <= 0.0005
@@ -2687,6 +2708,10 @@ const purchase = {
     const db = get()
     const tx = db.transaction(() => {
       clearPostings(db, 'PURCHASE', id)
+      // Untagged sales booked to this purchase (Loose gold books them to the
+      // oldest one automatically) stay sold; they just stop naming it.
+      db.prepare(`UPDATE sale_item SET purchase_id = NULL WHERE purchase_id = ?`).run(id)
+      db.prepare(`UPDATE sale_return_item SET purchase_id = NULL WHERE purchase_id = ?`).run(id)
       db.prepare(`DELETE FROM purchase WHERE id = ?`).run(id)
       return true
     })
@@ -3567,16 +3592,26 @@ const saleReturn = {
       const insItem = db.prepare(
         `INSERT INTO sale_return_item (return_id, line_no, tag, tag_stock_id, item_id,
          item_name, qty, gross_wt, stone_wt, net_wt, purity, final_wt, rate_per_gm,
-         mkg_per_gm, mkg_amount, total_amount)
+         mkg_per_gm, mkg_amount, total_amount, purchase_id)
          VALUES (@return_id,@line_no,@tag,@tag_stock_id,@item_id,@item_name,@qty,@gross_wt,
-         @stone_wt,@net_wt,@purity,@final_wt,@rate_per_gm,@mkg_per_gm,@mkg_amount,@total_amount)`
+         @stone_wt,@net_wt,@purity,@final_wt,@rate_per_gm,@mkg_per_gm,@mkg_amount,@total_amount,
+         @purchase_id)`
       )
       let fineBack = 0
+      // Untagged metal coming back goes back on the purchase its sale line was
+      // booked to, so that purchase is waiting for those grams to be labelled again.
+      const soldFrom = db.prepare(
+        `SELECT purchase_id FROM sale_item
+         WHERE sale_id = ? AND tag_stock_id IS NULL AND purchase_id IS NOT NULL
+         ORDER BY (item_id IS ?) DESC, line_no LIMIT 1`)
       lines.forEach((l, i) => {
+        const purchase_id = !l.tag_stock_id && !l.is_loose && row.against_sale_id
+          ? soldFrom.get(row.against_sale_id, l.item_id ?? null)?.purchase_id ?? null
+          : null
         insItem.run({
           tag: '', tag_stock_id: null, item_id: null, item_name: '', qty: 0,
           gross_wt: 0, stone_wt: 0, purity: 0, rate_per_gm: 0, mkg_per_gm: 0,
-          ...l, return_id: id, line_no: i + 1,
+          ...l, return_id: id, line_no: i + 1, purchase_id,
         })
         // A tagged piece coming back becomes sellable again.
         if (l.tag_stock_id) {

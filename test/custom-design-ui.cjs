@@ -43,7 +43,7 @@ app.whenReady().then(async () => {
     name: 'Ring', item_type_id: g22.item_type_id, item_group_id: g22.id,
     design_id: null, weight_mode: 'WEIGHT', uom: 'GRAM', hsn: '7113', image: '',
   })
-  api.tagStock.saveBatch({ itemId, rows: [{ gross_wt: 12, purity: 91.6 }] })
+  api.tagStock.saveBatch({ itemId, rows: [{ gross_wt: 12, purity: 91.6 }, { gross_wt: 8, purity: 91.6 }] })
   api.party.save({ party_type: 'CUSTOMER', name: 'Sandip Jain', opening_balance: 9500, opening_dr_cr: 'Dr', metals: [] })
   api.party.save({ party_type: 'SUPPLIER', name: 'Mahavir Gold', metals: [] })
 
@@ -89,7 +89,39 @@ app.whenReady().then(async () => {
   assert.equal(result.saved.layout.fields.find(f => f.id === 'header').row, 2)
   assert.ok(result.saved.layout.fields.some(f => f.label === 'Customer reference'))
   assert.equal(errors.length, 0, errors.join('\n'))
-  console.log('PASS: editor drag/drop, custom field editing, save/reload, navigation option')
+
+  // Tab walks down lists: the Series dropdown moves to the next series (React
+  // sees it — Estimate ticks its boxes), Enter moves on, and Tab in an open
+  // suggestion list moves the highlight down.
+  const tab = await w.webContents.executeJavaScript(`(async () => {
+    const pause = (ms = 250) => new Promise(r => setTimeout(r, ms))
+    const key = (el, k, shift = false) => el.dispatchEvent(new KeyboardEvent('keydown', { key: k, shiftKey: shift, bubbles: true, cancelable: true }))
+    ;[...document.querySelectorAll('.nav-item')].find(b => b.textContent.includes('Sales Invoice')).click(); await pause(800)
+    const series = [...document.querySelectorAll('select')].find(s => [...s.options].some(o => o.textContent.startsWith('ESM')))
+    series.focus(); const before = series.value
+    key(series, 'Tab'); await pause()
+    const checked = t => [...document.querySelectorAll('label')].find(l => l.textContent.includes(t))?.querySelector('input').checked
+    const after = series.value, gstOff = checked('GST not required'), direct = checked('Direct amount')
+    key(series, 'Tab', true); await pause()
+    const back = series.value
+    key(series, 'Enter'); await pause()
+    const movedOn = document.activeElement !== series
+    const item = document.querySelector('input[placeholder="Item name…"]')
+    item.focus()
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(item, 'Ri')
+    item.dispatchEvent(new Event('input', { bubbles: true })); await pause(900)
+    const items = item.parentElement.querySelectorAll('.ac-item')
+    const idx = () => [...items].findIndex(b => b.dataset.active === 'true')
+    const first = idx(); key(item, 'Tab'); await pause(); const second = idx()
+    return { before, after, gstOff, direct, back, movedOn, count: items.length, first, second }
+  })()`)
+  assert.equal(tab.before, 'COM'); assert.equal(tab.after, 'ESM', 'Tab picks the next option')
+  assert.equal(tab.gstOff, true); assert.equal(tab.direct, true)
+  assert.equal(tab.back, 'COM', 'Shift+Tab picks the previous option')
+  assert.equal(tab.movedOn, true, 'Enter moves to the next field')
+  assert.ok(tab.count >= 2, 'suggestions open'); assert.equal(tab.first, 0); assert.equal(tab.second, 1, 'Tab moves down the suggestions')
+  assert.deepEqual(errors, [])
+  console.log('PASS: editor drag/drop, custom field editing, save/reload, navigation option, Tab down dropdowns and suggestions')
   process.exit(0)
 }).catch(e => { console.error(e); process.exit(1) })
 

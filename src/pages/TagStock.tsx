@@ -189,6 +189,7 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
   }
 
   /** How much more fine weight these pieces need than the loose pool holds. */
+  // The overdraw check stays on fine weight, as the save does; the band shows net.
   const shortfall = mode === 'loose' && loose.data
     ? r3(totals.fine - num(loose.data.available_fine))
     : 0
@@ -455,18 +456,18 @@ export default function TagStock({ purchaseId }: { purchaseId?: number } = {}) {
               border: `1px solid ${shortfall > 0 ? 'var(--danger)' : 'var(--gold-line)'}`,
               borderRadius: 'var(--radius)',
             }}>
-              <Tot label={`Loose ${metal.toLowerCase()} on hand (fine)`} v={`${wt(loose.data.loose_fine)} g`} />
+              <Tot label={`Loose ${metal.toLowerCase()} on hand`} v={`${wt(loose.data.loose_net)} g`} />
               <button className="btn btn-sm" style={{ alignSelf: 'center' }}
                 onClick={() => setOpeningMetal(true)}>
                 Opening metal
               </button>
-              {loose.data.urd_fine > 0 && <Tot label="Old gold (URD, fine)" v={`${wt(loose.data.urd_fine)} g`} />}
-              <Tot label={fromPurchase ? 'Available to use (fine)' : 'Still to label (fine)'}
+              {loose.data.urd_net > 0 && <Tot label="Old gold (URD)" v={`${wt(loose.data.urd_net)} g`} />}
+              <Tot label={fromPurchase ? 'Available to use' : 'Still to label'}
                 hint={fromPurchase ? undefined : 'Available to use from all loose metal'}
-                v={`${wt(loose.data.available_fine)} g`} gold />
-              <Tot label="These pieces need (fine)" v={`${wt(totals.fine)} g`} />
-              <Tot label={shortfall > 0 ? 'Short by (fine)' : 'Left after (fine)'}
-                v={`${wt(Math.abs(loose.data.available_fine - totals.fine))} g`} />
+                v={`${wt(loose.data.available_net)} g`} gold />
+              <Tot label="These pieces need" v={`${wt(totals.net)} g`} />
+              <Tot label={loose.data.available_net - totals.net < -0.0005 ? 'Short by' : 'Left after'}
+                v={`${wt(Math.abs(loose.data.available_net - totals.net))} g`} />
               {shortfall > 0 && (
                 <span className="badge badge-danger" style={{ alignSelf: 'center' }}>
                   Not enough loose metal

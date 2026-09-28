@@ -92,13 +92,16 @@ app.whenReady().then(() => {
       items: [{ item_id: ringId, item_name: 'Ring', gross_wt: 10, net_wt: 10, purity: 91.6, rate_per_gm: 6500 }],
     })
     check('untagged sale left the loose pool', api.looseStock.summary({ metal: 'Gold' }).available_fine, goldBefore + 46.8 - 9.16)
-    check('the purchase tally is unaffected — labels, not sales', api.purchase.tally({ id: puId }).pending_net, 50)
+    // Loose pool: booked to the oldest purchase with metal left, so this
+    // invoice's "still to label" drops by the 10 g that walked out.
+    check('loose-pool sale comes off the purchase', api.purchase.tally({ id: puId }).pending_net, 40)
     const { id: retId } = api.saleReturn.save({
       head: { prefix: 'SR', return_date: DAY, party_id: customer, party_name: 'Walk-in',
               against_sale_id: looseSale, gst_not_required: 1 },
       items: [{ item_id: ringId, item_name: 'Ring', gross_wt: 10, net_wt: 10, purity: 91.6, rate_per_gm: 6500 }],
     })
     check('returned untagged metal is loose again', api.looseStock.summary({ metal: 'Gold' }).available_fine, goldBefore + 46.8)
+    check('and back on the purchase, waiting for a label', api.purchase.tally({ id: puId }).pending_net, 50)
     api.saleReturn.remove({ id: retId })
     api.sale.remove({ id: looseSale })
     check('both undone → pool back', api.looseStock.summary({ metal: 'Gold' }).available_fine, goldBefore + 46.8)

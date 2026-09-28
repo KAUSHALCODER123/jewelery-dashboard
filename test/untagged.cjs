@@ -101,7 +101,7 @@ app.whenReady().then(() => {
     }), /no longer exists/)
     check('nothing slipped through', api.purchase.tally({ id: puId }).pending_net, 18)
 
-    head('4. A tagged piece ignores the field, a plain line ignores the purchase')
+    head('4. A tagged piece ignores the field; a Loose gold line books to the oldest purchase')
     const tag = api.tagStock.list({ status: 'IN_STOCK' })[0]
     api.sale.save({
       head: { prefix: 'COM', bill_date: DAY, gst_not_required: 1, payment_mode: 'Cash', amount_received: 0 },
@@ -112,21 +112,23 @@ app.whenReady().then(() => {
       ],
     })
     const t4 = api.purchase.tally({ id: puId })
-    check('tagged piece is not double-counted as sold-loose', t4.sold_loose_net, 12)
-    check('plain untagged line touches only the pool', t4.pending_net, 18)
+    // The 10 g tagged piece is not counted as sold loose; the plain 3 g line is
+    // Loose gold, so it comes off the only open purchase (12 + 3).
+    check('tagged piece is not double-counted as sold-loose', t4.sold_loose_net, 15)
+    check('Loose gold line comes off the purchase too', t4.pending_net, 15)
 
     head('5. Editing and deleting the bill moves the tally with it')
     const s = api.sale.read({ id: sale.id })
     api.sale.save({ head: { ...s, id: s.id }, items: [{ ...s.items[0], net_wt: 8, gross_wt: 8 }] })
-    check('edited down to 8 g', api.purchase.tally({ id: puId }).pending_net, 22)
+    check('edited down to 8 g', api.purchase.tally({ id: puId }).pending_net, 19)
     api.sale.remove({ id: sale.id })
-    check('deleted → back to 30 g', api.purchase.tally({ id: puId }).pending_net, 30)
-    check('no loose sale left on the invoice', api.purchase.tally({ id: puId }).loose_sales.length, 0)
+    check('deleted → back to 27 g (the 3 g Loose gold line stays)', api.purchase.tally({ id: puId }).pending_net, 27)
+    check('only the Loose gold line left on the invoice', api.purchase.tally({ id: puId }).loose_sales.length, 1)
 
     head('6. Selling the rest untagged tallies the invoice')
     api.sale.save({
       head: { prefix: 'COM', bill_date: DAY, gst_not_required: 1, payment_mode: 'Cash', amount_received: 0 },
-      items: [{ item_id: ringId, item_name: 'Ring', gross_wt: 30, net_wt: 30, purity: 91.6,
+      items: [{ item_id: ringId, item_name: 'Ring', gross_wt: 27, net_wt: 27, purity: 91.6,
                 rate_per_gm: 6500, purchase_id: puId }],
     })
     const t6 = api.purchase.tally({ id: puId })
