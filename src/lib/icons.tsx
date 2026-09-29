@@ -44,6 +44,16 @@ export const Icon = {
   down: (p: any) => (<svg {...S(p)}><path d="m6 9 6 6 6-6"/></svg>),
   whatsapp: (p: any) => (<svg {...S(p)}><path d="M21 11.5a8.4 8.4 0 0 1-12.6 7.3L3 20.5l1.8-5.2A8.4 8.4 0 1 1 21 11.5z"/><path d="M8.8 8.4c.3-.6.6-.5.9-.5h.6c.2 0 .5 0 .7.5l.7 1.7c.1.3 0 .5-.1.7l-.4.4c-.1.2-.3.3-.1.6a6 6 0 0 0 2.8 2.4c.3.1.5.1.7-.1l.5-.6c.2-.2.4-.2.6-.1l1.6.8c.3.1.4.3.4.5a1.9 1.9 0 0 1-1.3 1.6c-.5.2-1.1.2-3.2-.7a9.3 9.3 0 0 1-4.2-4.2c-.5-1-.5-1.7-.4-2.2a2 2 0 0 1 .5-1z"/></svg>),
   gem: (p: any) => (<svg {...S(p)}><path d="M6 3h12l3 6-9 12L3 9z"/><path d="M3 9h18M9 3l3 6 3-6M12 9v12"/></svg>),
+  bookmark: (p: any) => (<svg {...S(p)}><path d="M19 3H5a2 2 0 0 0-2 2v14l7-3.5 7 3.5V5a2 2 0 0 0-2-2z"/></svg>),
+  wrench: (p: any) => (<svg {...S(p)}><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a1 1 0 0 0-1.4-1.4l-1.6 1.6"/><path d="M13 18H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2zM7 16v-4h4"/></svg>),
+  stamp: (p: any) => (<svg {...S(p)}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 9v6M12 18v.01"/></svg>),
+  folder: (p: any) => (<svg {...S(p)}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-1L9.6 3.9a2 2 0 0 0-1.7-1H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h13z"/></svg>),
+  merge: (p: any) => (<svg {...S(p)}><path d="M8 12h8M12 8v8"/><path d="M4 8v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/></svg>),
+  history: (p: any) => (<svg {...S(p)}><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>),
+  chevronRight: (p: any) => (<svg {...S(p)}><path d="m9 18 6-6-6-6"/></svg>),
+  send: (p: any) => (<svg {...S(p)}><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>),
+  link: (p: any) => (<svg {...S(p)}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>),
+  list: (p: any) => (<svg {...S(p)}><path d="M8 6h12M8 12h12M8 18h12M3 6v.01M3 12v.01M3 18v.01"/></svg>),
 }
 
 export type IconName = keyof typeof Icon

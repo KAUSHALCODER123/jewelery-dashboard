@@ -5,6 +5,7 @@ import { useAsync } from './lib/ui'
 import { dmy, todayISO } from './lib/format'
 
 import Dashboard from './pages/Dashboard'
+import DashboardV2 from './pages/DashboardV2'
 import Items from './pages/Items'
 import TagStock from './pages/TagStock'
 import Parties from './pages/Parties'
@@ -18,7 +19,9 @@ import Receipts from './pages/Receipts'
 import Orders from './pages/Orders'
 import Refining from './pages/Refining'
 import StockReport from './pages/StockReport'
+import StockCheck from './pages/StockCheck'
 import DayBook from './pages/DayBook'
+import DailyClosing from './pages/DailyClosing'
 import Ledger from './pages/Ledger'
 import Outstanding from './pages/Outstanding'
 import AccountBooks from './pages/AccountBooks'
@@ -30,14 +33,21 @@ import Changeover from './pages/Changeover'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Schemes from './pages/Schemes'
-import StockCheck from './pages/StockCheck'
+import Repairs from './pages/Repairs'
+import ReservationsMemos from './pages/ReservationsMemos'
+import Hallmarking from './pages/Hallmarking'
+import CustomerSummary from './pages/CustomerSummary'
+import Catalogue from './pages/Catalogue'
 
 export type Route = { name: string; params?: any }
 
 const NAV: { group: string; items: { key: string; label: string; icon: any; kbd?: string }[] }[] = [
   {
     group: 'Overview',
-    items: [{ key: 'dashboard', label: 'Dashboard', icon: Icon.dashboard }],
+    items: [
+      { key: 'dashboard', label: 'Dashboard', icon: Icon.dashboard },
+      { key: 'closing', label: 'Daily Closing', icon: Icon.chart },
+    ],
   },
   {
     group: 'Transactions',
@@ -54,6 +64,17 @@ const NAV: { group: string; items: { key: string; label: string; icon: any; kbd?
     ],
   },
   {
+    group: 'Inventory',
+    items: [
+      { key: 'stock', label: 'Stock Report', icon: Icon.stock },
+      { key: 'stockcheck', label: 'Stock Verification', icon: Icon.check },
+      { key: 'reservations', label: 'Reservations / Memos', icon: Icon.bookmark },
+      { key: 'repairs', label: 'Repairs', icon: Icon.wrench },
+      { key: 'hallmarking', label: 'Hallmarking', icon: Icon.stamp },
+      { key: 'catalogue', label: 'Catalogue', icon: Icon.folder },
+    ],
+  },
+  {
     group: 'Masters',
     items: [
       { key: 'items', label: 'Item Creation', icon: Icon.item, kbd: 'F6' },
@@ -65,8 +86,6 @@ const NAV: { group: string; items: { key: string; label: string; icon: any; kbd?
   {
     group: 'Reports',
     items: [
-      { key: 'stock', label: 'Stock Report', icon: Icon.stock },
-      { key: 'stockcheck', label: 'Stock Verification', icon: Icon.check },
       { key: 'daybook', label: 'Day Book', icon: Icon.chart },
       { key: 'oldgold.report', label: 'Old Gold Report', icon: Icon.refine },
       { key: 'ledger', label: 'Ledger / Khata', icon: Icon.ledger },
@@ -87,6 +106,7 @@ const NAV: { group: string; items: { key: string; label: string; icon: any; kbd?
 
 const TITLES: Record<string, { title: string; sub?: string }> = {
   dashboard: { title: 'Dashboard' },
+  closing: { title: 'Daily Closing', sub: 'Cash count, settlement matching, day lock' },
   'sales.new': { title: 'Sales Invoice', sub: 'Create a new bill' },
   sales: { title: 'Sales Register' },
   oldgold: { title: 'Old Gold Purchase', sub: 'Buying old gold from a customer, with no sale against it' },
@@ -111,6 +131,10 @@ const TITLES: Record<string, { title: string; sub?: string }> = {
   changeover: { title: 'Changeover Check', sub: 'Your old books against this one — run both before you switch' },
   branches: { title: 'Branches & Transfer', sub: 'Where the stock is, and moving it between shops' },
   mis: { title: 'MIS & Scheme Reports', sub: 'Non-moving · quiet customers · top sellers · purity profit · gold scheme' },
+  repairs: { title: 'Repairs', sub: 'Customer articles — intake, assess, assign, deliver' },
+  reservations: { title: 'Reservations & Memos', sub: 'Customer holds, approval stock, supplier memo' },
+  hallmarking: { title: 'Hallmarking', sub: 'Batch dispatch, receive, HUID, compliance' },
+  catalogue: { title: 'Catalogue', sub: 'Categories, aliases, merge, import' },
   settings: { title: 'Settings' },
 }
 
@@ -301,6 +325,7 @@ export default function App() {
 function Page({ route, go }: { route: Route; go: (n: string, p?: any) => void }) {
   switch (route.name) {
     case 'dashboard': return <Dashboard go={go} />
+    case 'closing': return <DailyClosing go={go} />
     case 'items': return <Items />
     case 'tags': return <TagStock purchaseId={route.params?.purchaseId} />
     case 'customers': return <Parties type="CUSTOMER" key="cust" go={go} openNew={route.params?.new} />
@@ -327,6 +352,11 @@ function Page({ route, go }: { route: Route; go: (n: string, p?: any) => void })
     case 'branches': return <Branches />
     case 'changeover': return <Changeover />
     case 'settings': return <Settings tab={route.params?.tab} />
+    case 'repairs': return <Repairs go={go} />
+    case 'reservations': return <ReservationsMemos />
+    case 'hallmarking': return <Hallmarking />
+    case 'catalogue': return <Catalogue />
+    case 'customer': return <CustomerSummary partyId={route.params?.partyId} go={go} />
     default: return <div>Not found</div>
   }
 }
