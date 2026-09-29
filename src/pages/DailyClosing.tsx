@@ -24,6 +24,9 @@ export default function DailyClosing({ go }: { go: (n: string, p?: any) => void 
   const [session, setSession] = useState<any>(null)
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [explicitAmount, setExplicitAmount] = useState('')
+  const [sessionsOpen, setSessionsOpen] = useState(false)
+  const [newDate, setNewDate] = useState(todayISO())
+  const newDateRef = useRef<HTMLInputElement>(null)
 
   const loadSessions = async (page = 1) => {
     setSessionsLoading(true)
@@ -39,7 +42,7 @@ export default function DailyClosing({ go }: { go: (n: string, p?: any) => void 
 
   const openSession = async (business_date: string, branch?: string) => {
     const res = await window.api.closing.open({ business_date, branch, actor: 'user' })
-    if (res) { setSession(res); push('success', 'Closing session opened') }
+    if (res) { setSession(res); push('ok', 'Closing session opened') }
   }
 
   const loadSession = async (id: number) => {
@@ -59,7 +62,6 @@ export default function DailyClosing({ go }: { go: (n: string, p?: any) => void 
     if (!provider) return
     const ref = prompt('Provider reference / UTR:')
     if (!ref) return
-    // In a real UI, this would be a multi-row picker. Here simplified.
     const amount = parseFloat(prompt('Net settlement amount:') || '0')
     if (!amount) return
     const sourceType = prompt('Source type (sale/voucher/urd):')
@@ -72,20 +74,20 @@ export default function DailyClosing({ go }: { go: (n: string, p?: any) => void 
       allocations: [{ source_type: sourceType, source_id: sourceId, amount }],
       actor: 'user'
     })
-    if (res) { loadSession(session.id); push('success', 'Settlement matched') }
+    if (res) { loadSession(session.id); push('ok', 'Settlement matched') }
   }
 
   const submit = async () => {
     if (!session) return
     const res = await window.api.closing.submit({ id: session.id, actor: 'user' })
-    if (res) { setSession(res); push('success', 'Closing submitted for approval') }
+    if (res) { setSession(res); push('ok', 'Closing submitted for approval') }
   }
 
   const approve = async () => {
     if (!session) return
     const note = prompt('Approval note:') || ''
     const res = await window.api.closing.approve({ id: session.id, actor: 'user', note })
-    if (res) { setSession(res); push('success', 'Closing locked') }
+    if (res) { setSession(res); push('ok', 'Closing locked') }
   }
 
   const reopen = async () => {
@@ -93,7 +95,7 @@ export default function DailyClosing({ go }: { go: (n: string, p?: any) => void 
     const reason = prompt('Reason for reopening:')
     if (!reason) return
     const res = await window.api.closing.reopen({ id: session.id, actor: 'user', reason })
-    if (res) { setSession(res); push('success', 'Closing reopened') }
+    if (res) { setSession(res); push('ok', 'Closing reopened') }
   }
 
   const denominations = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1, 0.5]
@@ -108,12 +110,12 @@ export default function DailyClosing({ go }: { go: (n: string, p?: any) => void 
       <div className="toolbar" style={{ marginBottom: 16 }}>
         <div className="form-grid cols-3" style={{ gap: 12 }}>
           <Field label="Business Date" required>
-            <Input type="date" value={todayISO()} onChange={(e) => setNewDate(e.target.value)} ref={newDateRef} />
+            <Input type="date" ref={newDateRef} value={newDate} onChange={(e) => setNewDate(e.target.value)} />
           </Field>
           <Field label="Branch">
-            <Input value={''} onChange={} placeholder="Company-wide" readOnly />
+            <Input value={''} placeholder="Company-wide" readOnly />
           </Field>
-          <button className="btn btn-primary" onClick={() => openSession(newDateRef.current?.value || todayISO())}>
+          <button className="btn btn-primary" onClick={() => openSession(newDateRef.current?.value || newDate)}>
             <Icon.plus /> Open / Load Closing
           </button>
         </div>

@@ -2,10 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import {
   Check, Confirm, Empty, Loading, Modal, Select, Segmented,
-  useAction, useAsync, useToast,
+  useAction, useAsync, useDebounced, useToast,
 } from '../lib/ui'
 import { num } from '../lib/calc'
-import { money, toCsv, wt } from '../lib/format'
+import { dmy, money, wt } from '../lib/format'
 import { Pagination } from '../lib/inventory'
 
 /**
@@ -24,9 +24,10 @@ export default function StockCheck() {
   const [sessionsPage, setSessionsPage] = useState(1)
   const [sessionsTotal, setSessionsTotal] = useState(0)
   const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [sessionsOpen, setSessionsOpen] = useState(false)
 
   // Count state
-  const [scanned, setScanned] = useState<Set<number>>(new Set()) // tag_ids
+  const [scanned, setScanned] = useState<Set<number>>(new Set())
   const [extras, setExtras] = useState<any[]>([])
   const [entry, setEntry] = useState('')
   const [filter, setFilter] = useState('all')
@@ -37,7 +38,7 @@ export default function StockCheck() {
 
   // Create new session
   const newSession = async () => {
-    const scope = { location: 'Shop' } // could extend with tray, item filter
+    const scope = { location: 'Shop' }
     const res = await window.api.stockCount.create({ scope, business_date: new Date().toISOString().slice(0, 10), actor: 'user' })
     if (res) {
       setSessionId(res.id)
@@ -45,7 +46,7 @@ export default function StockCheck() {
       setScanned(new Set())
       setExtras([])
       setFilter('all')
-      push('success', 'Count session created')
+      push('ok', 'Count session created')
     }
   }
 
@@ -55,14 +56,10 @@ export default function StockCheck() {
     if (res) {
       setSessionId(res.id)
       setSession(res)
-      // Load scans
-      const scans = await window.api.stockCount.discrepancies({ session_id: res.id })
-      const scannedIds = new Set<number>()
-      const extraList: any[] = []
-      // We'd need a scans endpoint; for now use discrepancies
-      setScanned(scannedIds)
-      setExtras(extraList)
-      push('success', 'Session loaded')
+      // Note: scans would be loaded from discrepancies endpoint
+      setScanned(new Set())
+      setExtras([])
+      push('ok', 'Session loaded')
     }
   }
 
@@ -96,20 +93,7 @@ export default function StockCheck() {
     inputRef.current?.focus()
   }
 
-  const found = session?.expected ? [] : [] // placeholder
-  const expectedTags = new Set<number>()
-
-  // Expected tags from session
-  useEffect(() => {
-    if (!sessionId || !session) return
-    // Load expected set
-    try {
-      const expected = await window.api.stockCount.read({ id: sessionId })
-      // Expected tags would be in the discrepancies result
-    } catch {}
-  }, [sessionId])
-
-  // For now, fall back to loading IN_STOCK tags for the current scope
+  // Fallback to loading IN_STOCK tags for the current scope
   const stock = useAsync(() => window.api.tagStock.list({ status: 'IN_STOCK' }), [])
   const allRows = stock.data || []
   const itemOptions = useMemo(() => {
@@ -145,13 +129,14 @@ export default function StockCheck() {
   }, [rows, scanned])
 
   const exportCsv = async () => {
-    const csv = toCsv(
+    const csv = [
       ['Tag', 'Item', 'Group', 'Gross Wt', 'Net Wt', 'Fine Wt', 'Location', 'Result'],
-      rows.map((r: any) => [
+      ...rows.map((r: any) => [
         r.tag, r.item_name, r.group_name, r.gross_wt, r.net_wt, r.final_wt, r.location,
         scanned.has(r.id) ? 'FOUND' : 'MISSING',
-      ]).concat(extras.map((t: any) => [t.raw_scan || t, '', '', '', '', '', '', 'NOT IN STOCK']))
-    )
+      ]),
+      ...extras.map((t: any) => [t.raw_scan || t.tag || '', '', '', '', '', '', '', 'NOT IN STOCK'])
+    ].map(row => row.map(csvCell).join(',')).join('\n')
     await window.api.file.saveText({ content: csv, suggestedName: 'stock-verification.csv' })
   }
 
@@ -160,7 +145,7 @@ export default function StockCheck() {
     const res = await window.api.stockCount.setStatus({ id: sessionId, status, actor: 'user' })
     if (res) {
       setSession(res)
-      push('success', `Session ${status.toLowerCase()}`)
+      push('ok', `Session ${status.toLowerCase()}`)
     }
   }
 
@@ -415,4 +400,11 @@ export default function StockCheck() {
       )}
     </div>
   )
+}
+
+// CSV helper
+function csvCell(v: any) {
+  let s = v == null ? '' : String(v)
+  if (/^[\s'"]*[=+\-@]/.test(s)) s = `'` + s
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
