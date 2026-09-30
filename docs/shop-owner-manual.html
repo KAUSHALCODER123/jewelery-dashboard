@@ -72,7 +72,7 @@
 <div class="wrap">
 
 <div class="cover">
-  <div class="eyebrow">Parivar Jewellery ERP · Version 1.26</div>
+  <div class="eyebrow">Parivar Jewellery ERP · Version 1.29</div>
   <h1>The Shop Owner's Manual</h1>
   <p class="lead">Every screen of the software, explained the way the shop works: what it is for, what to press, and what happens to your stock, your cash and your khata when you press it.</p>
   <p class="meta">Keep this near the billing computer. Chapters are short on purpose — read the one you need, when you need it.</p>
@@ -99,18 +99,23 @@
   <li><a href="#c16">Refining</a></li>
   <li><a href="#c17">Gold Saving Scheme</a></li>
   <li><a href="#c18">Stock Report and Stock Verification</a></li>
-  <li><a href="#c19">Day Book — closing the shop</a></li>
-  <li><a href="#c20">Ledger / Khata and Outstanding</a></li>
-  <li><a href="#c21">Accounting Books, Registers and GST</a></li>
-  <li><a href="#c22">MIS reports — the owner's questions</a></li>
-  <li><a href="#c23">Branches and stock transfer</a></li>
-  <li><a href="#c24">Changeover Check — before you trust it</a></li>
-  <li><a href="#c25">Settings, users, invoice design, phone view</a></li>
-  <li><a href="#c26">Backup — every single evening</a></li>
-  <li><a href="#c27">Printing the barcode tags</a></li>
-  <li><a href="#c28">How every number is worked out</a></li>
-  <li><a href="#c29">When a figure looks wrong</a></li>
-  <li><a href="#c30">Keyboard shortcuts and words used</a></li>
+  <li><a href="#c19">Reservations and approval memos</a></li>
+  <li><a href="#c20">Repairs</a></li>
+  <li><a href="#c21">Hallmarking</a></li>
+  <li><a href="#c22">Catalogue — names and categories</a></li>
+  <li><a href="#c23">Day Book — closing the shop</a></li>
+  <li><a href="#c24">Daily Closing — counting the drawer</a></li>
+  <li><a href="#c25">Ledger / Khata and Outstanding</a></li>
+  <li><a href="#c26">Accounting Books, Registers and GST</a></li>
+  <li><a href="#c27">MIS reports — the owner's questions</a></li>
+  <li><a href="#c28">Branches and stock transfer</a></li>
+  <li><a href="#c29">Changeover Check — before you trust it</a></li>
+  <li><a href="#c30">Settings, users, invoice design, phone view</a></li>
+  <li><a href="#c31">Backup — every single evening</a></li>
+  <li><a href="#c32">Printing the barcode tags</a></li>
+  <li><a href="#c33">How every number is worked out</a></li>
+  <li><a href="#c34">When a figure looks wrong</a></li>
+  <li><a href="#c35">Keyboard shortcuts and words used</a></li>
 </ol>
 </div>
 
@@ -125,7 +130,7 @@
   <li><span class="ui">Settings → Accounts</span>: open <b>Cash Account</b> and <b>Bank Account</b> and type the <b>opening balance</b> — the cash in the drawer and the money in the bank on day one. This is the figure most people forget.</li>
   <li><span class="ui">Customers</span> and <span class="ui">Suppliers</span>: add the people you already deal with, with what they owe you (<b>Dr</b>) or you owe them (<b>Cr</b>).</li>
   <li>Put the gold in. See the table below — money is only half of what you hold.</li>
-  <li>Run <span class="ui">Changeover Check</span> after one month of double entry (chapter 24) before you stop the old book.</li>
+  <li>Run <span class="ui">Changeover Check</span> after one month of double entry (chapter 29) before you stop the old book.</li>
 </ol>
 
 <h3>Putting the gold in</h3>
@@ -176,7 +181,7 @@
   <li>In <b>Same for every piece</b>, set what applies to the whole batch: purity, making per gram, hallmark, <b>Cost/gm</b>, location, tray.</li>
   <li>One row per piece: gross weight, stones or beads if any. Net and fine weight are worked out as you type. Paste a block from Excel if you have one.</li>
   <li><span class="ui">Save N tags</span>. Each piece gets its number and appears in the list below. <span class="ui">Save &amp; Print</span> does the same and opens the barcode label print for the new pieces straight away.</li>
-  <li>Tick the pieces and press <span class="ui">Print labels</span> (chapter 27).</li>
+  <li>Tick the pieces and press <span class="ui">Print labels</span> (chapter 32).</li>
 </ol>
 <figure><img src="shots/tag-entry.png" alt="Tag entry grid"><figcaption>Gross 8.500 g at 91.6% gives a fine weight of 7.786 g — no calculator.</figcaption></figure>
 
@@ -199,7 +204,10 @@
   <li>Birthday and anniversary, so you can greet them. Tick <b>loyalty points</b> if you run a points scheme.</li>
 </ol>
 <figure><img src="shots/customer-new.png" alt="New customer"><figcaption>New Customer: contact, address, IDs, opening balance.</figcaption></figure>
-<p>Click any customer to open their full <b>Ledger</b> (chapter 20). A customer can also be created from inside a bill with the <b>+</b> button, so billing never stops.</p>
+<p>Click any customer to open their full <b>Ledger</b> (chapter 25). A customer can also be created from inside a bill with the <b>+</b> button, so billing never stops.</p>
+<h3>Customer summary</h3>
+<figure><img src="shots/customer-summary.png" alt="Customer summary"><figcaption>One customer on one screen: money and gold balance, what is open, and every bill and receipt.</figcaption></figure>
+<p>The <b>Customer summary</b> button on each row opens everything about that customer on one page: money balance (Dr/Cr), gold balance per metal (the same figure as the gold khata), open orders and their advance, gold scheme accounts, repairs and reservations, and a timeline of every bill, receipt, order and repair they have ever had. <span class="ui">Ledger</span>, <span class="ui">New Sale</span> and <span class="ui">Receive</span> are one click away.</p>
 <div class="box"><div class="t">Dr and Cr, once and for all</div><b>Dr</b> = they owe you. <b>Cr</b> = you owe them. Money and gold are kept as two separate balances — a customer can owe you rupees and owe you grams at the same time.</div>
 
 <!-- ───────────────────────────── 6 ───────────────────────────── -->
@@ -255,6 +263,10 @@
   <li><b>Reverse calculation</b>: type the amount the customer wants to pay and the bill fits the rate or making to it.</li>
 </ul>
 <div class="box ok"><div class="t">What happens when you save</div>The piece is marked sold and leaves stock. The customer is charged the total less old gold; what they paid goes to cash or bank; the rest stays on their khata. GST is recorded for GSTR-1.</div>
+
+<h3>Parking a bill</h3>
+<figure><img src="shots/parked-bills.png" alt="Parked bills"><figcaption>Parked bills waiting to be finished: Resume or Discard.</figcaption></figure>
+<p>A customer steps away in the middle of a bill? Press <span class="ui">Park</span>. The bill is kept and the screen clears for the next customer. <span class="ui">Parked</span> shows how many are waiting; <span class="ui">Resume</span> brings one back exactly as it was, <span class="ui">Discard</span> throws it away. A resumed bill is saved <b>once</b>, even if Save is pressed twice or two counters open it together.</p>
 
 <!-- ───────────────────────────── 9 ───────────────────────────── -->
 <h2 id="c9"><span class="no">9</span>Old gold on a bill, estimates and credit bills</h2>
@@ -393,7 +405,7 @@
 
 <!-- ───────────────────────────── 18 ───────────────────────────── -->
 <h2 id="c18"><span class="no">18</span>Stock Report and Stock Verification</h2>
-<p class="sub">Reports → Stock Report · Stock Verification.</p>
+<p class="sub">Inventory → Stock Report · Stock Verification.</p>
 <figure><img src="shots/stock.png" alt="Stock report"><figcaption>Tag-wise stock: gross, net, fine, cost and age of every piece.</figcaption></figure>
 <ul>
   <li>Views: tag-wise detail, or summaries by item, item group, location, category, salesman, or shelf/tray.</li>
@@ -401,25 +413,109 @@
   <li><b>Edit Stock</b>: found a piece weighed wrong at stock-take? Fix it in place; the fine weight and your metal position move with it. Sold pieces cannot be edited here — fix the bill.</li>
   <li><b>Grid Settings</b> on any table: hide, rename or reorder columns. Print, or export to CSV, Excel or Word.</li>
 </ul>
+<h3>Finding a piece</h3>
+<figure><img src="shots/stock-filters.png" alt="Stock filters"><figcaption>Filters: metal, purity, design, category, location, tray, weight, HUID, supplier, availability and more.</figcaption></figure>
+<ul>
+  <li><b>Filters</b> narrow the list by metal, purity group, design, category, location, shelf or tray, size, weight and purity range, HUID recorded or missing, label printed, supplier, purchase batch, date entered, and <b>availability</b> (free to sell, or on hold). Each filter in use shows as a chip; click it to clear it.</li>
+  <li><b>Saved views</b>: save a set of filters under a name ("22K bangles, tray 3") and bring it back in one click. Saved on that computer only.</li>
+  <li>Search finds a tag, HUID, item, design or tray. The list shows 50 pieces a page, but the totals, Print and Export always cover <b>every</b> matching piece.</li>
+  <li>The same filters are on Tag &amp; Barcode and Item Creation.</li>
+</ul>
 <h3>Stock Verification</h3>
-<figure><img src="shots/stockcheck.png" alt="Stock verification"><figcaption>Scan each piece; what is not scanned stays red.</figcaption></figure>
-<p>Physical count: scan tags one by one. Found pieces turn green; anything not scanned stays red — that is your list of what to go and look for before closing. Reset to start a fresh count.</p>
+<figure><img src="shots/stock-count.png" alt="Stock verification"><figcaption>A count in progress: found, missing, and a tag that does not belong.</figcaption></figure>
+<ol class="steps">
+  <li><span class="ui">Start Count</span> — for the whole shop or one location. The list of pieces that should be there is fixed at that moment.</li>
+  <li>Scan each piece with the barcode gun, or type the tag and press Enter. Found pieces turn green; anything not scanned stays red — your list of what to look for.</li>
+  <li><span class="ui">Pause</span> for lunch, or leave the screen; the count waits where you left it.</li>
+  <li><span class="ui">Submit</span> when done. A manager or the owner approves and closes it. <span class="ui">Past Counts</span> keeps every earlier count.</li>
+</ol>
+<table>
+  <tr><th>What a scan says</th><th>Meaning</th></tr>
+  <tr><td>Found</td><td>In stock and part of this count</td></tr>
+  <tr><td>Wrong location</td><td>In stock, but recorded at another location — put it back where it belongs</td></tr>
+  <tr><td>Duplicate</td><td>Already scanned in this count</td></tr>
+  <tr><td>Outside scope</td><td>A real piece, but not part of this count</td></tr>
+  <tr><td>Not in stock</td><td>That tag was already sold — find out why it is on the tray</td></tr>
+  <tr><td>Unknown</td><td>No such tag in the software</td></tr>
+</table>
+<div class="box"><div class="t">A count does not change stock by itself</div>Missing pieces are listed, not written off. Look for them first; correct stock only when you are sure.</div>
 
-<!-- ───────────────────────────── 19 ───────────────────────────── -->
-<h2 id="c19"><span class="no">19</span>Day Book — closing the shop</h2>
+<!-- ───── new: reservations ───── -->
+<h2 id="c19"><span class="no">19</span>Reservations and approval memos</h2>
+<p class="sub">Inventory → Reservations / Memos. Pieces kept aside, and pieces out on approval.</p>
+<figure><img src="shots/reservations.png" alt="Reservations and memos"><figcaption>A piece held for a customer, and a ring out on approval.</figcaption></figure>
+<p>A reserved piece, or one out on memo, <b>cannot be billed to anyone else</b> — the Sales Invoice refuses it until the hold ends.</p>
+<table>
+  <tr><th>What</th><th>When to use it</th><th>How it ends</th></tr>
+  <tr><td>Reservation</td><td>A customer asks you to keep a piece aside, with or without an expiry date</td><td><b>Fulfilled</b> (then bill it), <b>Released</b>, or it expires at the end of its date</td></tr>
+  <tr><td>Memo out (approval)</td><td>A customer takes a piece home to decide</td><td><b>Returned</b>, or <b>Sold</b> (then bill it)</td></tr>
+  <tr><td>Memo in</td><td>A supplier leaves goods with you on approval</td><td><b>Returned</b> to the supplier, or <b>Acquired</b></td></tr>
+</table>
+<p>Memos past their due date are marked overdue. Reserving and memos are for a manager or the owner.</p>
+<div class="box"><div class="t">Sold here does not make the bill</div>Marking a reservation fulfilled or a memo sold only lifts the hold. Make the bill in the Sales Invoice as usual.</div>
+
+<!-- ───── new: repairs ───── -->
+<h2 id="c20"><span class="no">20</span>Repairs</h2>
+<p class="sub">Inventory → Repairs. The customer's piece, from the counter to the karagir and back.</p>
+<figure><img src="shots/repairs.png" alt="Repairs"><figcaption>Repair jobs with their step, estimate, promised date and karagir.</figcaption></figure>
+<p>A repair is the customer's gold, not yours: it never shows in your stock or your totals.</p>
+<ol class="steps">
+  <li><span class="ui">New Repair</span>: the customer (or a walk-in name), what the piece is, gross and net weight, stones, damage, the work asked for, the estimate and the date you promised.</li>
+  <li>Move the job along with the button on its row: <b>Received → Assessed → Assigned</b> (pick the karagir) <b>→ In progress → Ready → Delivered</b>. Cancel if the customer takes it back unrepaired.</li>
+  <li>Jobs past their promised date turn red. <b>Open jobs</b> hides the finished ones.</li>
+</ol>
+<p>A job can be corrected until it is delivered, and every step is kept with who did it and when.</p>
+
+<!-- ───── new: hallmarking ───── -->
+<h2 id="c21"><span class="no">21</span>Hallmarking</h2>
+<p class="sub">Inventory → Hallmarking. Pieces out to the centre, and back with their HUID.</p>
+<figure><img src="shots/hallmarking.png" alt="Hallmarking"><figcaption>One batch at the centre, one ready to send.</figcaption></figure>
+<ol class="steps">
+  <li><span class="ui">New Batch</span>: the centre's name, then scan or search the pieces. The count and total weight add up as you go.</li>
+  <li><span class="ui">Dispatch</span> when the batch leaves the shop. From that moment those pieces <b>cannot be sold</b>. (A manager or the owner dispatches.)</li>
+  <li><span class="ui">Receive</span> when they come back: for each piece, Returned, Failed or Still at centre. Type the <b>HUID</b> of each returned piece — 6 letters or digits; the software refuses one already used on another piece.</li>
+</ol>
+<p>Returned and failed pieces can be sold again at once; pieces still at the centre stay blocked. The batch reads <b>Partial</b> until every piece is back, then <b>Closed</b>.</p>
+
+<!-- ───── new: catalogue ───── -->
+<h2 id="c22"><span class="no">22</span>Catalogue — names and categories</h2>
+<p class="sub">Inventory → Catalogue. Keeping item names tidy, once. Owner only.</p>
+<figure><img src="shots/catalogue.png" alt="Catalogue"><figcaption>Categories with pieces in stock, and "Haar" as another name for Necklace.</figcaption></figure>
+<ul>
+  <li><b>Categories</b>: make them, put one under another (Bridal → Bridal Necklace Sets), rename or archive them. A rename updates every tag that carries it.</li>
+  <li><b>Other names</b>: give an item, category or design the name your customers use — "Haar" for Necklace — and search finds it either way.</li>
+  <li><b>Import CSV</b>: load categories and other names from a spreadsheet. The file is checked first and errors are listed by line; loading the same file twice changes nothing.</li>
+  <li><b>Merge</b>: two items that are really one ("Ring" and "Rings") become one. Every bill, purchase, tag and order moves to the one you keep, and the old name is kept as another name. Gold and silver items are never merged.</li>
+</ul>
+
+<!-- ───────────────────────────── 23 ───────────────────────────── -->
+<h2 id="c23"><span class="no">23</span>Day Book — closing the shop</h2>
 <p class="sub">Reports → Day Book. The one page to read before pulling the shutter.</p>
 <figure><img src="shots/daybook.png" alt="Day book"><figcaption>The Day Book: transactions, gold position, accounts, and takings by mode.</figcaption></figure>
 <ol class="steps">
   <li><b>Transactions</b>: sales, purchases, old gold on bills, old gold bills, receipts and payments — cash and credit.</li>
   <li><b>Stock details</b>: opening and closing in gross, net and fine, per metal, and URD (old gold) separately. A shop counting trays counts gross — that is why all three are there.</li>
-  <li><b>Accounts</b>: every cash and bank account, opening, movement, closing. Count the drawer against <b>Cash Account</b>. It should match.</li>
+  <li><b>Accounts</b>: every cash and bank account, opening, movement, closing. Count the drawer against <b>Cash Account</b>. It should match — Daily Closing (chapter 24) does the count note by note and records it.</li>
   <li><b>Received by mode</b>: cash, UPI, card, NEFT — what came in today, by how it was paid.</li>
-  <li>Print it, file it, and take your backup (chapter 26).</li>
+  <li>Print it, file it, and take your backup (chapter 31).</li>
 </ol>
 <div class="box"><div class="t">Only cash sits in the drawer</div>A card swipe, UPI, NEFT or a cheque all go to the bank, not the drawer. So if the drawer does not match the Cash figure, something really is short — and that is a number worth trusting.</div>
 
-<!-- ───────────────────────────── 20 ───────────────────────────── -->
-<h2 id="c20"><span class="no">20</span>Ledger / Khata and Outstanding</h2>
+<!-- ───── new: daily closing ───── -->
+<h2 id="c24"><span class="no">24</span>Daily Closing — counting the drawer</h2>
+<p class="sub">Overview → Daily Closing. The drawer against the books, signed off.</p>
+<figure><img src="shots/closing.png" alt="Daily closing"><figcaption>Expected cash from the cash book, the drawer counted note by note, and the difference.</figcaption></figure>
+<ol class="steps">
+  <li>Pick the date and press <span class="ui">Open Close</span>. <b>Expected cash</b> is the day's opening plus that day's cash — the same figure as the Cash Book. Card, UPI, NEFT and cheques are not counted as cash.</li>
+  <li>Type how many of each note and coin are in the drawer, and any loose cash. The short or excess shows as you type; <span class="ui">Save Count</span>.</li>
+  <li><span class="ui">Submit</span> the day.</li>
+  <li>The owner <b>approves</b> it. A difference needs a note saying why. The owner can also match card and UPI settlements to that day's bank receipts.</li>
+</ol>
+<p>If a bill, receipt or return for that day is changed after the count, the close is marked out of date so you know to count again; the owner can <b>reopen</b> it with a reason. <span class="ui">All Closes</span> lists every day closed.</p>
+<div class="box"><div class="t">An approved day can still be edited</div>Approving a day does not lock its bills. A later change is only flagged on that day's close — so check the close again if a bill was corrected.</div>
+
+<!-- ───────────────────────────── 25 ───────────────────────────── -->
+<h2 id="c25"><span class="no">25</span>Ledger / Khata and Outstanding</h2>
 <p class="sub">Reports → Ledger / Khata · Outstanding.</p>
 <figure><img src="shots/ledger.png" alt="Ledger"><figcaption>A customer's money khata: every bill and receipt, Dr and Cr, running balance.</figcaption></figure>
 <ul>
@@ -432,8 +528,8 @@
 <figure><img src="shots/outstanding.png" alt="Outstanding"><figcaption>Debtors and creditors, in money — switch to metal for grams.</figcaption></figure>
 <p>Who owes you and whom you owe, in rupees; switch to <b>Metal (g)</b> for the same in fine grams. This is the morning call-list and the payment reminder in one. Print it.</p>
 
-<!-- ───────────────────────────── 21 ───────────────────────────── -->
-<h2 id="c21"><span class="no">21</span>Accounting Books, Registers and GST</h2>
+<!-- ───────────────────────────── 26 ───────────────────────────── -->
+<h2 id="c26"><span class="no">26</span>Accounting Books, Registers and GST</h2>
 <p class="sub">Reports → Accounting Books · Cash Book &amp; Registers · GST Reports. For you, and for your accountant.</p>
 <figure><img src="shots/books-pl.png" alt="Profit and loss"><figcaption>Trading and Profit &amp; Loss for the period.</figcaption></figure>
 <ul>
@@ -447,8 +543,8 @@
 <p><b>GSTR-1</b> (sales), <b>GSTR-2</b> (purchases), <b>GSTR-3B</b> summary, <b>HSN summary</b> and <b>TCS/TDS</b>. Within the state the tax is split CGST + SGST; inter-state bills are IGST. Export any of them and hand the file to your CA.</p>
 <div class="box why"><div class="t">Why the books can always be trusted</div>They are built from your bills, purchases and receipts every time you open them — not kept as a separate set of totals that could drift. Change a document and the books change with it.</div>
 
-<!-- ───────────────────────────── 22 ───────────────────────────── -->
-<h2 id="c22"><span class="no">22</span>MIS reports — the owner's questions</h2>
+<!-- ───────────────────────────── 27 ───────────────────────────── -->
+<h2 id="c27"><span class="no">27</span>MIS reports — the owner's questions</h2>
 <p class="sub">Reports → MIS &amp; Scheme Reports.</p>
 <figure><img src="shots/mis.png" alt="MIS reports"><figcaption>Non-moving stock, quiet customers, top sellers, purity profit.</figcaption></figure>
 <ul>
@@ -459,14 +555,14 @@
   <li><b>Scheme reports</b>: scheme master, allocated, pending, received, and sales settled by scheme.</li>
 </ul>
 
-<!-- ───────────────────────────── 23 ───────────────────────────── -->
-<h2 id="c23"><span class="no">23</span>Branches and stock transfer</h2>
+<!-- ───────────────────────────── 28 ───────────────────────────── -->
+<h2 id="c28"><span class="no">28</span>Branches and stock transfer</h2>
 <p class="sub">Reports → Branches &amp; Transfer.</p>
 <figure><img src="shots/branches.png" alt="Branches"><figcaption>Where the stock is, and moving it between shop, locker and branches.</figcaption></figure>
 <p>Every tagged piece has a <b>location</b> — Shop, Locker, a second branch. A transfer scans the pieces and moves them, leaving a document behind saying who moved what, when, and where. The Stock Report can be summarised by location.</p>
 
-<!-- ───────────────────────────── 24 ───────────────────────────── -->
-<h2 id="c24"><span class="no">24</span>Changeover Check — before you trust it</h2>
+<!-- ───────────────────────────── 29 ───────────────────────────── -->
+<h2 id="c29"><span class="no">29</span>Changeover Check — before you trust it</h2>
 <p class="sub">Reports → Changeover Check. Your old book against this one.</p>
 <figure><img src="shots/changeover.png" alt="Changeover check"><figcaption>Type what your old book says; the software shows its own figure and the difference.</figcaption></figure>
 <ol class="steps">
@@ -476,8 +572,8 @@
   <li>When the figures you care about say <b>Agrees</b> two weeks running, stop the double work.</li>
 </ol>
 
-<!-- ───────────────────────────── 25 ───────────────────────────── -->
-<h2 id="c25"><span class="no">25</span>Settings, users, invoice design, phone view</h2>
+<!-- ───────────────────────────── 30 ───────────────────────────── -->
+<h2 id="c30"><span class="no">30</span>Settings, users, invoice design, phone view</h2>
 <p class="sub">System → Settings.</p>
 <figure><img src="shots/settings.png" alt="Settings"><figcaption>Company details print on every bill.</figcaption></figure>
 <table>
@@ -488,7 +584,7 @@
   <tr><td>Accounts</td><td>Cash, bank and expense heads; opening balances; the bank's card-swipe charges.</td></tr>
   <tr><td>Making &amp; Wastage</td><td>Default making charge and wastage % per item or item group, so nothing is retyped on every tag, bill and purchase.</td></tr>
   <tr><td>Users</td><td>Staff, Manager, Owner logins. Staff can bill, take money, enter stock and run reports. Managers can also refine and remove tags. Only the Owner can delete documents, change settings or restore a backup.</td></tr>
-  <tr><td>Data &amp; Backup</td><td>Backup now, restore, Google Drive backup (chapter 26).</td></tr>
+  <tr><td>Data &amp; Backup</td><td>Backup now, restore, Google Drive backup (chapter 31).</td></tr>
   <tr><td>Mobile View</td><td>Read-only access from a phone on the shop Wi-Fi.</td></tr>
 </table>
 <figure><img src="shots/settings-invoice.png" alt="Invoice design"><figcaption>Invoice Design: the preview is exactly what prints.</figcaption></figure>
@@ -496,8 +592,20 @@
 <figure><img src="shots/settings-mobile.png" alt="Mobile view"><figcaption>Mobile View: switch on, scan the QR code, sign in with the same login.</figcaption></figure>
 <p>Switch Mobile View on, scan the QR code with a phone on the <b>same Wi-Fi</b>, sign in with your desktop login, and add the page to the home screen. You can see today's sales, stock, any khata, the day book and dues. Nothing can be changed from the phone, and nothing is reachable from outside the shop network.</p>
 
-<!-- ───────────────────────────── 26 ───────────────────────────── -->
-<h2 id="c26"><span class="no">26</span>Backup — every single evening</h2>
+<h3>Who can do what</h3>
+<table>
+  <tr><th>Work</th><th>Staff</th><th>Manager</th><th>Owner</th></tr>
+  <tr><td>Bill, park a bill, take money, count stock, count the drawer</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Repairs; make and receive a hallmarking batch</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Reserve a piece, issue or close a memo, dispatch hallmarking</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Approve and close a stock count</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Approve or reopen a day, match settlements</td><td>—</td><td>—</td><td>Yes</td></tr>
+  <tr><td>Catalogue, settings, delete documents, restore a backup</td><td>—</td><td>—</td><td>Yes</td></tr>
+</table>
+<p>Each of these is recorded with the name of the person signed in, so every change can be traced to who made it.</p>
+
+<!-- ───────────────────────────── 31 ───────────────────────────── -->
+<h2 id="c31"><span class="no">31</span>Backup — every single evening</h2>
 <p class="sub">The one habit that matters more than all the others.</p>
 <ol class="steps">
   <li><span class="ui">Settings → Data &amp; Backup → Backup Now</span>. Save it to a <b>pen drive</b> you take home.</li>
@@ -513,8 +621,8 @@
   <li><b>All practice entries, before the real books start:</b> <span class="ui">Settings → Data &amp; Backup → Clear All Entries</span> (Owner only). Type <b>DELETE</b> to confirm. Every bill, purchase, tag, stock entry, order, scheme, voucher and khata entry goes, with all customers and suppliers; bill and tag numbers start again from 1. Shop details, logins, items, accounts, rates and settings stay. A <b>before-clear</b> copy is saved first — restore it to undo.</li>
 </ul>
 
-<!-- ───────────────────────────── 27 ───────────────────────────── -->
-<h2 id="c27"><span class="no">27</span>Printing the barcode tags</h2>
+<!-- ───────────────────────────── 32 ───────────────────────────── -->
+<h2 id="c32"><span class="no">32</span>Printing the barcode tags</h2>
 <p class="sub">Tag &amp; Barcode → tick pieces → Print labels.</p>
 <ul>
   <li><b>TSC 100 × 15 mm tag</b> (the default): the jewellery rat-tail tag on the TSC TL240. The barcode, tag number, item, purity and weights print in the head; the thin tail that wraps the piece is left blank. In the printer driver set the paper size to 100 × 15 mm and let the app's page size through.</li>
@@ -526,8 +634,8 @@
 <div class="box"><div class="t">If the bottom of an A4 bill is cut</div>The bill is sent to the printer as A4. If it still stops short, open the printer's own settings in Windows and set its default paper to A4 rather than Letter, and turn off any "fit to page" or "scale" option in the driver. <b>Save PDF</b> on the same bill always gives a full page — print that PDF once to confirm the bill itself is complete.</div>
 <div class="box"><div class="t">If the bottom of a label is cut</div>Check the driver's paper size is 100 × 15 with no margin. The tag layout leaves clear space above and below, so a cut label means the printer is feeding late — recalibrate the gap sensor on the TL240.</div>
 
-<!-- ───────────────────────────── 28 ───────────────────────────── -->
-<h2 id="c28"><span class="no">28</span>How every number is worked out</h2>
+<!-- ───────────────────────────── 33 ───────────────────────────── -->
+<h2 id="c33"><span class="no">33</span>How every number is worked out</h2>
 <p class="sub">So no figure on a bill is ever a mystery.</p>
 <h3>Weights</h3>
 <pre>Net Weight  = Gross − Stone − Beads − Bag
@@ -556,8 +664,8 @@ Labour owed to him   = Net received × Making rate − TDS</pre>
 <pre>Money khata   Dr = they owe you        Cr = you owe them
 Gold khata    Dr = they owe you grams  Cr = you owe them grams</pre>
 
-<!-- ───────────────────────────── 29 ───────────────────────────── -->
-<h2 id="c29"><span class="no">29</span>When a figure looks wrong</h2>
+<!-- ───────────────────────────── 34 ───────────────────────────── -->
+<h2 id="c34"><span class="no">34</span>When a figure looks wrong</h2>
 <p class="sub">Before you worry — the usual, ordinary reasons.</p>
 <table>
   <tr><th>What you see</th><th>Usually because</th></tr>
@@ -569,12 +677,12 @@ Gold khata    Dr = they owe you grams  Cr = you owe them grams</pre>
   <tr><td>A purchase shows "… g to label" forever</td><td>The metal was sold untagged without naming the purchase, or tagged with All loose metal. Both are fine; the tally only tracks what was tied to the invoice.</td></tr>
   <tr><td>Old gold bill refuses to save</td><td>A walk-in with no customer must be paid in full; a balance needs a customer's khata to sit on.</td></tr>
   <tr><td>A scheme benefit has not shown</td><td>It is added only once every instalment is in and the maturity date has passed.</td></tr>
-  <tr><td>The label prints with the bottom cut</td><td>Printer paper size or gap calibration — chapter 27.</td></tr>
+  <tr><td>The label prints with the bottom cut</td><td>Printer paper size or gap calibration — chapter 32.</td></tr>
 </table>
 <p>Whatever it is, your evening backups mean you can always step back to yesterday.</p>
 
-<!-- ───────────────────────────── 30 ───────────────────────────── -->
-<h2 id="c30"><span class="no">30</span>Keyboard shortcuts and words used</h2>
+<!-- ───────────────────────────── 35 ───────────────────────────── -->
+<h2 id="c35"><span class="no">35</span>Keyboard shortcuts and words used</h2>
 <div class="two">
 <div>
 <h3>Shortcuts</h3>
@@ -608,7 +716,7 @@ Gold khata    Dr = they owe you grams  Cr = you owe them grams</pre>
 </table>
 </div>
 </div>
-<p class="meta" style="margin-top:40px;color:var(--ink-3)">Parivar Jewellery ERP · Shop Owner's Manual · Version 1.26. Keep the daily backup, count the drawer each night, and reconcile against your old book for the first month. Do those three things and the rest looks after itself.</p>
+<p class="meta" style="margin-top:40px;color:var(--ink-3)">Parivar Jewellery ERP · Shop Owner's Manual · Version 1.29. Keep the daily backup, count the drawer each night, and reconcile against your old book for the first month. Do those three things and the rest looks after itself.</p>
 
 </div>
 </body>
