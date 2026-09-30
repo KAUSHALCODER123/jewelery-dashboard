@@ -29,7 +29,10 @@ const { tradingHistory } = require('./history.cjs')
 
 const ROOT = path.join(__dirname, '..', '..')
 const PART = process.env.DEMO_PART || '1'
-const OUT_DIR = path.join(ROOT, 'demo', 'tour')
+// Another film can reuse this recorder: its own scene file and output folder.
+//   TOUR_SCENES=scripts/demo/howto-invoice-design.cjs TOUR_DIR=demo/howto-invoice-design
+const OUT_DIR = path.resolve(ROOT, process.env.TOUR_DIR || path.join('demo', 'tour'))
+const FILM = require(process.env.TOUR_SCENES ? path.resolve(ROOT, process.env.TOUR_SCENES) : './tour-scenes.cjs')
 const SHOTS = path.join(ROOT, 'docs', 'shots')
 const WORK = fs.mkdtempSync(path.join(os.tmpdir(), `parivar-tour-${PART}-`))
 const FRAMES = path.join(WORK, 'frames')
@@ -96,6 +99,36 @@ window.__cap = (title, text) => {
     'color:#f2c14e;font-weight:700;margin-bottom:3px">' + title + '</div>' +
     '<div style="font-size:17px;font-weight:600">' + text + '</div>'
 }
+/* Scroll whatever holds this element until it sits mid-screen. */
+window.__t.into = (sel) => {
+  const el = typeof sel === 'string' ? document.querySelector(sel) : sel
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  return el
+}
+/* What print:html was handed, shown over the app (films with printPreview). */
+window.__printPreview = (html) => {
+  let d = document.getElementById('__print')
+  if (!d) {
+    d = document.createElement('div')
+    d.id = '__print'
+    d.style.cssText = 'position:fixed;inset:0;z-index:99990;background:rgba(15,15,20,.72);' +
+      'display:flex;flex-direction:column;align-items:center;padding:18px 0 100px'
+    document.body.appendChild(d)
+  }
+  d.innerHTML = '<div style="color:#fff;font:600 14px Segoe UI,Arial;letter-spacing:.06em;' +
+    'text-transform:uppercase;margin-bottom:10px">Sent to the printer</div>'
+  const f = document.createElement('iframe')
+  f.style.cssText = 'width:820px;flex:1;border:0;border-radius:6px;background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.5)'
+  f.srcdoc = html
+  d.appendChild(f)
+  d.style.display = 'flex'
+}
+window.__printScroll = (frac) => {
+  const f = document.querySelector('#__print iframe')
+  const el = f && f.contentDocument && f.contentDocument.scrollingElement
+  if (el) el.scrollTo({ top: (el.scrollHeight - el.clientHeight) * frac, behavior: 'smooth' })
+}
+window.__printClose = () => { const d = document.getElementById('__print'); if (d) d.style.display = 'none' }
 window.__capHide = () => { const d = document.getElementById('__cap'); if (d) d.style.display = 'none' }
 /* Full-screen chapter card, shown for a moment between features. */
 window.__card = (num, title, sub) => {
@@ -140,7 +173,13 @@ app.whenReady().then(async () => {
       })
   const pkg = require('../../package.json')
   ipcMain.handle('app:info', () => ({ version: pkg.version, dataDir: tmp }))
-  for (const c of ['print:html', 'print:pdf', 'file:saveText']) ipcMain.handle(c, () => ({ ok: true }))
+  let win = null
+  for (const c of ['print:html', 'print:pdf', 'file:saveText']) ipcMain.handle(c, (_e, p) => {
+    // A how-to film shows the sheet the app would print; the tour just carries on.
+    if (c === 'print:html' && FILM.printPreview && win && p?.html)
+      win.webContents.executeJavaScript(`window.__printPreview(${JSON.stringify(p.html)})`).catch(() => {})
+    return { ok: true }
+  })
   ipcMain.handle('gdrive:status', () => ({ ok: true, data: { configured: false, connected: false } }))
   ipcMain.handle('gdrive:listBackups', () => ({ ok: true, data: [] }))
   for (const c of ['send:whatsapp', 'send:sms', 'send:email']) ipcMain.handle(c, () => ({ ok: true }))
@@ -154,7 +193,7 @@ app.whenReady().then(async () => {
   try { tradingHistory(api, S) } catch (e) { console.log('history:', e.message) }
   const today = new Date().toISOString().slice(0, 10)
   const ringId = api.item.list({ search: 'Ring' })[0]?.id
-  const { scenes, parts, seedMore } = require('./tour-scenes.cjs')
+  const { scenes, parts, seedMore } = FILM
   const types = api.itemType.list(); const groups = api.itemGroup.list()
   const ids = { today, ringId, pendantId: null,
     goldTypeId: types.find((t) => t.name === 'Gold')?.id, g22Id: groups.find((g) => g.name === '22K Gold')?.id }
@@ -171,6 +210,7 @@ app.whenReady().then(async () => {
       contextIsolation: true, sandbox: false,
     },
   })
+  win = w
   await w.loadFile(path.join(ROOT, 'dist', 'index.html'))
   await new Promise((r) => setTimeout(r, 2500))
   await w.webContents.executeJavaScript(HELPERS)
@@ -233,7 +273,7 @@ app.whenReady().then(async () => {
 
     // Chapter card, then the scene.
     if (scene.title) {
-      await js(`__capHide(); __card(${JSON.stringify(`Part ${chapterNo}`)}, ${JSON.stringify(scene.title)}, ${JSON.stringify(scene.sub || '')})`)
+      await js(`__capHide(); __card(${JSON.stringify(scene.num || `Part ${chapterNo}`)}, ${JSON.stringify(scene.title)}, ${JSON.stringify(scene.sub || '')})`)
       await new Promise((r) => setTimeout(r, 2600))
       await js(`__cardHide()`)
     }

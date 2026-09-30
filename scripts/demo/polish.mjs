@@ -23,7 +23,7 @@ import { createRequire } from 'node:module'
 const require = createRequire(import.meta.url)
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(HERE, '..', '..')
-const DIR = path.join(ROOT, 'demo', 'tour')
+const DIR = path.resolve(ROOT, process.env.TOUR_DIR || path.join('demo', 'tour'))
 
 const args = process.argv.slice(2)
 const musicIdx = args.indexOf('--music')
@@ -40,7 +40,7 @@ const probe = (f) => Number(execFileSync('ffprobe', ['-v', 'error', '-show_entri
 const f3 = (n) => n.toFixed(3)
 
 /* ── timeline: chapters with absolute source times ── */
-const { scenes } = require('./tour-scenes.cjs')
+const { scenes } = require(process.env.TOUR_SCENES ? path.resolve(ROOT, process.env.TOUR_SCENES) : './tour-scenes.cjs')
 const parts = fs.readdirSync(DIR)
   .filter((f) => /^part-\d+\.json$/.test(f))
   .map((f) => JSON.parse(fs.readFileSync(path.join(DIR, f), 'utf8')))

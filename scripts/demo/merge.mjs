@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(HERE, '..', '..')
-const DIR = path.join(ROOT, 'demo', 'tour')
+const DIR = path.resolve(ROOT, process.env.TOUR_DIR || path.join('demo', 'tour'))
 const OUT = path.resolve(process.argv[2] || path.join(ROOT, 'demo', 'parivar-full-tour.mp4'))
 
 const parts = fs.readdirSync(DIR)
