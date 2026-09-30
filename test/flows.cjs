@@ -388,6 +388,8 @@ app.whenReady().then(async () => {
     // ── 7. Stock verification scan ────────────────────────────────────
     head('7. Stock Verification — scan flow')
     await nav('Stock Verification')
+    // A count is now a saved session: start one, then scan into it.
+    await js(`const b=[...document.querySelectorAll('button')].find(x=>/Start Count/.test(x.textContent)); if(b) b.click(); await __t.wait(900)`)
     const scanResult = await js(`
       const box = document.querySelector('input.mono')
       __t.set(box, 'CHA00001')
@@ -405,7 +407,8 @@ app.whenReady().then(async () => {
     check('scanned row turns green', scanResult.found, 1)
     ok('unscanned rows stay red', scanResult.missing > 0)
     check('found counter', scanResult.tiles[1], '1')
-    ok('unknown tag flagged separately', scanResult.extras.includes('BOGUS999'))
+    // The badge now also says why it is extra: "BOGUS999 · Unknown tag".
+    ok('unknown tag flagged separately', scanResult.extras.some((t) => t.startsWith('BOGUS999')))
     const itemWise = await js(`
       const card = [...document.querySelectorAll('.card')].find(c => c.querySelector('.card-title')?.textContent === 'Item-wise')
       return card ? card.querySelectorAll('tbody tr').length : 0`)
@@ -730,7 +733,8 @@ app.whenReady().then(async () => {
     check('the row became editable', edited.editable, 6)
     ok('net recomputes as you type', /9\.000/.test(edited.text))
     ok('the changed row is marked', edited.marked)
-    await js(`__t.click('Save'); await __t.wait(1200)`)
+    // The grid's own Save (it shows the edit count), not "Save current view".
+    await js(`const b=[...document.querySelectorAll('button')].find(x=>{const t=x.textContent.trim(); return t==='Save' || t.startsWith('Save (')}); if(!b) throw new Error('no Save'); b.click(); await __t.wait(1200)`)
     const after = api.tagStock.list({ status: 'IN_STOCK' }).find((t) => t.tag === 'PEN00001')
     check('gross weight saved', after?.gross_wt, 9)
     check('purity saved', after?.purity, 75)

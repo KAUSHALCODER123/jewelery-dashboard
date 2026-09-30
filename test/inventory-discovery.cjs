@@ -36,7 +36,7 @@ app.whenReady().then(()=>{
     assert.equal(api.tagStock.page({search:'absent',page:99}).page,1)
     assert.equal(api.tagStock.page({...query,page:9999}).page,400)
     assert.throws(()=>api.tagStock.page({minWeight:10,maxWeight:2}),/Minimum/)
-    assert.throws(()=>api.tagStock.page({minWeight:'invalid'}),/numbers/)
+    assert.throws(()=>api.tagStock.page({minWeight:'invalid'}),/number/)
     assert.equal(api.tagStock.page({huid:'MISSING',page:1}).total,0)
     assert.equal(api.tagStock.page({metal:'Silver',page:1}).total,0)
     const facets=api.tagStock.facets()

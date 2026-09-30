@@ -68,6 +68,7 @@ export function InventoryFilters({value, onChange, disabled=false}: {value:Recor
     designId:(designs.data||[]).map(d=>({value:String(d.id),label:d.name})),
     ...Object.fromEntries(Object.entries(facets.data||{}).map(([k,vs])=>[k,vs.map(v=>({value:v,label:v}))])),
     huid:[{value:'PRESENT',label:'Recorded'},{value:'MISSING',label:'Missing'}],
+    availability:[{value:'AVAILABLE',label:'Available to sell'},{value:'ON_HOLD',label:'On hold'}],
     sort:[{value:'tag',label:'Tag'},{value:'name',label:'Item name'},{value:'weight',label:'Net weight ↑'},{value:'newest',label:'Newest first'},{value:'oldest',label:'Oldest first'},{value:'tray',label:'Shelf / tray'}],
   }
   return <div className="card inventory-filters">

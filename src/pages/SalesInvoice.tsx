@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import {
   Autocomplete, Check, Confirm, Field, Input, Modal, Segmented, Select,
-  useAction, useAsync, useToast,
+  useAction, useAsync,
 } from '../lib/ui'
 import { num, saleTotals } from '../lib/calc'
 import { drcr, money, todayISO, wt } from '../lib/format'
@@ -81,8 +81,8 @@ const ITEM_COLS: GridCol[] = [
   { key: 'item_total', label: 'Line Total', width: 96 },
 ]
 
-export default function SalesInvoice({ go, saleId, partyId }: {
-  go: (n: string, p?: any) => void; saleId?: number; partyId?: number
+export default function SalesInvoice({ go, saleId, partyId, openParked }: {
+  go: (n: string, p?: any) => void; saleId?: number; partyId?: number; openParked?: boolean
 }) {
   const run = useAction()
   const grid = useGridCols('sale.items', ITEM_COLS)
@@ -108,12 +108,12 @@ export default function SalesInvoice({ go, saleId, partyId }: {
   const [cardAcc, setCardAcc] = useState<any>(null)
   const [showUrd, setShowUrd] = useState(false)
   const [newCust, setNewCust] = useState<any>(null)
-  // T06 — parked bills
-  const [parkedOpen, setParkedOpen] = useState(false)
-  const [parkedList, setParkedList] = useState<any[]>([])
-  const [parkedPage, setParkedPage] = useState(1)
-  const [parkedTotal, setParkedTotal] = useState(0)
-  const [parkedLoading, setParkedLoading] = useState(false)
+  // T06 — parked bills. `parked` is the draft this screen was resumed from;
+  // saving bills it through parked.finalize so it can only become one sale.
+  const [parked, setParked] = useState<{ id: number; revision: number } | null>(null)
+  const [parkedOpen, setParkedOpen] = useState(!!openParked)
+  const [parkedCount, setParkedCount] = useState(0)
+  const [resumeAsk, setResumeAsk] = useState<any>(null)
   // Reverse calculation: the figure the customer named, and what the fit did.
   const [targetAmount, setTargetAmount] = useState('')
   const [fitNote, setFitNote] = useState('')
@@ -395,53 +395,56 @@ export default function SalesInvoice({ go, saleId, partyId }: {
     )
   })
 
-  // T06 — parked bill helpers
-  const loadParked = async (page = 1) => {
-    setParkedLoading(true); setParkedPage(page)
-    try {
-      const res = await window.api.parked.list({ page, pageSize: 20 })
-      setParkedList(res.rows || [])
-      setParkedTotal(res.total || 0)
-    } finally { setParkedLoading(false) }
-  }
+  // T06 — parked bills: set a half-made bill aside, serve the next customer,
+  // come back to it later. Parking takes no bill number and holds no stock.
+  const refreshParkedCount = useCallback(() => {
+    window.api.parked.list({ pageSize: 10 }).then((r: any) => setParkedCount(r.total || 0)).catch(() => {})
+  }, [])
+  useEffect(() => { refreshParkedCount() }, [refreshParkedCount])
+
+  const hasWork = items.some((r) => r.item_name) || urds.some((u) => num(u.gross_wt) > 0)
 
   const parkCurrent = async () => {
-    const filled = items.filter((r) => r.item_name && (num(r.gross_wt) > 0 || num(r.qty) > 0))
-    if (!filled.length) return toast.push('error', 'Nothing to park — add at least one item')
+    const filled = items.filter((r) => r.item_name)
+    if (!filled.length) {
+      await run(async () => { throw new Error('Nothing to park — add at least one item') })
+      return
+    }
     const draft = {
       head: { ...head, party_name: head.party_name || custQuery },
-      items: filled,
-      urds: urds.filter((u) => num(u.gross_wt) > 0),
-      metals: head.weightwise ? computed.metals : [],
-      payments: payments.filter((p) => num(p.amount) > 0),
+      items: filled, urds, metals, payments, showUrd,
     }
-    const res = await window.api.parked.park({ draft, actor: 'user' })
-    if (res) {
-      toast.push('success', 'Bill parked')
-      setParkedKey(k => k + 1) // refresh modal
-    }
+    const res = await run(() => window.api.parked.park({ id: parked?.id, revision: parked?.revision, draft }), 'Bill parked')
+    // A fresh route remounts the page: blank bill for the next customer.
+    if (res) go('sales.new', { fresh: Date.now() })
   }
 
-  const resumeParked = async (p: any) => {
-    if (!confirm('Resume this parked bill? Current changes will be lost.')) return
+  const resumeParked = async (row: any) => {
+    const p = await run(() => window.api.parked.read({ id: row.id }))
+    if (!p) return
+    if (p.status !== 'PARKED') { refreshParkedCount(); return run(async () => { throw new Error(`That bill was already ${p.status.toLowerCase()}`) }) }
     const d = p.draft || {}
-    if (d.head) setHead((h: any) => ({ ...h, ...d.head, id: null }))
-    if (Array.isArray(d.items)) setItems(d.items)
-    if (Array.isArray(d.urds)) setUrds(d.urds)
-    if (Array.isArray(d.metals)) setMetals(d.metals)
-    if (Array.isArray(d.payments)) setPayments(d.payments)
+    // Keep this screen's reserved number; a different series re-reserves its own.
+    setHead({ ...blankHead(), ...(d.head || {}), id: undefined,
+      bill_no: (d.head?.prefix ?? head.prefix) === head.prefix ? head.bill_no : '' })
+    setItems(Array.isArray(d.items) && d.items.length ? d.items : [blankItem()])
+    setUrds(Array.isArray(d.urds) ? d.urds : [])
+    setMetals(Array.isArray(d.metals) ? d.metals : [])
+    setPayments(Array.isArray(d.payments) ? d.payments : [])
+    setShowUrd(!!d.showUrd || (Array.isArray(d.urds) && d.urds.length > 0))
     setCustQuery(d.head?.party_name || '')
-    setParkedOpen(false)
-    toast.push('success', 'Parked bill resumed')
+    setCustBalance(null); setLoyalty(null); setSchemes([])
+    if (d.head?.party_id) {
+      const id = d.head.party_id
+      window.api.party.balance({ id }).then((b: any) => setCustBalance(b.balance)).catch(() => {})
+      window.api.party.loyaltyBalance({ id }).then(setLoyalty).catch(() => {})
+      window.api.gss.accounts({ party_id: id, closed: 0 }).then(setSchemes).catch(() => {})
+    }
+    setParked({ id: p.id, revision: p.revision })
+    setParkedOpen(false); setResumeAsk(null)
   }
+  const askResume = (row: any) => (hasWork && !parked ? setResumeAsk(row) : resumeParked(row))
 
-  const discardParked = async (id: number) => {
-    if (!confirm('Discard this parked bill?')) return
-    await window.api.parked.discard({ id, actor: 'user' })
-    setParkedKey(k => k + 1)
-    toast.push('success', 'Parked bill discarded')
-  }
-  // Reverse calculation: the figure the customer named, and what the fit did.
   const validate = () => {
     const filled = items.filter((r) => r.item_name && (num(r.gross_wt) > 0 || num(r.qty) > 0 ||
       (head.direct_amount && num(r.entered_amount) > 0)))
@@ -460,7 +463,7 @@ export default function SalesInvoice({ go, saleId, partyId }: {
     setBusy(true)
     const res = await run(async () => {
       const filled = validate()
-      return window.api.sale.save({
+      const sale = {
         head: {
           ...head, party_name: head.party_name || custQuery,
           gss_id: head.gss_id ? Number(head.gss_id) : null,
@@ -469,7 +472,15 @@ export default function SalesInvoice({ go, saleId, partyId }: {
         urds: urds.filter((u) => num(u.gross_wt) > 0),
         metals: head.weightwise ? computed.metals : [],
         payments: payments.filter((p) => num(p.amount) > 0),
-      })
+      }
+      // A resumed parked bill is billed once: pressing Save again, or saving it
+      // from a second counter, returns the same bill instead of a second one.
+      if (parked && !head.id) {
+        const r = await window.api.parked.finalize({ id: parked.id, revision: parked.revision, sale })
+        setParked(null)
+        return r
+      }
+      return window.api.sale.save(sale)
     }, 'Bill saved')
     setBusy(false)
     return res
@@ -1135,7 +1146,19 @@ export default function SalesInvoice({ go, saleId, partyId }: {
       {/* ── Actions ────────────────────────────────────────── */}
       <div className="sticky-actions">
         {head.id && <span className="badge badge-info">Editing {head.bill_no}</span>}
+        {parked && <span className="badge badge-gold">Resumed parked bill #{parked.id}</span>}
         <button className="btn" onClick={reset}><Icon.plus /> New Bill</button>
+        {!head.id && (
+          <button className="btn" onClick={parkCurrent} disabled={busy || !hasWork}
+            title="Set this bill aside and serve the next customer">
+            <Icon.bookmark /> Park
+          </button>
+        )}
+        {!head.id && (
+          <button className="btn" onClick={() => setParkedOpen(true)}>
+            <Icon.history /> Parked{parkedCount ? ` (${parkedCount})` : ''}
+          </button>
+        )}
         <span className="spacer" />
         {head.id && (
           <button className="btn btn-danger" onClick={() => setConfirmDel(true)}>
@@ -1160,6 +1183,17 @@ export default function SalesInvoice({ go, saleId, partyId }: {
         </button>
       </div>
 
+      {parkedOpen && (
+        <ParkedBills onClose={() => setParkedOpen(false)} onResume={askResume}
+          onChanged={refreshParkedCount} current={parked?.id} />
+      )}
+
+      {resumeAsk && (
+        <Confirm title="Resume the parked bill?" confirmLabel="Resume" danger={false}
+          message="The bill on screen has not been saved. Park it first if you want to keep it — resuming replaces it."
+          onConfirm={() => resumeParked(resumeAsk)} onCancel={() => setResumeAsk(null)} />
+      )}
+
       {confirmDel && (
         <Confirm title="Delete this bill?"
           message="Sold tags will return to stock and all ledger postings will be reversed."
@@ -1179,6 +1213,57 @@ export default function SalesInvoice({ go, saleId, partyId }: {
 }
 
 /* ── small pieces ─────────────────────────────────────────── */
+
+/** Bills set aside at the counter, newest first. */
+function ParkedBills({ onClose, onResume, onChanged, current }: {
+  onClose: () => void; onResume: (row: any) => void; onChanged: () => void; current?: number
+}) {
+  const run = useAction()
+  const [page, setPage] = useState(1)
+  const [nonce, setNonce] = useState(0)
+  const [discard, setDiscard] = useState<any>(null)
+  const list = useAsync(() => window.api.parked.list({ page, pageSize: 20 }), [page, nonce])
+  const rows = list.data?.rows || []
+  return (
+    <Modal title="Parked bills" wide onClose={onClose}
+      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Close</button></>}>
+      {list.error && <div className="note" role="alert">{list.error}</div>}
+      <table className="data">
+        <thead><tr><th>#</th><th>Parked</th><th>Customer</th><th>Items</th><th className="r">Gross Wt</th><th>By</th><th /></tr></thead>
+        <tbody>
+          {rows.map((r: any) => (
+            <tr key={r.id}>
+              <td className="mono">{r.id}</td>
+              <td className="small">{String(r.updated_at || '').slice(0, 16)}</td>
+              <td>{r.party_name || <span className="muted">Walk-in</span>}</td>
+              <td className="small">{r.lines} · {r.item_names}</td>
+              <td className="r num">{wt(r.gross_wt)}</td>
+              <td className="small muted">{r.owner}</td>
+              <td className="r" style={{ whiteSpace: 'nowrap' }}>
+                <button className="btn btn-sm btn-primary" disabled={r.id === current} onClick={() => onResume(r)}>
+                  {r.id === current ? 'On screen' : 'Resume'}
+                </button>
+                <button className="btn btn-sm btn-ghost" disabled={r.id === current} onClick={() => setDiscard(r)}>Discard</button>
+              </td>
+            </tr>
+          ))}
+          {!list.loading && !rows.length && <tr><td colSpan={7} className="muted">No parked bills.</td></tr>}
+        </tbody>
+      </table>
+      <Pagination data={list.data} onPage={setPage} disabled={list.loading} />
+      {discard && (
+        <Confirm title="Discard this parked bill?" confirmLabel="Discard"
+          message="Nothing was billed or taken from stock, so nothing else changes."
+          onCancel={() => setDiscard(null)}
+          onConfirm={async () => {
+            const ok = await run(() => window.api.parked.discard({ id: discard.id }), 'Parked bill discarded')
+            setDiscard(null)
+            if (ok !== undefined) { setNonce((n) => n + 1); onChanged() }
+          }} />
+      )}
+    </Modal>
+  )
+}
 
 function Row({ k, v, cls = '' }: { k: string; v: string; cls?: string }) {
   return (

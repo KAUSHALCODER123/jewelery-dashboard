@@ -1909,6 +1909,8 @@ const sale = {
          @net_wt,@rate_per_gm,@mkg_per_gm,@mkg_pct,@mkg_amount,@total_amount,
          @hallmark_charges,@huid,@item_total,@purchase_id,@entered_amount)`
       )
+      // Expired holds are released once per bill, not once per line.
+      if (computed.items.some((l) => l.tag_stock_id)) erp.availability.sweepExpired(db, 'system')
       computed.items.forEach((l, i) => {
         // A tag_stock_id that names no piece would trip the line's foreign key
         // and surface as a bare "FOREIGN KEY constraint failed". Catch it here
@@ -1993,11 +1995,8 @@ const sale = {
           // T05/T11 final saleability: re-check holds AND status at save time.
           // Lookup-time availability is not enough — a hold placed after the
           // picker opened must still block the bill.
-          try {
-            erp.availability.sweepExpired(db, 'system');
-            const cur0 = db.prepare(`SELECT * FROM tag_stock WHERE id=?`).get(l.tag_stock_id);
-            if (cur0) erp.availability.assertSaleable(db, cur0);
-          } catch (e) { throw e; }
+          const cur0 = db.prepare(`SELECT * FROM tag_stock WHERE id=?`).get(l.tag_stock_id)
+          if (cur0) erp.availability.assertSaleable(db, cur0)
           // A physical piece can only be sold once. If it is no longer in stock the
           // UPDATE matches nothing — refuse the bill rather than silently double-sell.
           const res = db.prepare(
@@ -5935,21 +5934,26 @@ module.exports = {
     request: erp.approvals.request, decide: erp.approvals.decide, cancel: erp.approvals.cancel, list: erp.approvals.list,
   },
   holds: {
-    place: (p) => { const { get: getDb } = require('./db.cjs'); const db = getDb(); return erp.availability.placeHold(db, p) },
-    release: (p) => { const { get: getDb } = require('./db.cjs'); const db = getDb(); return erp.availability.releaseHold(db, p) },
-    sweep: () => { const { get: getDb } = require('./db.cjs'); return erp.availability.sweepExpired(getDb(), 'system') },
+    place: (p) => erp.availability.placeHold(get(), p),
+    release: (p) => erp.availability.releaseHold(get(), p),
+    sweep: () => erp.availability.sweepExpired(get(), 'system'),
   },
-  parked: { list: erp.parkedBills.list, read: erp.parkedBills.read, park: erp.parkedBills.park, discard: erp.parkedBills.discard },
+  parked: {
+    list: erp.parkedBills.list, read: erp.parkedBills.read, park: erp.parkedBills.park,
+    discard: erp.parkedBills.discard, finalize: erp.parkedBills.finalize,
+  },
   stockCount: {
     create: erp.stockCounts.create, read: erp.stockCounts.read, list: erp.stockCounts.list,
     scan: erp.stockCounts.scan, setStatus: erp.stockCounts.setStatus, discrepancies: erp.stockCounts.discrepancies,
+    sheet: erp.stockCounts.sheet,
   },
   closing: {
     open: erp.closing.open, read: erp.closing.read, list: erp.closing.list, saveCount: erp.closing.saveCount,
+    saveCounts: erp.closing.saveCounts,
     match: erp.closing.matchSettlement, submit: erp.closing.submit, approve: erp.closing.approve, reopen: erp.closing.reopen,
   },
   repairs: {
-    create: erp.repairs.create, read: erp.repairs.read, list: erp.repairs.list,
+    create: erp.repairs.create, update: erp.repairs.update, read: erp.repairs.read, list: erp.repairs.list,
     transition: erp.repairs.transition, addAttachment: erp.repairs.addAttachment,
   },
   reservations: {
@@ -5959,11 +5963,11 @@ module.exports = {
   memos: { issue: erp.custody.issueMemo, close: erp.custody.closeMemo, list: erp.custody.listMemos },
   hallmark: {
     create: erp.hallmarking.create, read: erp.hallmarking.read, list: erp.hallmarking.list,
-    dispatch: erp.hallmarking.dispatch, receive: erp.hallmarking.receive,
+    dispatch: erp.hallmarking.dispatch, cancel: erp.hallmarking.cancel, receive: erp.hallmarking.receive,
   },
   catalogue: {
     categories: erp.catalogue.listCategories, saveCategory: erp.catalogue.saveCategory,
-    saveAlias: erp.catalogue.saveAlias, aliasSearch: erp.catalogue.searchWithAliases,
+    saveAlias: erp.catalogue.saveAlias, removeAlias: erp.catalogue.removeAlias, aliasSearch: erp.catalogue.searchWithAliases,
     previewCsv: erp.catalogue.previewCatalogueCsv, commitCsv: erp.catalogue.commitCatalogueCsv,
     mergeItems: erp.catalogue.mergeItems, unresolved: erp.catalogue.unresolvedValues,
   },

@@ -19,7 +19,16 @@ function open(userDataDir) {
   db.exec(`CREATE INDEX IF NOT EXISTS idx_stock_discovery ON tag_stock(status,item_id,net_wt);
     CREATE INDEX IF NOT EXISTS idx_stock_location ON tag_stock(location,shelf_tray,status);
     CREATE INDEX IF NOT EXISTS idx_stock_huid ON tag_stock(huid COLLATE NOCASE);
-    CREATE INDEX IF NOT EXISTS idx_item_discovery ON item(item_type_id,item_group_id,design_id);`)
+    CREATE INDEX IF NOT EXISTS idx_item_discovery ON item(item_type_id,item_group_id,design_id);
+    -- Scans and exact lookups compare tags case-insensitively; the UNIQUE index
+    -- is binary, so without this every scan read the whole of tag_stock.
+    CREATE INDEX IF NOT EXISTS idx_stock_tag_nocase ON tag_stock(tag COLLATE NOCASE);
+    CREATE INDEX IF NOT EXISTS idx_count_scan_tag ON stock_count_scan(session_id, resolved_tag_id);
+    CREATE INDEX IF NOT EXISTS idx_hold_source ON stock_hold(kind, source_id) WHERE state='ACTIVE';
+    CREATE INDEX IF NOT EXISTS idx_voucher_party ON voucher(party_id, voucher_date);
+    CREATE INDEX IF NOT EXISTS idx_voucher_date ON voucher(voucher_date, kind);
+    CREATE INDEX IF NOT EXISTS idx_metal_party ON metal_entry(party_id, metal);
+    CREATE INDEX IF NOT EXISTS idx_hallmark_item_batch ON hallmark_item(batch_id, outcome);`)
   seed()
   backfillLooseSales()
   return db

@@ -124,6 +124,9 @@ const KEEP_TABLES = [
   'company', 'settings', 'app_user', 'branch', 'grid_pref',
   'item_type', 'item_group', 'design', 'item', 'rate_master', 'metal_rate',
   'account', 'voucher_series', 'gss_scheme',
+  'category', 'item_alias', 'catalogue_batch', 'migration_log',
+  // The audit trail outlives a clear: it is the record that the clear happened.
+  'audit_event',
 ]
 const CLEAR_TABLES = [
   'sale', 'sale_item', 'sale_urd', 'sale_payment', 'sale_metal',
@@ -135,6 +138,13 @@ const CLEAR_TABLES = [
   'gss_account', 'gss_receipt',
   'voucher', 'ledger_entry', 'metal_entry',
   'party', 'party_metal_opening',
+  // ERP R2/R3. Holds, reservations, memos and hallmark lines point at tag_stock,
+  // so they have to go with it or the deferred foreign keys fail the commit.
+  'approval_request', 'stock_hold', 'custody_event', 'parked_bill',
+  'stock_count_session', 'stock_count_expected', 'stock_count_scan', 'stock_count_resolution',
+  'closing_session', 'closing_count', 'payment_settlement', 'settlement_match',
+  'repair_job', 'repair_event', 'repair_attachment',
+  'reservation', 'memo_doc', 'hallmark_batch', 'hallmark_item', 'hallmark_event',
 ]
 
 /**

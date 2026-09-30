@@ -23,19 +23,25 @@ function paginate({ total, page, pageSize }) {
   return { page: pg, pageSize: size, offset: (pg - 1) * size, total }
 }
 
-// Generic document pager: shared predicate → count → page → totals.
+// Which tables carry a status column. The schema cannot change under a
+// running app, so this is asked once per table rather than once per page.
+const statusCols = new Map()
+const hasStatus = (db, table) => {
+  if (!statusCols.has(table))
+    statusCols.set(table, db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === 'status'))
+  return statusCols.get(table)
+}
+
+// Generic document pager: shared predicate → count and totals → page.
 function docPage({ table, dateCol, searchCols, extraWhere, params = {}, totalsCol }) {
   const db = get()
   const clauses = []
   const args = {}
   if (params.from) { clauses.push(`${dateCol}>=@from`); args.from = params.from }
   if (params.to) { clauses.push(`${dateCol}<=@to`); args.to = params.to }
-  if (params.status && params.status !== 'ALL') {
-    // Only applied when the table actually carries a status column.
-    try {
-      const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name)
-      if (cols.includes('status')) { clauses.push(`status=@status`); args.status = params.status }
-    } catch { /* ignore */ }
+  // Only applied when the table actually carries a status column.
+  if (params.status && params.status !== 'ALL' && hasStatus(db, table)) {
+    clauses.push(`status=@status`); args.status = params.status
   }
   if (params.search?.trim()) {
     clauses.push(`(${searchCols.map(c => `${c} LIKE '%'||@search||'%'`).join(' OR ')})`)
@@ -43,17 +49,12 @@ function docPage({ table, dateCol, searchCols, extraWhere, params = {}, totalsCo
   }
   if (extraWhere) clauses.push(extraWhere)
   const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
-  const total = db.prepare(`SELECT COUNT(*) n FROM ${table} ${where}`).get(args).n
-  const pg = paginate({ total, page: params.page, pageSize: params.pageSize })
+  // One pass gives both the count the pager needs and the totals row.
+  const agg = db.prepare(`SELECT COUNT(*) n, ${totalsCol ? `COALESCE(SUM(${totalsCol}),0)` : '0'} v FROM ${table} ${where}`).get(args)
+  const pg = paginate({ total: agg.n, page: params.page, pageSize: params.pageSize })
   const rows = db.prepare(`SELECT * FROM ${table} ${where}
     ORDER BY ${dateCol} DESC, id DESC LIMIT @limit OFFSET @offset`).all({ ...args, limit: pg.pageSize, offset: pg.offset })
-  let totals
-  if (totalsCol) {
-    try {
-      totals = db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(${totalsCol}),0) v FROM ${table} ${where}`).get(args)
-    } catch { totals = { n: total, v: 0 } }
-  }
-  return { rows, ...pg, totals }
+  return { rows, ...pg, totals: totalsCol ? agg : undefined }
 }
 
 const docs = {
@@ -141,30 +142,40 @@ function dashboardV2({ business_date } = {}) {
   }
 }
 
-// T13 — one customer workspace. Reuses authoritative balances; timeline is
-// paginated with typed source links. Money vs metal kept distinct.
+// T13 — one customer workspace. Reuses authoritative balances; the timeline is
+// merged, ordered and paged in SQL so a customer with years of bills loses
+// nothing and the total is exact. Money vs metal kept distinct.
+const TIMELINE = `
+  SELECT 'SALE' type, id, bill_no doc_no, bill_date doc_date, total_amount amount FROM sale WHERE party_id=@p
+  UNION ALL SELECT 'VOUCHER', id, voucher_no, voucher_date, amount FROM voucher WHERE party_id=@p
+  UNION ALL SELECT 'ORDER', id, order_no, order_date, total_amount FROM order_booking WHERE party_id=@p
+  UNION ALL SELECT 'REPAIR', id, '', substr(created_at,1,10), estimate FROM repair_job WHERE customer_id=@p
+  UNION ALL SELECT 'RESERVATION', id, '', substr(created_at,1,10), 0 FROM reservation WHERE customer_id=@p`
 function customerSummary({ party_id, page, pageSize } = {}) {
   const db = get()
   const party = db.prepare(`SELECT * FROM party WHERE id=?`).get(party_id)
   if (!party) throw new Error('Customer not found')
+  const p = { p: party_id }
   const moneyBal = db.prepare(`SELECT COALESCE(SUM(debit-credit),0) v FROM ledger_entry WHERE party_id=?`).get(party_id).v
-  const metals = db.prepare(`SELECT metal, COALESCE(SUM(fine_in-fine_out),0) bal FROM metal_entry WHERE party_id=? GROUP BY metal`).all(party_id)
-  const events = []
-  const push = (rows, type) => rows.forEach(r => events.push({ type, ...r }))
-  push(db.prepare(`SELECT id, bill_no doc_no, bill_date doc_date, total_amount amount FROM sale WHERE party_id=? ORDER BY bill_date DESC, id DESC LIMIT 200`).all(party_id), 'SALE')
-  push(db.prepare(`SELECT id, voucher_no doc_no, voucher_date doc_date, amount FROM voucher WHERE party_id=? ORDER BY voucher_date DESC, id DESC LIMIT 200`).all(party_id), 'VOUCHER')
-  push(db.prepare(`SELECT id, order_no doc_no, order_date doc_date, total_amount amount FROM order_booking WHERE party_id=? ORDER BY order_date DESC LIMIT 100`).all(party_id), 'ORDER')
-  try {
-    push(db.prepare(`SELECT id, '' doc_no, created_at doc_date, estimate amount FROM repair_job WHERE customer_id=? ORDER BY id DESC LIMIT 100`).all(party_id), 'REPAIR')
-    push(db.prepare(`SELECT id, '' doc_no, created_at doc_date, 0 amount FROM reservation WHERE customer_id=? ORDER BY id DESC LIMIT 100`).all(party_id), 'RESERVATION')
-  } catch { /* tables may predate migration on odd fixtures */ }
-  events.sort((a, b) => String(b.doc_date || '').localeCompare(String(a.doc_date || '')) || (b.id - a.id))
-  const total = events.length
+  // Same sign and opening as reports.metalOutstanding: positive is Dr (fine
+  // they owe the shop), so this screen never disagrees with the gold khata.
+  const metals = db.prepare(`SELECT metal, ROUND(SUM(bal),3) bal FROM (
+      SELECT metal, weight * (CASE dr_cr WHEN 'Dr' THEN 1 ELSE -1 END) bal FROM party_metal_opening WHERE party_id=@p
+      UNION ALL SELECT metal, fine_out - fine_in FROM metal_entry WHERE party_id=@p)
+    GROUP BY metal HAVING ABS(SUM(bal)) > 0.0005 ORDER BY metal`).all(p)
+  const total = db.prepare(`SELECT COUNT(*) n FROM (${TIMELINE})`).get(p).n
   const pg = paginate({ total, page, pageSize: pageSize || 50 })
-  const timeline = events.slice(pg.offset, pg.offset + pg.pageSize)
+  const timeline = db.prepare(`SELECT * FROM (${TIMELINE}) ORDER BY doc_date DESC, id DESC LIMIT @limit OFFSET @offset`)
+    .all({ ...p, limit: pg.pageSize, offset: pg.offset })
+  const open = db.prepare(`SELECT
+      (SELECT COUNT(*) FROM order_booking WHERE party_id=@p AND status NOT IN ('DELIVERED','CANCELLED')) orders,
+      (SELECT COALESCE(SUM(advance_amount),0) FROM order_booking WHERE party_id=@p AND status NOT IN ('DELIVERED','CANCELLED')) advance,
+      (SELECT COUNT(*) FROM gss_account WHERE party_id=@p AND closed=0) schemes,
+      (SELECT COUNT(*) FROM repair_job WHERE customer_id=@p AND status NOT IN ('DELIVERED','CANCELLED')) repairs,
+      (SELECT COUNT(*) FROM reservation WHERE customer_id=@p AND status='ACTIVE') reservations`).get(p)
   return {
     party, moneyBalance: calc.r2(Number(party.opening_balance) * (party.opening_dr_cr === 'Dr' ? 1 : -1) + Number(moneyBal)),
-    metalBalances: metals, timeline, ...pg, total,
+    metalBalances: metals, open, timeline, ...pg, total,
   }
 }
 

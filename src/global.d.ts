@@ -238,6 +238,7 @@ declare global {
         read(p: any): Promise<any>
         park(p: any): Promise<any>
         discard(p: any): Promise<any>
+        finalize(p: any): Promise<any>
       }
       stockCount: {
         create(p: any): Promise<any>
@@ -246,12 +247,14 @@ declare global {
         scan(p: any): Promise<any>
         setStatus(p: any): Promise<any>
         discrepancies(p: any): Promise<any>
+        sheet(p: any): Promise<any>
       }
       closing: {
         open(p: any): Promise<any>
         read(p: any): Promise<any>
         list(p?: any): Promise<any>
         saveCount(p: any): Promise<any>
+        saveCounts(p: any): Promise<any>
         match(p: any): Promise<any>
         submit(p: any): Promise<any>
         approve(p: any): Promise<any>
@@ -259,6 +262,7 @@ declare global {
       }
       repairs: {
         create(p: any): Promise<any>
+        update(p: any): Promise<any>
         read(p: any): Promise<any>
         list(p?: any): Promise<any>
         transition(p: any): Promise<any>
@@ -276,12 +280,14 @@ declare global {
         read(p: any): Promise<any>
         list(p?: any): Promise<any>
         dispatch(p: any): Promise<any>
+        cancel(p: any): Promise<any>
         receive(p: any): Promise<any>
       }
       catalogue: {
         categories(p?: any): Promise<any[]>
         saveCategory(p: any): Promise<any>
         saveAlias(p: any): Promise<any>
+        removeAlias(p: any): Promise<any>
         aliasSearch(p: any): Promise<any[]>
         previewCsv(p: any): Promise<any>
         commitCsv(p: any): Promise<any>

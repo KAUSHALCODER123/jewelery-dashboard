@@ -38,10 +38,14 @@ function where(p) {
     if (!['IN_STOCK', 'SOLD', 'ISSUED', 'MELTED'].includes(p.status)) bad('Unknown stock status')
     add('status', 'ts.status=@status', p.status)
   }
-  // Availability (T01/T05): IN_STOCK rows are saleable unless a hold says otherwise.
-  // Holds table may not exist on old DBs — helper checks sqlite_master.
+  // Availability (T01/T05): IN_STOCK rows are saleable unless a hold says
+  // otherwise. It is part of the predicate, not a filter after LIMIT, so pages
+  // stay full and the totals count the same pieces the rows show.
   if (p.availability === 'AVAILABLE' || p.availability === 'ON_HOLD') {
-    add('avail_status', `ts.status='IN_STOCK'`, 'IN_STOCK')
+    c.push(`ts.status='IN_STOCK' AND ${p.availability === 'ON_HOLD' ? '' : 'NOT '}EXISTS
+      (SELECT 1 FROM stock_hold h WHERE h.tag_id=ts.id AND h.state='ACTIVE')`)
+  } else if (p.availability !== undefined && p.availability !== '' && p.availability !== null && p.availability !== 'ALL') {
+    bad('Unknown availability filter')
   }
   if (p.search?.trim()) add('search', `(${['ts.tag', 'ts.huid', 'i.name', 'g.name', 'd.name', 'ts.category', 'ts.shelf_tray', 'ts.size', 'ts.location'].map(k => `${k} LIKE @search ESCAPE '\\'`).join(' OR ')})`, literal(p.search))
   for (const [key, col] of Object.entries({ itemId: 'ts.item_id', typeId: 'i.item_type_id', designId: 'i.design_id', metal: 't.name', category: 'ts.category', location: 'ts.location', shelf_tray: 'ts.shelf_tray', size: 'ts.size' })) {
@@ -97,19 +101,6 @@ const sums = `COUNT(*) count, COALESCE(SUM(ts.gross_wt),0) gross_wt,
  COALESCE(SUM(ROUND(ts.diamond_wt*ts.diamond_rate,2)),0) diamond_amount,
  COALESCE(SUM(CASE WHEN ts.purchase_rate<=0 THEN 1 ELSE 0 END),0) uncosted`
 
-function applyAvailability(rows, p) {
-  // Post-filter for hold-based availability. Keeps predicate builder shared;
-  // holds are applied from the same availability helper (T05) when present.
-  if (p.availability !== 'AVAILABLE' && p.availability !== 'ON_HOLD') return rows
-  try {
-    const db = get()
-    const has = db.prepare(`SELECT 1 FROM sqlite_master WHERE type='table' AND name='stock_hold'`).get()
-    if (!has) return p.availability === 'AVAILABLE' ? rows : []
-    const held = new Set(db.prepare(`SELECT tag_id FROM stock_hold WHERE state='ACTIVE'`).all().map(r => r.tag_id))
-    return rows.filter(r => p.availability === 'ON_HOLD' ? held.has(r.id) : !held.has(r.id))
-  } catch { return rows }
-}
-
 function stock(p = {}) {
   const db = get(), f = where(p)
   const totals = db.prepare(`SELECT ${sums} ${FROM} ${f.sql}`).get(f.args)
@@ -128,7 +119,7 @@ function stock(p = {}) {
   // Exact tag/HUID matches rank first, then the requested sort with ID tie-break.
   const exact = p.search?.trim() ? 'CASE WHEN ts.tag=@exact COLLATE NOCASE OR ts.huid=@exact COLLATE NOCASE THEN 0 ELSE 1 END, ' : ''
   if (exact) args.exact = p.search.trim()
-  let rows = db.prepare(`SELECT ts.*, i.name item_name, i.hsn, i.uom, t.name metal,
+  const rows = db.prepare(`SELECT ts.*, i.name item_name, i.hsn, i.uom, t.name metal,
     ${GROUP} group_name, d.name design_name, pu.invoice_no purchase_no, sup.name supplier_name,
     CASE WHEN t.name IS NULL OR t.name NOT IN ('Gold','Silver','Platinum','Diamond','Stone')
       THEN 1 ELSE 0 END metal_unknown,
@@ -136,7 +127,6 @@ function stock(p = {}) {
     ROUND(ts.stone_wt*ts.stone_rate,2) stone_amount,
     ROUND(ts.diamond_wt*ts.diamond_rate,2) diamond_amount
     ${FROM} ${f.sql} ORDER BY ${exact}${sort}, ts.id${limit}`).all(args)
-  rows = applyAvailability(rows, p)
   return { rows, groups: [], totals, ...pg }
 }
 // Exact identifier lookup, distinct from broad substring search (T01).

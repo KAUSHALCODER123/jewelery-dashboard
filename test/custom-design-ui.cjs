@@ -106,7 +106,7 @@ app.whenReady().then(async () => {
     const back = series.value
     key(series, 'Enter'); await pause()
     const movedOn = document.activeElement !== series
-    const item = document.querySelector('input[placeholder="Item name…"]')
+    const item = document.querySelector('input[placeholder="Item, tag or HUID…"]')
     item.focus()
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(item, 'Ri')
     item.dispatchEvent(new Event('input', { bubbles: true })); await pause(900)

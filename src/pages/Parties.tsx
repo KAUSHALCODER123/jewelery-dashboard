@@ -142,6 +142,10 @@ export default function Parties({ type, go, openNew }: {
                             <button className="btn btn-ghost btn-icon btn-sm" title="Open ledger"
                               onClick={() => go('ledger', { partyId: r.id })}><Icon.ledger /></button>
                           )}
+                          {go && type === 'CUSTOMER' && (
+                            <button className="btn btn-ghost btn-icon btn-sm" title="Customer summary"
+                              onClick={() => go('customer', { partyId: r.id })}><Icon.users /></button>
+                          )}
                           <button className="btn btn-ghost btn-icon btn-sm" onClick={() => setConfirming(r)} aria-label="Delete">
                             <Icon.trash />
                           </button>

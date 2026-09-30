@@ -135,6 +135,7 @@ const TITLES: Record<string, { title: string; sub?: string }> = {
   reservations: { title: 'Reservations & Memos', sub: 'Customer holds, approval stock, supplier memo' },
   hallmarking: { title: 'Hallmarking', sub: 'Batch dispatch, receive, HUID, compliance' },
   catalogue: { title: 'Catalogue', sub: 'Categories, aliases, merge, import' },
+  customer: { title: 'Customer Summary', sub: 'Dues, metal, open orders, repairs and every bill in one place' },
   settings: { title: 'Settings' },
 }
 
@@ -334,7 +335,7 @@ function Page({ route, go }: { route: Route; go: (n: string, p?: any) => void })
     case 'returns': return <Returns saleId={route.params?.saleId} />
     case 'oldgold': return <OldGold billId={route.params?.id} />
     case 'oldgold.report': return <OldGoldReport go={go} />
-    case 'sales.new': return <SalesInvoice go={go} saleId={route.params?.id} partyId={route.params?.partyId} />
+    case 'sales.new': return <SalesInvoice go={go} saleId={route.params?.id} partyId={route.params?.partyId} openParked={!!route.params?.parked} />
     case 'purchase': return <Purchase go={go} />
     case 'receipts': return <Receipts partyId={route.params?.partyId} voucherKind={route.params?.kind} />
     case 'orders': return <Orders go={go} />

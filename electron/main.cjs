@@ -128,6 +128,26 @@ const CHANNEL_PERMISSION = {
   'catalogue:saveCategory': 'manage_settings',
   'catalogue:commitCsv': 'manage_settings',
   'catalogue:mergeItems': 'manage_settings',
+  'catalogue:saveAlias': 'manage_settings',
+  'approvals:request': 'daily',
+  'holds:sweep': 'irreversible_stock',
+  'reservations:set': 'irreversible_stock',
+  'memos:close': 'irreversible_stock',
+  'catalogue:removeAlias': 'manage_settings',
+}
+
+/**
+ * Who did it comes from the signed-in session, never from the page: a renderer
+ * that sent actor: 'user' left an audit trail that named nobody, and let
+ * anyone approve their own request by typing a different name.
+ */
+function stampIdentity(channel, payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload) || PUBLIC_CHANNELS.has(channel)) return payload
+  const who = session.get()?.username || ''
+  const out = { ...payload, actor: who }
+  if (channel === 'approvals:request') out.requester = who
+  if (channel === 'approvals:decide') out.reviewer = who
+  return out
 }
 
 /** Channels usable before signing in. */
@@ -149,7 +169,7 @@ function registerIpc() {
         try {
           guard(`${group}:${name}`)
           // Some groups (Google Drive) are async; await covers both cases.
-          return { ok: true, data: await fn(payload ?? {}) }
+          return { ok: true, data: await fn(stampIdentity(`${group}:${name}`, payload ?? {})) }
         } catch (err) {
           console.error(`[ipc] ${group}:${name}`, err.message)
           return { ok: false, error: err.message || String(err) }

@@ -64,18 +64,16 @@ function releaseHold(db, { id, actor, reason }) {
   return true
 }
 
-// Expired holds stop blocking even if the app was closed at expiry time.
+// Expired holds stop blocking even if the app was closed at expiry time. Two
+// set-based statements: log every expiring hold, then expire them all. It runs
+// inside a bill's save, so a failure must fail the save, not be swallowed.
+const DUE = `state='ACTIVE' AND expires_at IS NOT NULL AND expires_at <> ''
+  AND expires_at <= datetime('now','localtime')`
 function sweepExpired(db, actor) {
-  try {
-    const rows = db.prepare(`SELECT * FROM stock_hold WHERE state='ACTIVE'
-      AND expires_at IS NOT NULL AND expires_at <> '' AND expires_at <= datetime('now','localtime')`).all()
-    for (const h of rows) {
-      db.prepare(`UPDATE stock_hold SET state='EXPIRED' WHERE id=?`).run(h.id)
-      db.prepare(`INSERT INTO custody_event (tag_id, kind, from_state, to_state, actor, reason, created_at)
-        VALUES (?,'HOLD_EXPIRED','ACTIVE','EXPIRED',?,'expiry',datetime('now','localtime'))`).run(h.tag_id, actor || 'system')
-    }
-    return rows.length
-  } catch { return 0 }
+  db.prepare(`INSERT INTO custody_event (tag_id, kind, from_state, to_state, actor, reason, doc_type, doc_id, created_at)
+    SELECT tag_id, 'HOLD_EXPIRED', 'ACTIVE', 'EXPIRED', ?, 'expiry', source_type, source_id, datetime('now','localtime')
+    FROM stock_hold WHERE ${DUE}`).run(actor || 'system')
+  return db.prepare(`UPDATE stock_hold SET state='EXPIRED', released_at=datetime('now','localtime') WHERE ${DUE}`).run().changes
 }
 
 module.exports = { availability, assertSaleable, placeHold, releaseHold, sweepExpired, holdsFor }

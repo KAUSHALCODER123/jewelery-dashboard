@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Icon } from '../lib/icons'
-import { Empty, Loading, useAsync, useDebounced } from '../lib/ui'
+import { Empty, Loading, useAsync } from '../lib/ui'
 import { dmy, money, wt } from '../lib/format'
 import { Pagination } from '../lib/inventory'
 
@@ -17,6 +17,14 @@ export default function CustomerSummary({ partyId, go }: { partyId: number; go: 
 
   const moneyBal = d?.moneyBalance ?? 0
   const metals = d?.metalBalances || []
+  const open = d?.open || {}
+  const OPEN = [
+    { label: 'Order Advance', value: `₹${money(open.advance || 0)}`, route: 'orders' },
+    { label: 'Open Orders', value: open.orders || 0, route: 'orders' },
+    { label: 'Gold Schemes', value: open.schemes || 0, route: 'schemes' },
+    { label: 'Repairs', value: open.repairs || 0, route: 'repairs' },
+    { label: 'Reservations', value: open.reservations || 0, route: 'reservations' },
+  ]
 
   return (
     <div className="content-narrow">
@@ -41,7 +49,7 @@ export default function CustomerSummary({ partyId, go }: { partyId: number; go: 
       </div>
 
       {/* Balances */}
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180, 1fr))', marginBottom: 16 }}>
+      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 16 }}>
         <div className="stat">
           <div className="stat-label">Money Balance</div>
           <div className="stat-value num" style={{ color: moneyBal > 0 ? 'var(--dr)' : moneyBal < 0 ? 'var(--cr)' : undefined }}>
@@ -51,7 +59,7 @@ export default function CustomerSummary({ partyId, go }: { partyId: number; go: 
         {metals.map((m: any) => (
           <div className="stat" key={m.metal}>
             <div className="stat-label">{m.metal} Balance</div>
-            <div className="stat-value num">{wt(m.bal)} g</div>
+            <div className="stat-value num">{wt(Math.abs(m.bal))} g {m.bal > 0 ? 'Dr' : 'Cr'}</div>
           </div>
         ))}
         {metals.length === 0 && (
@@ -67,31 +75,13 @@ export default function CustomerSummary({ partyId, go }: { partyId: number; go: 
         <div className="card-head"><span className="card-title">Open Items</span></div>
         <div className="card-body">
           <div className="row wrap" style={{ gap: 12 }}>
-            <div className="stat" style={{ minWidth: 200 }}>
-              <div className="stat-label">Advances</div>
-              <div className="stat-value num">{d?.advances?.length || 0}</div>
-              <button className="btn btn-sm" onClick={() => go('ledger', { partyId })}>View</button>
-            </div>
-            <div className="stat" style={{ minWidth: 200 }}>
-              <div className="stat-label">Schemes</div>
-              <div className="stat-value num">{d?.schemes?.length || 0}</div>
-              <button className="btn btn-sm" onClick={() => go('schemes', { partyId })}>View</button>
-            </div>
-            <div className="stat" style={{ minWidth: 200 }}>
-              <div className="stat-label">Orders</div>
-              <div className="stat-value num">{d?.orders?.length || 0}</div>
-              <button className="btn btn-sm" onClick={() => go('orders', { partyId })}>View</button>
-            </div>
-            <div className="stat" style={{ minWidth: 200 }}>
-              <div className="stat-label">Repairs</div>
-              <div className="stat-value num">{d?.repairs?.length || 0}</div>
-              <button className="btn btn-sm" onClick={() => go('repairs', { partyId })}>View</button>
-            </div>
-            <div className="stat" style={{ minWidth: 200 }}>
-              <div className="stat-label">Reservations</div>
-              <div className="stat-value num">{d?.reservations?.length || 0}</div>
-              <button className="btn btn-sm" onClick={() => go('reservations', { partyId })}>View</button>
-            </div>
+            {OPEN.map((o) => (
+              <div className="stat" style={{ minWidth: 180 }} key={o.label}>
+                <div className="stat-label">{o.label}</div>
+                <div className="stat-value num">{o.value}</div>
+                <button className="btn btn-sm" onClick={() => go(o.route, { partyId })}>View</button>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -109,22 +99,21 @@ export default function CustomerSummary({ partyId, go }: { partyId: number; go: 
             <div className="table-wrap">
               <table className="data">
                 <thead>
-                  <tr><th>Date</th><th>Type</th><th>Reference</th><th className="r">Amount</th><th>Metal</th><th></th></tr>
+                  <tr><th>Date</th><th>Type</th><th>Reference</th><th className="r">Amount</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {timeline.map((e: any, i: number) => (
-                    <tr key={i} className="clickable" onClick={() => {
+                  {timeline.map((e: any) => (
+                    <tr key={`${e.type}-${e.id}`} className="clickable" onClick={() => {
                       if (e.type === 'SALE') go('sales.new', { id: e.id })
-                      else if (e.type === 'VOUCHER') go('receipts', { id: e.id })
-                      else if (e.type === 'ORDER') go('orders', { id: e.id })
-                      else if (e.type === 'REPAIR') go('repairs', { id: e.id })
-                      else if (e.type === 'RESERVATION') go('reservations', { id: e.id })
+                      // Receipts, orders, repairs and reservations open on their
+                      // register; only a sale opens straight on the document.
+                      else if (e.type === 'VOUCHER') go('receipts', { partyId })
+                      else go({ ORDER: 'orders', REPAIR: 'repairs', RESERVATION: 'reservations' }[e.type as string] || 'dashboard')
                     }}>
                       <td>{dmy(e.doc_date)}</td>
                       <td><span className="badge">{e.type}</span></td>
                       <td className="mono">{e.doc_no || `#${e.id}`}</td>
                       <td className="r num">{money(e.amount || 0)}</td>
-                      <td>{e.metal ? wt(e.metal) + ' g ' + (e.metal_metal || '') : <span className="muted">—</span>}</td>
                       <td><Icon.chevronRight width={14} height={14} /></td>
                     </tr>
                   ))}

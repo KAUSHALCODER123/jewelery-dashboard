@@ -1,158 +1,205 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
-import {
-  Check, Confirm, Empty, Loading, Modal, Select, Segmented,
-  useAction, useAsync, useDebounced, useToast,
-} from '../lib/ui'
+import { Confirm, Empty, Field, Loading, Modal, Select, useAction } from '../lib/ui'
 import { num } from '../lib/calc'
-import { dmy, money, wt } from '../lib/format'
+import { dmy, toCsv, todayISO, wt } from '../lib/format'
 import { Pagination } from '../lib/inventory'
 
 /**
- * Physical stock verification with durable sessions (T07).
- * Creates an immutable expected set, saves each scan, supports
- * pause/resume, and requires approved explicit adjustments.
+ * Physical stock verification (T07). Scan every piece in the tray; anything
+ * left unscanned at the end is physically missing. Green = found, red = not
+ * found — the same signal the original software gave.
+ *
+ * A count is a saved session: the pieces expected are frozen when it starts,
+ * every scan is stored as it happens, and a count can be paused, picked up
+ * again on another day, submitted and signed off. Counting never changes stock.
  */
+const RESULT: Record<string, { ok: boolean; text: string }> = {
+  MATCHED: { ok: true, text: 'found' },
+  WRONG_LOCATION: { ok: true, text: 'found — but it is booked to another location' },
+  DUPLICATE: { ok: false, text: 'was already scanned' },
+  OUTSIDE_SCOPE: { ok: false, text: 'is in stock but not part of this count' },
+  ALREADY_SOLD: { ok: false, text: 'is not in stock (sold, issued or melted)' },
+  UNKNOWN: { ok: false, text: 'is not a known tag' },
+}
+const EXTRA_LABEL: Record<string, string> = {
+  OUTSIDE_SCOPE: 'Other location', ALREADY_SOLD: 'Not in stock', UNKNOWN: 'Unknown tag',
+}
+const STATUS_BADGE: Record<string, string> = {
+  OPEN: 'badge-gold', PAUSED: 'badge-info', SUBMITTED: 'badge-warn', APPROVED: 'badge-ok', CLOSED: 'badge-ok', CANCELLED: 'badge-mute',
+}
+const LIVE = ['OPEN', 'PAUSED']
+
 export default function StockCheck() {
   const run = useAction()
-  const { push } = useToast()
+  const [booting, setBooting] = useState(true)
+  const [sheet, setSheet] = useState<any>(null)   // { session, rows, extras }
+  const [history, setHistory] = useState(false)
 
-  // Session state
-  const [sessionId, setSessionId] = useState<number | null>(null)
-  const [session, setSession] = useState<any>(null)
-  const [sessions, setSessions] = useState<any[]>([])
-  const [sessionsPage, setSessionsPage] = useState(1)
-  const [sessionsTotal, setSessionsTotal] = useState(0)
-  const [sessionsLoading, setSessionsLoading] = useState(false)
-  const [sessionsOpen, setSessionsOpen] = useState(false)
+  const loadSheet = async (id: number) => {
+    const res = await run(() => window.api.stockCount.sheet({ session_id: id }))
+    if (res) setSheet(res)
+  }
 
-  // Count state
-  const [scanned, setScanned] = useState<Set<number>>(new Set())
-  const [extras, setExtras] = useState<any[]>([])
+  // Carry on with a count left open or paused; otherwise offer to start one.
+  useEffect(() => {
+    window.api.stockCount.list({ pageSize: 20 })
+      .then((r: any) => {
+        const live = (r.rows || []).find((s: any) => LIVE.includes(s.status))
+        return live ? loadSheet(live.id) : undefined
+      })
+      .catch(() => {})
+      .finally(() => setBooting(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (booting) return <Loading rows={6} />
+
+  return (
+    <div>
+      {sheet
+        ? <Count sheet={sheet} setSheet={setSheet} reload={() => loadSheet(sheet.session.id)}
+            onNew={() => setSheet(null)} onHistory={() => setHistory(true)} />
+        : <Start onStarted={(id) => loadSheet(id)} onHistory={() => setHistory(true)} />}
+      {history && <History onClose={() => setHistory(false)} onPick={(id) => { setHistory(false); loadSheet(id) }} />}
+    </div>
+  )
+}
+
+function Start({ onStarted, onHistory }: { onStarted: (id: number) => void; onHistory: () => void }) {
+  const run = useAction()
+  const [locations, setLocations] = useState<string[]>([])
+  const [location, setLocation] = useState('')
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    window.api.tagStock.facets(['location']).then((f: any) => setLocations(f?.location || [])).catch(() => {})
+  }, [])
+  const start = async () => {
+    setBusy(true)
+    const res = await run(() => window.api.stockCount.create({
+      scope: location ? { location } : {}, business_date: todayISO(),
+    }), 'Count started')
+    setBusy(false)
+    if (res) onStarted(res.id)
+  }
+  return (
+    <div className="card">
+      <div className="card-head"><span className="card-title">Start a stock count</span>
+        <span className="spacer" /><button className="btn btn-sm" onClick={onHistory}><Icon.list /> Past Counts</button></div>
+      <div className="card-body">
+        <p className="small muted" style={{ marginTop: 0 }}>
+          The pieces in stock right now are listed as expected. Scan each one you find; whatever is left
+          unscanned is missing. The count is saved as you go — you can pause and finish it later.
+        </p>
+        <div className="row" style={{ gap: 12, alignItems: 'flex-end' }}>
+          <Field label="Count which pieces">
+            <Select value={location} onChange={setLocation} style={{ minWidth: 220 }}
+              options={[{ value: '', label: 'Everything in stock' }, ...locations.map((l) => ({ value: l, label: `Only ${l}` }))]} />
+          </Field>
+          <button className="btn btn-primary" style={{ height: 38 }} disabled={busy} onClick={start}>
+            <Icon.check /> Start Count
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Count({ sheet, setSheet, reload, onNew, onHistory }: {
+  sheet: any; setSheet: (fn: (s: any) => any) => void; reload: () => void; onNew: () => void; onHistory: () => void
+}) {
+  const run = useAction()
+  const s = sheet.session
+  const live = LIVE.includes(s.status)
   const [entry, setEntry] = useState('')
   const [filter, setFilter] = useState('all')
+  // Count one item at a time (all the CP, then all the Kanchan) with its own
+  // totals, instead of one lump weight for the whole shop.
   const [itemFilter, setItemFilter] = useState('ALL')
-  const [confirmReset, setConfirmReset] = useState(false)
-  const [lastHit, setLastHit] = useState<{ tag: string; ok: boolean } | null>(null)
+  const [confirm, setConfirm] = useState<null | 'cancel'>(null)
+  const [lastHit, setLastHit] = useState<{ tag: string; cls: string; n: number } | null>(null)
+  const [pending, setPending] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  // A scanner types a tag and Enter faster than the last scan returns. Scans go
+  // through one at a time, in order, so none is lost and none is sent twice.
+  const queue = useRef<Promise<void>>(Promise.resolve())
+  const hits = useRef(0)
 
-  // Create new session
-  const newSession = async () => {
-    const scope = { location: 'Shop' }
-    const res = await window.api.stockCount.create({ scope, business_date: new Date().toISOString().slice(0, 10), actor: 'user' })
-    if (res) {
-      setSessionId(res.id)
-      setSession(res)
-      setScanned(new Set())
-      setExtras([])
-      setFilter('all')
-      push('ok', 'Count session created')
-    }
-  }
+  const allRows: any[] = sheet.rows
+  const extras: any[] = sheet.extras
 
-  // Load session
-  const loadSession = async (id: number) => {
-    const res = await window.api.stockCount.read({ id })
-    if (res) {
-      setSessionId(res.id)
-      setSession(res)
-      // Note: scans would be loaded from discrepancies endpoint
-      setScanned(new Set())
-      setExtras([])
-      push('ok', 'Session loaded')
-    }
-  }
-
-  // Load sessions list
-  const loadSessions = async (page = 1) => {
-    setSessionsLoading(true)
-    try {
-      const res = await window.api.stockCount.list({ page, pageSize: 20 })
-      setSessions(res.rows || [])
-      setSessionsTotal(res.total || 0)
-      setSessionsPage(page)
-    } finally { setSessionsLoading(false) }
-  }
-
-  // Scan a tag
-  const submit = async (raw: string) => {
-    if (!sessionId) { push('error', 'Create or load a session first'); return }
+  const submit = (raw: string) => {
     const tag = raw.trim().toUpperCase()
-    if (!tag) return
     setEntry('')
-    const res = await window.api.stockCount.scan({ session_id: sessionId, raw: tag, actor: 'user' })
-    if (res) {
-      if (res.resolved_tag_id) {
-        setScanned(s => new Set(s).add(res.resolved_tag_id))
-        setLastHit({ tag, ok: res.classification === 'MATCHED' })
-      } else {
-        setExtras(e => e.some(x => x.raw_scan === tag) ? e : [...e, res])
-        setLastHit({ tag, ok: false })
-      }
-    }
     inputRef.current?.focus()
+    if (!tag) return
+    setPending((p) => p + 1)
+    queue.current = queue.current.then(async () => {
+      try {
+        const res = await window.api.stockCount.scan({ session_id: s.id, raw: tag })
+        setLastHit({ tag: res.tag || tag, cls: res.classification, n: ++hits.current })
+        setSheet((cur: any) => {
+          if (!cur || cur.session.id !== s.id) return cur
+          if (RESULT[res.classification]?.ok) {
+            return { ...cur, rows: cur.rows.map((r: any) => (r.id === res.resolved_tag_id ? { ...r, found: true } : r)) }
+          }
+          if (res.classification === 'DUPLICATE') return cur
+          return { ...cur, extras: [{ id: res.id, raw_scan: res.raw_scan, classification: res.classification, item_name: res.item_name }, ...cur.extras] }
+        })
+      } catch (e: any) {
+        await run(async () => { throw e })
+      } finally {
+        setPending((p) => p - 1)
+      }
+    })
   }
 
-  // Fallback to loading IN_STOCK tags for the current scope
-  const stock = useAsync(() => window.api.tagStock.list({ status: 'IN_STOCK' }), [])
-  const allRows = stock.data || []
+  const setStatus = async (status: string, ok: string) => {
+    await queue.current
+    const res = await run(() => window.api.stockCount.setStatus({ id: s.id, status }), ok)
+    if (res) setSheet((cur: any) => ({ ...cur, session: { ...cur.session, ...res } }))
+    if (status === 'OPEN') setTimeout(() => inputRef.current?.focus(), 0)
+  }
+
   const itemOptions = useMemo(() => {
     const m = new Map<string, string>()
     for (const r of allRows) m.set(String(r.item_id), r.item_name)
     return [...m].sort((a, b) => a[1].localeCompare(b[1]))
   }, [allRows])
-  const rows = itemFilter === 'ALL'
-    ? allRows : allRows.filter((r: any) => String(r.item_id) === itemFilter)
-  const byTag = useMemo(
-    () => new Map(allRows.map((r: any) => [String(r.tag).toUpperCase(), r])),
-    [allRows]
-  )
+  const rows = itemFilter === 'ALL' ? allRows : allRows.filter((r) => String(r.item_id) === itemFilter)
+  const found = rows.filter((r) => r.found)
+  const missing = rows.filter((r) => !r.found)
+  const visible = filter === 'found' ? found : filter === 'missing' ? missing : rows
+  const sum = (list: any[], key: string) => list.reduce((t, r) => t + num(r[key]), 0)
 
-  const matched = rows.filter((r: any) => scanned.has(r.id))
-  const missing = rows.filter((r: any) => !scanned.has(r.id))
-
-  const visible =
-    filter === 'found' ? matched : filter === 'missing' ? missing : rows
-
-  const sum = (list: any[], key: string) => list.reduce((s, r) => s + num(r[key]), 0)
-
+  /** Pieces and weight per item: expected, found, missing. */
   const byItem = useMemo(() => {
     const m = new Map<string, any>()
     for (const r of rows) {
       const k = String(r.item_id)
       const g = m.get(k) || { name: r.item_name, pcs: 0, net: 0, foundPcs: 0, foundNet: 0 }
       g.pcs += 1; g.net += num(r.net_wt)
-      if (scanned.has(r.id)) { g.foundPcs += 1; g.foundNet += num(r.net_wt) }
+      if (r.found) { g.foundPcs += 1; g.foundNet += num(r.net_wt) }
       m.set(k, g)
     }
     return [...m.values()].sort((a, b) => a.name.localeCompare(b.name))
-  }, [rows, scanned])
+  }, [rows])
 
   const exportCsv = async () => {
-    const csv = [
+    const csv = toCsv(
       ['Tag', 'Item', 'Group', 'Gross Wt', 'Net Wt', 'Fine Wt', 'Location', 'Result'],
-      ...rows.map((r: any) => [
+      rows.map((r) => [
         r.tag, r.item_name, r.group_name, r.gross_wt, r.net_wt, r.final_wt, r.location,
-        scanned.has(r.id) ? 'FOUND' : 'MISSING',
-      ]),
-      ...extras.map((t: any) => [t.raw_scan || t.tag || '', '', '', '', '', '', '', 'NOT IN STOCK'])
-    ].map(row => row.map(csvCell).join(',')).join('\n')
-    await window.api.file.saveText({ content: csv, suggestedName: 'stock-verification.csv' })
+        r.found ? 'FOUND' : r.moved ? `MISSING (now ${r.live_status} ${r.live_location})` : 'MISSING',
+      ]).concat(extras.map((t) => [t.raw_scan, t.item_name || '', '', '', '', '', '', EXTRA_LABEL[t.classification] || t.classification]))
+    )
+    await window.api.file.saveText({ content: csv, suggestedName: `stock-count-${s.id}.csv` })
   }
 
-  const setStatus = async (status: string) => {
-    if (!sessionId) return
-    const res = await window.api.stockCount.setStatus({ id: sessionId, status, actor: 'user' })
-    if (res) {
-      setSession(res)
-      push('ok', `Session ${status.toLowerCase()}`)
-    }
-  }
-
-  if (stock.loading) return <Loading rows={6} />
+  const hit = lastHit && RESULT[lastHit.cls]
 
   return (
-    <div>
+    <>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-body">
           <div className="row" style={{ gap: 12, alignItems: 'flex-end' }}>
@@ -163,45 +210,45 @@ export default function StockCheck() {
                 autoFocus
                 className="input mono"
                 style={{ height: 44, fontSize: 17 }}
-                placeholder={sessionId ? 'RIN00001' : 'Create or load a session first'}
+                placeholder={s.status === 'OPEN' ? 'RIN00001' : s.status === 'PAUSED' ? 'Paused — press Resume to scan' : `Count ${s.status.toLowerCase()}`}
                 value={entry}
+                disabled={s.status !== 'OPEN'}
                 onChange={(e) => setEntry(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') submit(entry) }}
-                disabled={!sessionId}
+                // What is in the box, not the last render's state: a fast scanner can
+                // press Enter in the same tick as its final character.
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(e.currentTarget.value) } }}
               />
             </div>
-            <button className="btn btn-primary" style={{ height: 44 }} onClick={submit} disabled={!sessionId}>
+            <button className="btn btn-primary" style={{ height: 44 }} onClick={() => submit(entry)} disabled={s.status !== 'OPEN'}>
               <Icon.check /> Mark Found
             </button>
-            <button className="btn" style={{ height: 44 }} onClick={() => setConfirmReset(true)} disabled={!sessionId}>
-              Reset
-            </button>
-            {sessionId && (
-              <Segmented value={session.status} onChange={setStatus} disabled={session.status !== 'OPEN' && session.status !== 'PAUSED'}
-                options={[
-                  { value: 'OPEN', label: 'Open' },
-                  { value: 'PAUSED', label: 'Pause' },
-                  { value: 'SUBMITTED', label: 'Submit' },
-                ]} />
-            )}
+            {s.status === 'OPEN' && <button className="btn" style={{ height: 44 }} onClick={() => setStatus('PAUSED', 'Count paused')}>Pause</button>}
+            {s.status === 'PAUSED' && <button className="btn" style={{ height: 44 }} onClick={() => setStatus('OPEN', 'Count resumed')}>Resume</button>}
+            {live && <button className="btn" style={{ height: 44 }} onClick={() => setStatus('SUBMITTED', 'Count submitted')}><Icon.send /> Submit</button>}
           </div>
 
-          {session && (
-            <div className="row" style={{ marginTop: 12, gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span className="small"><b>Session:</b> #{session.id} · {session.status} · {session.scope?.location || 'Shop'} · Expected: {session.expected?.n || '?'} pcs</span>
-              <button className="btn btn-sm" onClick={() => { loadSessions(1); setSessionsOpen(true) }}>
-                <Icon.list /> All Sessions
-              </button>
-              <button className="btn btn-sm" onClick={newSession}><Icon.plus /> New Session</button>
-            </div>
-          )}
+          <div className="row" style={{ marginTop: 12, gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="small">
+              <b>Count #{s.id}</b> · {s.scope?.location ? `only ${s.scope.location}` : 'everything in stock'} · started {dmy(s.created_at?.slice(0, 10))}
+            </span>
+            <span className={`badge ${STATUS_BADGE[s.status] || 'badge-mute'}`}>{s.status}</span>
+            {pending > 0 && <span className="small muted"><span className="spinner" /> saving {pending} scan{pending > 1 ? 's' : ''}…</span>}
+            <span className="spacer" />
+            {s.status === 'SUBMITTED' && <>
+              <button className="btn btn-sm" onClick={() => setStatus('OPEN', 'Count reopened')}>Reopen</button>
+              <button className="btn btn-sm btn-primary" onClick={() => setStatus('APPROVED', 'Count approved')}>Approve</button>
+            </>}
+            {s.status === 'APPROVED' && <button className="btn btn-sm btn-primary" onClick={() => setStatus('CLOSED', 'Count closed')}>Close Count</button>}
+            {(live || s.status === 'SUBMITTED') && <button className="btn btn-sm" onClick={() => setConfirm('cancel')}>Discard Count</button>}
+            {!live && <button className="btn btn-sm" onClick={onNew}><Icon.plus /> New Count</button>}
+            <button className="btn btn-sm" onClick={reload} title="Reload from the saved count">Refresh</button>
+            <button className="btn btn-sm" onClick={onHistory}><Icon.list /> Past Counts</button>
+          </div>
 
-          {lastHit && (
+          {lastHit && hit && (
             <div className="row" style={{ marginTop: 12 }}>
-              <span className={`balance-flag ${lastHit.ok ? 'cr' : 'dr'}`} key={lastHit.tag + String(scanned.size + extras.length)}>
-                {lastHit.ok
-                  ? <><Icon.check width={15} height={15} /> {lastHit.tag} {sessionId ? 'scanned' : 'found'}</>
-                  : <><Icon.alert width={15} height={15} /> {lastHit.tag} is not in stock</>}
+              <span className={`balance-flag ${hit.ok ? 'cr' : 'dr'}`} key={lastHit.n}>
+                {hit.ok ? <Icon.check width={15} height={15} /> : <Icon.alert width={15} height={15} />} {lastHit.tag} {hit.text}
               </span>
             </div>
           )}
@@ -214,7 +261,7 @@ export default function StockCheck() {
           options={[
             { value: 'ALL', label: `All items (${allRows.length} pcs)` },
             ...itemOptions.map(([id, name]) => ({ value: id, label: name })),
-          ]} disabled={!sessionId} />
+          ]} />
       </div>
 
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
@@ -225,39 +272,35 @@ export default function StockCheck() {
         </div>
         <div className="stat">
           <div className="stat-label">Found</div>
-          <div className="stat-value num" style={{ color: 'var(--ok)' }}>{matched.length}</div>
-          <div className="stat-meta">{wt(sum(matched, 'net_wt'))} g net · {wt(sum(matched, 'final_wt'))} g fine</div>
+          <div className="stat-value num" style={{ color: 'var(--ok)' }}>{found.length}</div>
+          <div className="stat-meta">{wt(sum(found, 'net_wt'))} g net · {wt(sum(found, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
           <div className="stat-label">Missing</div>
-          <div className="stat-value num" style={{ color: missing.length ? 'var(--danger)' : undefined }}>
-            {missing.length}
-          </div>
+          <div className="stat-value num" style={{ color: missing.length ? 'var(--danger)' : undefined }}>{missing.length}</div>
           <div className="stat-meta">{wt(sum(missing, 'net_wt'))} g net · {wt(sum(missing, 'final_wt'))} g fine</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Not In Stock</div>
-          <div className="stat-value num" style={{ color: extras.length ? 'var(--warn)' : undefined }}>
-            {extras.length}
-          </div>
+          <div className="stat-label">Not In This Count</div>
+          <div className="stat-value num" style={{ color: extras.length ? 'var(--warn)' : undefined }}>{extras.length}</div>
           <div className="stat-meta">Scanned but not expected</div>
         </div>
       </div>
 
       {extras.length > 0 && (
         <div className="card" style={{ marginBottom: 14, borderColor: 'var(--warn)' }}>
-          <div className="card-head">
-            <span className="card-title">Scanned but not in stock</span>
-            <button className="btn btn-ghost btn-sm" style={{ marginLeft: 'auto' }}
-              onClick={() => setExtras([])}>Clear</button>
-          </div>
+          <div className="card-head"><span className="card-title">Scanned but not expected</span></div>
           <div className="card-body">
             <div className="row wrap" style={{ gap: 6 }}>
-              {extras.map((t: any) => <span key={t.id} className="badge badge-warn mono">{t.raw_scan || t.tag}</span>)}
+              {extras.map((t) => (
+                <span key={t.id} className="badge badge-warn mono" title={t.item_name || ''}>
+                  {t.raw_scan} · {EXTRA_LABEL[t.classification] || t.classification}
+                </span>
+              ))}
             </div>
             <p className="small muted" style={{ marginTop: 8 }}>
-              These tags were scanned but are not in the in-stock list — they may already be
-              sold, melted, or belong to another branch.
+              These tags were scanned but are not on this count's list — they may already be sold, melted,
+              belong to another location, or be a mis-scan.
             </p>
           </div>
         </div>
@@ -302,15 +345,15 @@ export default function StockCheck() {
               options={[
                 { value: 'all', label: `All (${rows.length})` },
                 { value: 'missing', label: `Missing (${missing.length})` },
-                { value: 'found', label: `Found (${matched.length})` },
-              ]} disabled={!sessionId} />
-            <button className="btn btn-sm" onClick={exportCsv} disabled={!sessionId}><Icon.download /> Export</button>
+                { value: 'found', label: `Found (${found.length})` },
+              ]} />
+            <button className="btn btn-sm" onClick={exportCsv}><Icon.download /> Export</button>
           </div>
         </div>
         <div className="card-body flush">
           {!rows.length ? (
             <Empty icon={Icon.stock} title="No stock to verify">
-              Create tags under Tag & Barcode first.
+              Nothing was in stock for this count. Create tags under Tag & Barcode first.
             </Empty>
           ) : (
             <div className="table-wrap" style={{ maxHeight: 460 }}>
@@ -321,25 +364,28 @@ export default function StockCheck() {
                     <th className="r">Fine Wt</th><th>Location</th><th>Result</th></tr>
                 </thead>
                 <tbody>
-                  {visible.map((r: any, i: number) => {
-                    const ok = scanned.has(r.id)
-                    return (
-                      <tr key={r.id} className={ok ? 'row-ok' : 'row-bad'}>
-                        <td className="muted">{i + 1}</td>
-                        <td className="mono strong">{r.tag}</td>
-                        <td>{r.item_name}</td>
-                        <td>{r.group_name || '—'}</td>
-                        <td className="r num">{wt(r.gross_wt)}</td>
-                        <td className="r num">{wt(r.net_wt)}</td>
-                        <td className="r num strong">{wt(r.final_wt)}</td>
-                        <td>{r.location}</td>
-                        <td>
-                          {ok ? <span className="badge badge-ok">Found</span>
-                            : <span className="badge badge-danger">Missing</span>}
-                        </td>
-                      </tr>
-                    )
-                  })}
+                  {visible.map((r, i) => (
+                    <tr key={r.id} className={r.found ? 'row-ok' : 'row-bad'}>
+                      <td className="muted">{i + 1}</td>
+                      <td className="mono strong">{r.tag}</td>
+                      <td>{r.item_name}</td>
+                      <td>{r.group_name || '—'}</td>
+                      <td className="r num">{wt(r.gross_wt)}</td>
+                      <td className="r num">{wt(r.net_wt)}</td>
+                      <td className="r num strong">{wt(r.final_wt)}</td>
+                      <td>{r.location}</td>
+                      <td>
+                        {r.found ? <span className="badge badge-ok">Found</span>
+                          : <span className="badge badge-danger">Missing</span>}
+                        {!r.found && r.moved && (
+                          <span className="badge badge-warn" style={{ marginLeft: 4 }}
+                            title="Changed since the count started — check before treating it as lost">
+                            now {r.live_status === 'IN_STOCK' ? r.live_location : r.live_status.toLowerCase()}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
                 <tfoot>
                   <tr>
@@ -356,55 +402,49 @@ export default function StockCheck() {
         </div>
       </div>
 
-      {confirmReset && (
-        <Confirm title="Reset this count?" confirmLabel="Reset"
-          message="All scans in this session will be cleared. Nothing in the database changes."
-          onConfirm={() => { setScanned(new Set()); setExtras([]); setLastHit(null); setConfirmReset(false) }}
-          onCancel={() => setConfirmReset(false)} />
+      {confirm === 'cancel' && (
+        <Confirm title="Discard this count?" confirmLabel="Discard"
+          message="The count and its scans are kept for the record but marked cancelled. Nothing in stock changes."
+          onConfirm={async () => { setConfirm(null); await setStatus('CANCELLED', 'Count discarded') }}
+          onCancel={() => setConfirm(null)} />
       )}
-
-      {/* Sessions modal */}
-      {sessionsOpen && (
-        <Modal title="Stock Count Sessions" onClose={() => setSessionsOpen(false)}
-          footer={<button className="btn" onClick={() => setSessionsOpen(false)}>Close</button>}>
-          <div className="card">
-            <div className="card-body flush">
-              <div className="table-wrap">
-                <table className="data">
-                  <thead>
-                    <tr><th>ID</th><th>Date</th><th>Scope</th><th>Status</th><th>Expected</th><th>Scanned</th><th></th></tr>
-                  </thead>
-                  <tbody>
-                    {sessions.map((s: any) => (
-                      <tr key={s.id}>
-                        <td>{s.id}</td>
-                        <td>{s.business_date || s.created_at?.slice(0, 10)}</td>
-                        <td>{s.scope?.location || 'Shop'}</td>
-                        <td><span className={`badge ${s.status === 'CLOSED' ? 'badge-ok' : s.status === 'OPEN' ? 'badge-gold' : 'badge-mute'}`}>{s.status}</span></td>
-                        <td className="r">{s.expected?.n || '?'}</td>
-                        <td className="r">{s.scanned?.n || '?'}</td>
-                        <td className="r">
-                          <button className="btn btn-sm" onClick={() => { loadSession(s.id); setSessionsOpen(false) }}>Load</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!sessions.length && <tr><td colSpan={7} className="muted">No sessions</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-              <Pagination data={{page: sessionsPage, pageSize: 20, total: sessionsTotal}}
-                onPage={loadSessions} disabled={sessionsLoading} />
-            </div>
-          </div>
-        </Modal>
-      )}
-    </div>
+    </>
   )
 }
 
-// CSV helper
-function csvCell(v: any) {
-  let s = v == null ? '' : String(v)
-  if (/^[\s'"]*[=+\-@]/.test(s)) s = `'` + s
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+function History({ onClose, onPick }: { onClose: () => void; onPick: (id: number) => void }) {
+  const [page, setPage] = useState(1)
+  const [data, setData] = useState<any>(null)
+  useEffect(() => {
+    let alive = true
+    window.api.stockCount.list({ page, pageSize: 20 }).then((d: any) => alive && setData(d)).catch(() => alive && setData({ rows: [] }))
+    return () => { alive = false }
+  }, [page])
+  return (
+    <Modal title="Stock counts" wide onClose={onClose}
+      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Close</button></>}>
+      {!data ? <Loading rows={4} /> : (
+        <>
+          <table className="data">
+            <thead><tr><th>#</th><th>Started</th><th>Scope</th><th>Status</th><th className="r">Expected</th><th className="r">Found</th><th /></tr></thead>
+            <tbody>
+              {data.rows.map((r: any) => (
+                <tr key={r.id}>
+                  <td className="mono">{r.id}</td>
+                  <td>{dmy(r.created_at?.slice(0, 10))}</td>
+                  <td>{r.scope?.location || 'Everything'}</td>
+                  <td><span className={`badge ${STATUS_BADGE[r.status] || 'badge-mute'}`}>{r.status}</span></td>
+                  <td className="r num">{r.expected_pcs}</td>
+                  <td className="r num">{r.found_pcs}</td>
+                  <td className="r"><button className="btn btn-sm" onClick={() => onPick(r.id)}>Open</button></td>
+                </tr>
+              ))}
+              {!data.rows.length && <tr><td colSpan={7} className="muted">No counts yet.</td></tr>}
+            </tbody>
+          </table>
+          <Pagination data={data} onPage={setPage} />
+        </>
+      )}
+    </Modal>
+  )
 }
