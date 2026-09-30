@@ -102,7 +102,13 @@ function dashboardV2({ business_date } = {}) {
   const monthSales = db.prepare(`SELECT COALESCE(SUM(total_amount),0) v, COUNT(*) n FROM sale WHERE bill_date>=?`).get(monthStart)
   const collections = db.prepare(`SELECT COALESCE(SUM(amount),0) v, COUNT(*) n FROM voucher WHERE voucher_date=? AND kind='RECEIPT'`).get(t)
   const refunds = db.prepare(`SELECT COALESCE(SUM(refund_amount),0) v, COUNT(*) n FROM sale_return WHERE return_date=?`).get(t)
-  const cashIn = db.prepare(`SELECT COALESCE(SUM(amount_received),0) v FROM sale WHERE bill_date=?`).get(t)
+  // Money taken today: what bills received beyond an order advance (that was
+  // taken, and counted, on the day of the booking), plus advances booked today.
+  const cashIn = db.prepare(`SELECT
+      COALESCE((SELECT SUM(s.amount_received - COALESCE(
+        (SELECT SUM(o.advance_amount) FROM order_booking o WHERE o.sale_id = s.id), 0))
+        FROM sale s WHERE s.bill_date = @t), 0)
+      + COALESCE((SELECT SUM(advance_amount) FROM order_booking WHERE order_date = @t), 0) AS v`).get({ t })
   // Tagged stock by metal — never a mixed-metal fine-weight headline.
   let byMetal = []
   try {

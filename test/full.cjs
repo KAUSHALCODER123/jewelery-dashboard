@@ -99,12 +99,20 @@ app.whenReady().then(() => {
     check('suppliers separate', api.party.list({ type: 'SUPPLIER' }).length, 1)
 
     head('5. Sales — cash counter sale, no customer')
-    const cashSale = api.sale.save({
+    const counterItems = () => [{ tag: 'RIN00001', tag_stock_id: t('RIN00001').id, item_id: S.items.ring,
+                item_name: 'Ring', hsn: '7113', gross_wt: 10, purity: 91.6, stone_wt: 0,
+                net_wt: 10, rate_per_gm: 4590, mkg_per_gm: 300, hallmark_charges: 45 }]
+    // With no customer there is no khata for a balance to sit on, so a short
+    // payment would drop out of the books. The counter must take it all.
+    rejects('a walk-in bill cannot be left part-paid', () => api.sale.save({
       head: { prefix: 'COM', bill_date: today, party_name: 'Walk-in', is_credit: 0,
               gst_pct: 3, amount_received: 30000 },
-      items: [{ tag: 'RIN00001', tag_stock_id: t('RIN00001').id, item_id: S.items.ring,
-                item_name: 'Ring', hsn: '7113', gross_wt: 10, purity: 91.6, stone_wt: 0,
-                net_wt: 10, rate_per_gm: 4590, mkg_per_gm: 300, hallmark_charges: 45 }],
+      items: counterItems(), urds: [],
+    }))
+    const cashSale = api.sale.save({
+      head: { prefix: 'COM', bill_date: today, party_name: 'Walk-in', is_credit: 0,
+              gst_pct: 3, amount_received: 50413.35 },
+      items: counterItems(),
       urds: [],
     })
     check('bill number', cashSale.bill_no, 'COM1')
@@ -115,7 +123,7 @@ app.whenReady().then(() => {
     check('bill amount', cs.bill_amount, 48945)
     check('GST 3%', cs.gst_amount, 1468.35)
     check('total', cs.total_amount, 50413.35)
-    check('balance after 30000', cs.net_balance, 20413.35)
+    check('paid in full at the counter', cs.net_balance, 0)
     check('tag marked sold', api.tagStock.list({ status: 'IN_STOCK' }).length, 9)
 
     head('6. Sales — credit sale with old gold (video parity)')
@@ -327,7 +335,7 @@ app.whenReady().then(() => {
     check('status advanced', api.order.read({ id: ord.id }).status, 'RECEIVED')
 
     const conv = api.order.toInvoice({ id: ord.id })
-    check('order became a bill', conv.bill_no, 'COM3')
+    check('order became a bill', conv.bill_no, 'Service1')
     check('order marked delivered', api.order.read({ id: ord.id }).status, 'DELIVERED')
     const inv = api.sale.read({ id: conv.id })
     check('advance carried onto bill', inv.amount_received, 5000)
@@ -397,7 +405,7 @@ app.whenReady().then(() => {
 
     const dash = api.reports.dashboard()
     ok('dashboard totals positive', dash.todaySales.v > 0)
-    check('dashboard bill no clean', /^COM\d+$/.test(dash.recent[0].bill_no), true)
+    check('dashboard bill no clean', /^(COM|Service)\d+$/.test(dash.recent[0].bill_no), true)
     ok('dashboard stock non-negative', dash.stock.fine >= 0)
 
     head('15. Print payload')
@@ -440,7 +448,7 @@ app.whenReady().then(() => {
       items: [{ item_name: 'Loose sale', gross_wt: 1, purity: 91.6, net_wt: 1, rate_per_gm: 4590 }],
       urds: [],
     })
-    check('numbers never reused', after.bill_no, 'COM4')
+    check('numbers never reused', after.bill_no, 'COM3')
     check('sale without a tag still saves', api.sale.read({ id: after.id }).goods_amount, 4590)
 
   } catch (e) {

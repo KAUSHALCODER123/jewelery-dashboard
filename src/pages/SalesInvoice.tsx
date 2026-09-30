@@ -35,7 +35,7 @@ const blankUrd = () => ({
 
 const blankHead = () => ({
   id: null as number | null,
-  prefix: 'COM', bill_no: '', manual_no: '',
+  prefix: 'Service', bill_no: '', manual_no: '',
   bill_date: todayISO(), due_date: '',
   party_id: null as number | null, party_name: '', address: '', mobile: '', area: '',
   state: 'Maharashtra', salesman: '',
@@ -136,6 +136,14 @@ export default function SalesInvoice({ go, saleId, partyId, openParked }: {
           // Re-open with what this bill already took from the scheme, so editing
           // it does not silently drop the redemption either.
           gss_redeem: s.gss_amount || '',
+          // The saved making_discount already includes the percentage (and any
+          // scheme waiver). Putting it back in the rupee box added the
+          // percentage again on every re-save, so each edit cut the bill further.
+          // Bills from before the typed figure was kept: take the percentage out.
+          making_discount: s.making_disc_rs != null
+            ? s.making_disc_rs
+            : Math.max(0, Math.round((num(s.making_discount)
+              - num(s.making_amount) * num(s.making_disc_pct) / 100) * 100) / 100),
         })
         setItems(s.items?.length ? s.items : [blankItem()])
         setUrds(s.urds || [])
@@ -184,6 +192,18 @@ export default function SalesInvoice({ go, saleId, partyId, openParked }: {
       .then((b) => alive && setGssBal(b))
     return () => { alive = false }
   }, [head.gss_id, head.gss_rate, head.bill_date, head.id])
+
+  // Staff change a bill only on its own day, and nobody changes a day locked in
+  // Daily Closing. The main process enforces both; this only says so up front.
+  const [lockReason, setLockReason] = useState('')
+  useEffect(() => {
+    let alive = true
+    if (!head.id) { setLockReason(''); return }
+    window.api.locks.check({ kind: 'sale', id: head.id })
+      .then((r) => alive && setLockReason(r.editable ? '' : r.reason))
+      .catch(() => alive && setLockReason(''))
+    return () => { alive = false }
+  }, [head.id])
 
   // ── how the money was tendered ──
   // Declared above the totals because the card leg of a split decides the swipe
@@ -424,9 +444,14 @@ export default function SalesInvoice({ go, saleId, partyId, openParked }: {
     if (!p) return
     if (p.status !== 'PARKED') { refreshParkedCount(); return run(async () => { throw new Error(`That bill was already ${p.status.toLowerCase()}`) }) }
     const d = p.draft || {}
+    // A draft parked on a series that has since been retired (COM) goes onto
+    // the default series rather than one the picker no longer offers.
+    const wanted = d.head?.prefix ?? head.prefix
+    const live = !series.data || series.data.some((s: any) => s.prefix === wanted)
+    const prefix = live ? wanted : blankHead().prefix
     // Keep this screen's reserved number; a different series re-reserves its own.
-    setHead({ ...blankHead(), ...(d.head || {}), id: undefined,
-      bill_no: (d.head?.prefix ?? head.prefix) === head.prefix ? head.bill_no : '' })
+    setHead({ ...blankHead(), ...(d.head || {}), id: undefined, prefix,
+      bill_no: prefix === head.prefix ? head.bill_no : '' })
     setItems(Array.isArray(d.items) && d.items.length ? d.items : [blankItem()])
     setUrds(Array.isArray(d.urds) ? d.urds : [])
     setMetals(Array.isArray(d.metals) ? d.metals : [])
@@ -449,7 +474,29 @@ export default function SalesInvoice({ go, saleId, partyId, openParked }: {
     const filled = items.filter((r) => r.item_name && (num(r.gross_wt) > 0 || num(r.qty) > 0 ||
       (head.direct_amount && num(r.entered_amount) > 0)))
     if (!filled.length) throw new Error('Add at least one item to the bill')
+    // With Direct amount on, the rate only prints: a piece whose amount is left
+    // blank would go on the bill at ₹0.
+    if (head.direct_amount) {
+      const i = filled.findIndex((r) => !(num(r.entered_amount) > 0))
+      if (i >= 0) {
+        throw new Error(
+          `Line ${i + 1} (${filled[i].item_name}): Direct amount is on, so type the amount ` +
+          'this piece sells for — a blank amount would bill it at ₹0.'
+        )
+      }
+    }
     if (head.is_credit && !head.party_id) throw new Error('A credit bill needs a customer')
+    // A counter bill with the received box left blank is taken as paid in full
+    // when it is saved. One with a SHORT amount typed in (or a split that comes
+    // to less), or an exchange that leaves the shop owing, has nobody to owe it.
+    const counterPaidInFull = !head.is_credit && !(num(head.amount_received) > 0) && !splitOn
+    if (!head.party_id && !(counterPaidInFull && num(t.net_balance) > 0) &&
+        Math.abs(num(t.net_balance)) >= 0.005) {
+      throw new Error(
+        `This bill leaves ₹${money(t.net_balance)} unsettled. Select a customer to put it ` +
+        'on their khata, or enter the full amount received.'
+      )
+    }
     if (splitOn && splitDiff !== 0) {
       throw new Error(
         `The payment split comes to ₹${money(splitTotal)} but the bill shows ` +
@@ -1146,6 +1193,7 @@ export default function SalesInvoice({ go, saleId, partyId, openParked }: {
       {/* ── Actions ────────────────────────────────────────── */}
       <div className="sticky-actions">
         {head.id && <span className="badge badge-info">Editing {head.bill_no}</span>}
+        {lockReason && <span className="badge badge-warn" title={lockReason}>{lockReason}</span>}
         {parked && <span className="badge badge-gold">Resumed parked bill #{parked.id}</span>}
         <button className="btn" onClick={reset}><Icon.plus /> New Bill</button>
         {!head.id && (
@@ -1160,7 +1208,7 @@ export default function SalesInvoice({ go, saleId, partyId, openParked }: {
           </button>
         )}
         <span className="spacer" />
-        {head.id && (
+        {head.id && !lockReason && (
           <button className="btn btn-danger" onClick={() => setConfirmDel(true)}>
             <Icon.trash /> Delete
           </button>
@@ -1169,12 +1217,12 @@ export default function SalesInvoice({ go, saleId, partyId, openParked }: {
           <Icon.whatsapp /> WhatsApp
         </button>
         <button className="btn" onClick={savePdf}><Icon.download /> PDF</button>
-        <button className="btn" onClick={saveOnly} disabled={busy || overSettled}
-          title={overSettled ? OVER_SETTLED : 'Save (Ctrl+S)'}>
+        <button className="btn" onClick={saveOnly} disabled={busy || overSettled || !!lockReason}
+          title={lockReason || (overSettled ? OVER_SETTLED : 'Save (Ctrl+S)')}>
           {busy ? <span className="spinner" /> : <Icon.save />} Save
         </button>
-        <button className="btn" onClick={saveNew} disabled={busy || overSettled}
-          title={overSettled ? OVER_SETTLED : 'Save this bill and start a fresh one'}>
+        <button className="btn" onClick={saveNew} disabled={busy || overSettled || !!lockReason}
+          title={lockReason || (overSettled ? OVER_SETTLED : 'Save this bill and start a fresh one')}>
           <Icon.plus /> Save & New
         </button>
         <button className="btn btn-primary" onClick={savePrint} disabled={busy || overSettled}

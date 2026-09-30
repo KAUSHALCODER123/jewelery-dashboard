@@ -31,7 +31,60 @@ function open(userDataDir) {
     CREATE INDEX IF NOT EXISTS idx_hallmark_item_batch ON hallmark_item(batch_id, outcome);`)
   seed()
   backfillLooseSales()
+  foldLooseItemTags()
+  relinkSoldTags()
   return db
+}
+
+/**
+ * Removing a sales return used to leave the piece SOLD with no bill against it
+ * (sold_doc = ''), so deleting that bill later never put the piece back on the
+ * shelf. Point each such piece at the latest bill that sold it. Pieces no bill
+ * names are left as they are.
+ */
+function relinkSoldTags() {
+  db.prepare(
+    `UPDATE tag_stock SET sold_doc = 'SALE:' || (
+       SELECT si.sale_id FROM sale_item si WHERE si.tag_stock_id = tag_stock.id
+       ORDER BY si.sale_id DESC LIMIT 1)
+     WHERE status = 'SOLD' AND COALESCE(sold_doc, '') = ''
+       AND EXISTS (SELECT 1 FROM sale_item si WHERE si.tag_stock_id = tag_stock.id)`
+  ).run()
+}
+
+/**
+ * An item sold loose by weight keeps its stock in one lot (item_stock). Earlier
+ * builds let such an item be tagged too, so its weight sat on a tag while sales
+ * came off the lot: the lot went below zero and the tag kept showing the full
+ * weight. Move each such tag's weight into the lot as a correction, take back
+ * the gold inflow the tag booked (beads are not metal), and retire the tag.
+ * Runs on every open; once folded there is nothing left to match.
+ */
+function foldLooseItemTags() {
+  const tags = db.prepare(
+    `SELECT t.* FROM tag_stock t JOIN item i ON i.id = t.item_id
+     WHERE i.stock_mode = 'LOOSE_WT' AND t.status = 'IN_STOCK'`
+  ).all()
+  if (!tags.length) return
+  db.transaction(() => {
+    for (const t of tags) {
+      db.prepare(
+        `INSERT INTO item_stock (item_id, gross_wt, qty, rate, amount, doc_type, doc_no,
+         direction, remark, entry_date) VALUES (?,?,?,?,?,'ADJUST',?,'IN',?,?)`
+      ).run(t.item_id, Number(t.gross_wt) || 0, Number(t.qty) || 0, Number(t.purchase_rate) || 0,
+            Math.round((Number(t.gross_wt) || 0) * (Number(t.purchase_rate) || 0) * 100) / 100,
+            t.tag, `Moved into the lot from tag ${t.tag}`, t.entry_date || new Date().toISOString().slice(0, 10))
+      db.prepare(`DELETE FROM loose_stock WHERE doc_type = 'OPENING' AND doc_id = ? AND is_tagged = 1`)
+        .run(t.id)
+      // A tag nothing else points at can simply go; one a hold or count still
+      // names is retired instead, so those records keep their reference.
+      try {
+        db.prepare(`DELETE FROM tag_stock WHERE id = ?`).run(t.id)
+      } catch {
+        db.prepare(`UPDATE tag_stock SET status = 'MELTED', sold_doc = 'LOT' WHERE id = ?`).run(t.id)
+      }
+    }
+  })()
 }
 
 /**
@@ -230,6 +283,11 @@ function migrate() {
   // a percentage rather than rupees.
   addCol('tag_stock', 'bag_wt', 'REAL NOT NULL DEFAULT 0')
   addCol('sale', 'making_disc_pct', 'REAL NOT NULL DEFAULT 0')
+  // making_discount holds the TOTAL taken off making (rupees + percentage + a
+  // scheme's making waiver). This is the rupee figure as typed, so re-opening a
+  // bill can put it back in the box without the percentage being added twice.
+  // NULL on bills saved before it existed.
+  addCol('sale', 'making_disc_rs', 'REAL')
 
   // Redeeming a scheme onto a bill. Scheme money is a liability the shop already
   // holds, so it settles the bill after tax instead of discounting it.
@@ -533,6 +591,10 @@ function seed() {
     // Scheme deposits are a liability (we owe the member gold), so they are kept
     // off the customer's trading khata in their own account.
     ['2100', 'Gold Saving Scheme', 'Liability', 'Current Liability', 1],
+    // What the shop adds to a scheme at maturity (the bonus instalment, or a
+    // weight scheme's gain) is its own cost. Redeemed through the scheme
+    // liability it drove that account negative and never reached the P&L.
+    ['5120', 'Scheme Bonus', 'Expense', 'Indirect Expense', 1],
   ]
   const insAcc = db.prepare(
     `INSERT OR IGNORE INTO account (code, name, acc_type, acc_group, is_system) VALUES (?,?,?,?,?)`
@@ -540,9 +602,8 @@ function seed() {
   accounts.forEach((a) => insAcc.run(...a))
 
   const series = [
-    ['SALE', 'COM', 'Retail / Counter'],
     ['SALE', 'ESM', 'Estimate'],
-    ['SALE', 'Service', 'Service bill'],
+    ['SALE', 'Service', 'GST bill'],
     ['URD', 'O', 'Old gold purchase'],
     ['PURCHASE', 'MI', 'Material in'],
     ['REFINERY', 'MO', 'Refinery out'],
@@ -562,6 +623,14 @@ function seed() {
     `INSERT OR IGNORE INTO voucher_series (doc_type, prefix, label) VALUES (?,?,?)`
   )
   series.forEach((s) => insSeries.run(...s))
+  // The shop bills on two series only: ESM for an estimate and Service for the
+  // GST bill. COM is dropped from the picker; bills already saved as COM keep
+  // their numbers and still open, print and report as before.
+  db.prepare(`DELETE FROM voucher_series WHERE doc_type = 'SALE' AND prefix = 'COM'`).run()
+  db.prepare(
+    `UPDATE voucher_series SET label = 'GST bill'
+     WHERE doc_type = 'SALE' AND prefix = 'Service' AND label = 'Service bill'`
+  ).run()
 
   // The shop itself is a branch; tagged pieces default to location 'Shop', so
   // seeding it by that name keeps existing stock where it already says it is.
@@ -583,8 +652,15 @@ function defaultFyStart(today = new Date()) {
   return { start: `${y}-04-01`, end: `${y + 1}-03-31` }
 }
 
+/** Where each series' documents live, to find the last number already used. */
+const DOC_NUMBERS = {
+  SALE: ['sale', 'bill_no'], PURCHASE: ['purchase', 'invoice_no'], URD: ['urd_bill', 'bill_no'],
+  REFINERY: ['refinery', 'invoice_no'], ORDER: ['order_booking', 'order_no'],
+  SALERET: ['sale_return', 'return_no'], PURRET: ['purchase_return', 'return_no'],
+}
+
 /**
- * Reserve the next document number for a series and return it, e.g. "COM7".
+ * Reserve the next document number for a series and return it, e.g. "ESM7".
  * Runs inside whatever transaction the caller has open.
  */
 function nextDocNo(docType, prefix) {
@@ -592,10 +668,20 @@ function nextDocNo(docType, prefix) {
     .prepare(`SELECT id, next_no FROM voucher_series WHERE doc_type = ? AND prefix = ?`)
     .get(docType, prefix)
   if (!row) {
+    // A series with no row can still have bills: COM was retired with COM1..COM150
+    // on the books, and a draft parked before that still says COM. Starting it
+    // again at 1 would hit COM1 and fail the save, so carry on after the last.
+    const [table, col] = DOC_NUMBERS[docType] || []
+    const last = table
+      ? db.prepare(
+          `SELECT COALESCE(MAX(CAST(SUBSTR(${col}, LENGTH(@prefix) + 1) AS INTEGER)), 0) n
+           FROM ${table} WHERE prefix = @prefix AND SUBSTR(${col}, 1, LENGTH(@prefix)) = @prefix`
+        ).get({ prefix }).n
+      : 0
     db.prepare(
-      `INSERT INTO voucher_series (doc_type, prefix, next_no) VALUES (?,?,2)`
-    ).run(docType, prefix)
-    return `${prefix}1`
+      `INSERT INTO voucher_series (doc_type, prefix, next_no) VALUES (?,?,?)`
+    ).run(docType, prefix, last + 2)
+    return `${prefix}${last + 1}`
   }
   db.prepare(`UPDATE voucher_series SET next_no = next_no + 1 WHERE id = ?`).run(row.id)
   return `${prefix}${row.next_no}`

@@ -333,7 +333,7 @@ function Page({ route, go }: { route: Route; go: (n: string, p?: any) => void })
     case 'suppliers': return <Parties type="SUPPLIER" key="supp" go={go} />
     case 'sales': return <SalesList go={go} />
     case 'returns': return <Returns saleId={route.params?.saleId} />
-    case 'oldgold': return <OldGold billId={route.params?.id} />
+    case 'oldgold': return <OldGold billId={route.params?.id} go={go} />
     case 'oldgold.report': return <OldGoldReport go={go} />
     case 'sales.new': return <SalesInvoice go={go} saleId={route.params?.id} partyId={route.params?.partyId} openParked={!!route.params?.parked} />
     case 'purchase': return <Purchase go={go} />

@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('api', {
   party: group('party', ['list', 'read', 'balance', 'metalBalance', 'loyaltyBalance', 'save', 'remove']),
   account: group('account', ['list', 'save', 'nextCode']),
   series: group('series', ['list', 'peek', 'save']),
+  locks: group('locks', ['check']),
 
   sale: group('sale', ['list', 'page', 'read', 'save', 'remove', 'forPrint']),
   urd: group('urd', ['list', 'page', 'read', 'save', 'remove', 'forPrint']),

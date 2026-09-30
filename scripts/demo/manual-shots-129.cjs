@@ -44,7 +44,7 @@ function seedMore(api, S, ids) {
   if (neck) api.catalogue.saveAlias({ entity: 'item', entity_id: neck.id, alias: 'Haar' })
   // A parked bill.
   const t = api.tagStock.list({ status: 'IN_STOCK' }).find((x) => /Ring/.test(x.item_name))
-  api.parked.park({ draft: { head: { prefix: 'COM', bill_date: today, party_name: 'Amit Patel', party_id: S.customers.amit },
+  api.parked.park({ draft: { head: { prefix: 'Service', bill_date: today, party_name: 'Amit Patel', party_id: S.customers.amit },
     items: t ? [{ tag: t.tag, tag_stock_id: t.id, item_id: t.item_id, item_name: t.item_name, gross_wt: t.gross_wt, net_wt: t.net_wt, purity: t.purity, rate_per_gm: 6200 }] : [],
     urds: [], metals: [], payments: [] } })
   return {}

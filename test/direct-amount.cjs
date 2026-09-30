@@ -97,6 +97,37 @@ app.whenReady().then(() => {
     console.error(e)
   }
 
+  // Kept apart so it runs whatever happens above.
+  try {
+    console.log('\n── A line left without an amount is not billed at 0')
+    // The shop's ESM3: a second piece (Tops, 1.8 g, rate 11,500/g) went on the
+    // estimate with its amount cell blank and was saved as ₹0 — given away.
+    const [ring, tops] = api.tagStock.saveBatch({ itemId: item, rows: [
+      { gross_wt: 25, purity: 91.6, entry_date: DAY }, { gross_wt: 1.8, purity: 91.6, entry_date: DAY },
+    ] }).map((id) => api.tagStock.list({ status: 'IN_STOCK' }).find((t) => t.id === id))
+    const twoLines = (topsAmount) => api.sale.save({
+      head: { prefix: 'ESM', bill_date: DAY, party_name: 'Walk-in', state: 'Maharashtra',
+              is_credit: 0, payment_mode: 'Cash', gst_pct: 3, gst_not_required: 1,
+              amount_received: topsAmount ? 220700 : 200000, direct_amount: 1 },
+      items: [
+        { tag: ring.tag, tag_stock_id: ring.id, item_id: item, item_name: 'Gold Ring', qty: 0,
+          gross_wt: 25, purity: 91.6, net_wt: 25, rate_per_gm: 7300, entered_amount: 200000 },
+        { tag: tops.tag, tag_stock_id: tops.id, item_id: item, item_name: 'Tops', qty: 0,
+          gross_wt: 1.8, purity: 91.6, net_wt: 1.8, rate_per_gm: 11500, entered_amount: topsAmount },
+      ],
+    })
+    let refused = ''
+    try { twoLines('') } catch (e) { refused = e.message }
+    check('blank amount refused', /Line 2.*Tops.*amount/i.test(refused), true)
+    check('neither piece left stock', api.tagStock.list({ status: 'IN_STOCK' })
+      .filter((t) => t.id === ring.id || t.id === tops.id).length, 2)
+    const both = api.sale.read({ id: twoLines(20700).id })
+    check('with the amount typed, both lines are billed', both.total_amount, 220700)
+  } catch (e) {
+    fail++
+    console.error(e)
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`)
   db.close()
   app.exit(fail ? 1 : 0)

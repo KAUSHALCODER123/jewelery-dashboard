@@ -17,7 +17,7 @@ const PAY_MODES = ['Cash', 'UPI', 'Card', 'NEFT', 'Cheque', 'Bank']
  * customer out of cash or bank; anything not paid on the spot sits on their
  * khata as a credit until a receipt voucher or their next purchase clears it.
  */
-export default function OldGold({ billId }: { billId?: number }) {
+export default function OldGold({ billId, go }: { billId?: number; go?: (n: string, p?: any) => void }) {
   const [from, setFrom] = useState(monthStartISO())
   const [to, setTo] = useState(todayISO())
   const [search, setSearch] = useState('')
@@ -27,6 +27,21 @@ export default function OldGold({ billId }: { billId?: number }) {
   const run = useAction()
 
   const list = useAsync(() => window.api.urd.list({ from, to, search: q }), [from, to, q])
+  // Old gold exchanged on a sale bill lives on that bill, not on an old gold
+  // bill, so it is read from the Old Gold Report and shown alongside, one row per bill.
+  const onSales = useAsync(() => window.api.reports.oldGold({ from, to, search: q }), [from, to, q])
+  const saleRows = useMemo(() => {
+    const bySale = new Map<number, any>()
+    for (const r of onSales.data?.rows || []) {
+      if (r.source !== 'SALE' || !r.sale_id) continue
+      const b = bySale.get(r.sale_id) || { sale_id: r.sale_id, bill_no: r.doc_no, bill_date: r.date,
+        party_name: r.party_name, gross_wt: 0, net_wt: 0, amount: 0 }
+      b.gross_wt += num(r.gross_wt); b.net_wt += num(r.net_wt); b.amount += num(r.amount)
+      bySale.set(r.sale_id, b)
+    }
+    return [...bySale.values()].sort((a, b) => String(b.bill_date).localeCompare(String(a.bill_date)))
+  }, [onSales.data])
+  const saleSum = (k: string) => saleRows.reduce((s: number, r: any) => s + num(r[k]), 0)
 
   // Arriving from the Old Gold Report with a bill to open.
   useEffect(() => { if (billId) setEditing({ id: billId }) }, [billId])
@@ -76,8 +91,8 @@ export default function OldGold({ billId }: { billId?: number }) {
       </div>
 
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
-        <div className="stat"><div className="stat-label">Bills</div><div className="stat-value num">{rows.length}</div></div>
-        <div className="stat"><div className="stat-label">Old Gold Taken In (net)</div><div className="stat-value num">{wt(netWt)} g</div></div>
+        <div className="stat"><div className="stat-label">Bills</div><div className="stat-value num">{rows.length + saleRows.length}</div></div>
+        <div className="stat"><div className="stat-label">Old Gold Taken In (net)</div><div className="stat-value num">{wt(netWt + saleSum('net_wt'))} g</div></div>
         <div className="stat"><div className="stat-label">Paid to Customers</div><div className="stat-value num">₹{money(paid)}</div></div>
         <div className="stat"><div className="stat-label">Still Owed</div>
           <div className="stat-value num" style={{ color: owed > 0 ? 'var(--danger)' : undefined }}>₹{money(owed)}</div></div>
@@ -92,7 +107,7 @@ export default function OldGold({ billId }: { billId?: number }) {
           {list.loading ? <Loading rows={4} /> : !rows.length ? (
             <Empty icon={Icon.refine} title="No old gold bills in this period"
               action={<button className="btn btn-primary btn-sm" onClick={() => setEditing({})}>Create one</button>}>
-              Old gold taken in on a sale bill is not listed here — see the Old Gold Report for both.
+              Old gold taken in on a sale bill is listed below, under Old Gold on Sale Bills.
             </Empty>
           ) : (
             <div className="table-wrap">
@@ -135,6 +150,55 @@ export default function OldGold({ billId }: { billId?: number }) {
                     <td className="r num">₹{money(value)}</td>
                     <td className="r num">₹{money(paid)}</td>
                     <td className="r num">₹{money(owed)}</td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <span className="card-title">Old Gold on Sale Bills</span>
+          <span className="badge badge-gold" style={{ marginLeft: 'auto' }}>₹{money(saleSum('amount'))}</span>
+        </div>
+        <div className="card-body flush">
+          {onSales.loading ? <Loading rows={2} /> : !saleRows.length ? (
+            <Empty icon={Icon.refine} title="No old gold on sale bills in this period">
+              Old gold the customer gives against a purchase shows here once the sale bill is saved.
+            </Empty>
+          ) : (
+            <div className="table-wrap">
+              <table className="data">
+                <thead>
+                  <tr>
+                    <th>Bill No</th><th>Date</th><th>Customer</th>
+                    <th className="r">Gross Wt</th><th className="r">Net Wt</th>
+                    <th className="r">Value</th><th className="r">Adjusted In</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {saleRows.map((r: any) => (
+                    <tr key={r.sale_id} className="clickable" title="Open the sale bill"
+                      onClick={() => go?.('sales.new', { id: r.sale_id })}>
+                      <td className="mono strong">{r.bill_no}</td>
+                      <td>{dmy(r.bill_date)}</td>
+                      <td>{r.party_name || <span className="muted">Cash customer</span>}</td>
+                      <td className="r num">{wt(r.gross_wt)}</td>
+                      <td className="r num">{wt(r.net_wt)}</td>
+                      <td className="r num strong">₹{money(r.amount)}</td>
+                      <td className="r"><span className="muted">Sale bill</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={3}>Total · {saleRows.length} bills</td>
+                    <td className="r num">{wt(saleSum('gross_wt'))}</td>
+                    <td className="r num">{wt(saleSum('net_wt'))}</td>
+                    <td className="r num">₹{money(saleSum('amount'))}</td>
                     <td></td>
                   </tr>
                 </tfoot>

@@ -53,5 +53,42 @@ app.whenReady().then(async () => {
   assert.equal(await w.webContents.executeJavaScript('document.querySelectorAll("table.items tbody tr").length'), 46)
   const pdf = await w.webContents.printToPDF({ printBackground: true })
   assert.ok(pdf.length > 1000)
-  w.destroy(); db.close(); console.log('PASS: prefixes, saved layouts, custom fields, column order, all 45 items and PDF rendering'); app.exit(0)
+
+  // Header designs. The standard style prints exactly what a bill printed before,
+  // whatever banner settings are sitting unused in the saved design.
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const shop = { ...data, company: { name: 'Parivar Jewellers', address: 'Main Road, Pune', phone: '9800000000', gstin: '27AAAAA0000A1Z5' } }
+  const plain = invoiceHtml(shop, loadConfig(null))
+  assert.equal(invoiceHtml(shop, loadConfig(JSON.stringify({ header: { style: 'standard', image: png, background: '#123456' } }))), plain)
+  assert.ok(plain.includes('<div class="hd">') && !plain.includes('hd-band'), 'standard header unchanged')
+  const banner = { style: 'banner', height: 42, background: '#7a1f2b', image: png, fit: 'contain', logo: 'right', tagline: 'Since 1985 <gold>',
+    name: { show: true, color: '#f6d98b', size: 34, align: 'left' }, taglineLine: { show: true, color: '#ffffff', size: 13, align: 'left' },
+    address: { show: false }, contact: { show: true, color: '#eeeeee', size: 9, align: 'right' } }
+  const bcfg = loadConfig(JSON.stringify({ header: banner }))
+  api.settings.set({ key: 'invoice_config', value: JSON.stringify(bcfg) })
+  assert.deepEqual(loadConfig(api.settings.all().invoice_config).header, bcfg.header, 'header saved with the design')
+  const bhtml = invoiceHtml(shop, bcfg)
+  assert.ok(bhtml.includes('height:42mm;background:#7a1f2b'), 'banner colour and height')
+  assert.ok(bhtml.includes(`src="${png}"`) && bhtml.includes('object-fit:contain'), 'background image and fit')
+  assert.ok(bhtml.includes('color:#f6d98b;font-size:34px;text-align:left">Parivar Jewellers<'), 'shop name styled')
+  assert.ok(bhtml.includes('Since 1985 &lt;gold&gt;'), 'tagline escaped')
+  assert.ok(!bhtml.includes('Main Road, Pune'), 'address hidden')
+  assert.ok(bhtml.includes('text-align:right">Contact No.: 9800000000'), 'contact line')
+  assert.ok(bhtml.indexOf('hd-text') < bhtml.indexOf('class="hd-logo"'), 'logo on the right')
+  assert.ok(bhtml.includes('TAX INVOICE') && !bhtml.includes('<div class="hd">'))
+  // Image-only prints just the picture; with no picture it falls back to the standard header.
+  const only = invoiceHtml(shop, loadConfig(JSON.stringify({ header: { style: 'image', image: png, fit: 'stretch', height: 30 } })))
+  assert.ok(only.includes('height:30mm') && only.includes('object-fit:fill') && !only.includes('class="hd-name"'), 'image-only header')
+  assert.equal(invoiceHtml(shop, loadConfig(JSON.stringify({ header: { style: 'image' } }))), plain)
+  // Only a real picture reaches the src attribute; bad values are repaired.
+  const bad = loadConfig(JSON.stringify({ header: { style: 'banner', image: 'javascript:alert(1)', background: 'red;x', height: 999 } })).header
+  assert.equal(bad.image, ''); assert.equal(bad.background, '#7A1F2B'); assert.equal(bad.height, 90)
+  // The band keeps its height on the printed sheet and the picture actually loads.
+  await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(bhtml))
+  const band = await w.webContents.executeJavaScript(`(() => { const b = document.querySelector('.hd-band'); return {
+    h: b.getBoundingClientRect().height, img: document.querySelector('.hd-bg').naturalWidth, bg: getComputedStyle(b).backgroundColor } })()`)
+  assert.ok(Math.abs(band.h - 42 * 96 / 25.4) < 2, 'band height ' + band.h)
+  assert.equal(band.img, 1); assert.equal(band.bg, 'rgb(122, 31, 43)')
+  assert.ok((await w.webContents.printToPDF({ printBackground: true })).length > 1000)
+  w.destroy(); db.close(); console.log('PASS: prefixes, saved layouts, custom fields, column order, all 45 items, header designs and PDF rendering'); app.exit(0)
 }).catch(e => { console.error(e); app.exit(1) })

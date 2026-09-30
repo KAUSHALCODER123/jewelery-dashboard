@@ -11,7 +11,7 @@ function fyStart(iso: string) {
   return `${y}-04-01`
 }
 
-const SOURCE_LABEL: Record<string, string> = { SALE: 'On sale bill', URD: 'Old gold bill' }
+const SOURCE_LABEL: Record<string, string> = { SALE: 'On sale bill', URD: 'Old gold bill', ORDER: 'On order booking' }
 
 /**
  * Old Gold report — every gram of old gold the shop took in over a period,
@@ -24,7 +24,7 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
   const [from, setFrom] = useState(monthStartISO())
   const [to, setTo] = useState(today)
   const [search, setSearch] = useState('')
-  const [source, setSource] = useState<'ALL' | 'SALE' | 'URD'>('ALL')
+  const [source, setSource] = useState<'ALL' | 'SALE' | 'URD' | 'ORDER'>('ALL')
   const q = useDebounced(search, 250)
 
   const rep = useAsync(() => window.api.reports.oldGold({ from, to, search: q }), [from, to, q])
@@ -51,6 +51,7 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
   const open = (r: any) => {
     if (r.source === 'SALE' && r.sale_id) go('sales.new', { id: r.sale_id })
     else if (r.urd_bill_id) go('oldgold', { id: r.urd_bill_id })
+    else if (r.source === 'ORDER') go('orders')
   }
 
   return (
@@ -66,6 +67,7 @@ export default function OldGoldReport({ go }: { go: (n: string, p?: any) => void
             { value: 'ALL', label: 'All' },
             { value: 'SALE', label: 'On sale bills' },
             { value: 'URD', label: 'Old gold bills' },
+            { value: 'ORDER', label: 'Order bookings' },
           ]} />
         <div className="search-box">
           <Icon.search />

@@ -131,6 +131,7 @@ function ProfitLoss({ from, to }: { from: string; to: string }) {
         ...d.trading.cr.map((r: any) => line('Trading Cr', r)),
         ['Trading', 'Gross Profit', d.grossProfit],
         ...d.pl.dr.map((r: any) => line('P&L Dr', r)),
+        ...(d.pl.cr || []).map((r: any) => line('P&L Cr', r)),
         ['P&L', 'Net Profit', d.netProfit],
       ],
     }
@@ -165,9 +166,16 @@ function ProfitLoss({ from, to }: { from: string; to: string }) {
         </div>
         <div className="card-body flush">
           <TAccount
-            left={[...d.pl.dr, ...(profit ? [{ name: 'Net Profit', amount: d.netProfit, strong: true }] : [])]}
+            left={[
+              // A gross loss is a debit brought down, so it sits with the expenses.
+              ...(d.grossProfit < 0 ? [{ name: 'Gross Loss b/d', amount: -d.grossProfit }] : []),
+              ...d.pl.dr,
+              ...(profit ? [{ name: 'Net Profit', amount: d.netProfit, strong: true }] : []),
+            ]}
             right={[
-              { name: d.grossProfit >= 0 ? 'Gross Profit b/d' : 'Gross Loss b/d', amount: Math.abs(d.grossProfit) },
+              ...(d.grossProfit >= 0 ? [{ name: 'Gross Profit b/d', amount: d.grossProfit }] : []),
+              // Receipts against an income head (commission, interest) are income too.
+              ...(d.pl.cr || []),
               ...(profit ? [] : [{ name: 'Net Loss', amount: -d.netProfit, strong: true }]),
             ]}
             leftHead="To (Dr)" rightHead="By (Cr)"

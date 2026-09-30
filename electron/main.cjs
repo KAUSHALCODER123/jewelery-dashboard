@@ -85,6 +85,19 @@ const CHANNEL_PERMISSION = {
   'design:remove': 'permanent_delete',
   'gss:removeAccount': 'permanent_delete',
   'gss:removeScheme': 'permanent_delete',
+  // Deleting these is as final as deleting a bill: each one carries money on a
+  // khata, cash in the drawer or metal on the books, and a staff login could
+  // otherwise delete a return, a karigar slip or a scheme instalment it had no
+  // right to and leave no trace.
+  'saleReturn:remove': 'permanent_delete',
+  'purchaseReturn:remove': 'permanent_delete',
+  'karagir:removeIssue': 'permanent_delete',
+  'karagir:removeReceive': 'permanent_delete',
+  'stockSettlement:remove': 'permanent_delete',
+  'stockTransfer:remove': 'permanent_delete',
+  'branch:remove': 'permanent_delete',
+  'rateMaster:remove': 'permanent_delete',
+  'gss:unreceive': 'permanent_delete',
 
   // Manager and above — these move metal irreversibly.
   'tagStock:remove': 'irreversible_stock',
@@ -153,8 +166,20 @@ function stampIdentity(channel, payload) {
 /** Channels usable before signing in. */
 const PUBLIC_CHANNELS = new Set(['auth:login', 'auth:status', 'auth:logout', 'auth:permissions'])
 
-function guard(channel) {
+/**
+ * Settings a signed-in user may change for themselves. Every other key is shop
+ * configuration — loyalty rates, the phone view, Google Drive, self-approval —
+ * and was writable by any staff login through settings:set, which also let
+ * them switch on the owner-only phone view by writing its key directly.
+ */
+const PERSONAL_SETTINGS = new Set(['theme'])
+
+function guard(channel, payload) {
   if (PUBLIC_CHANNELS.has(channel)) return
+  if (channel === 'settings:set' && !PERSONAL_SETTINGS.has(payload?.key)) {
+    session.require('manage_settings')
+    return
+  }
   session.require(CHANNEL_PERMISSION[channel] ?? 'daily')
 }
 
@@ -167,7 +192,7 @@ function registerIpc() {
     for (const [name, fn] of Object.entries(methods)) {
       ipcMain.handle(`${group}:${name}`, async (_evt, payload) => {
         try {
-          guard(`${group}:${name}`)
+          guard(`${group}:${name}`, payload)
           // Some groups (Google Drive) are async; await covers both cases.
           return { ok: true, data: await fn(stampIdentity(`${group}:${name}`, payload ?? {})) }
         } catch (err) {

@@ -219,7 +219,7 @@ app.whenReady().then(() => {
     console.log('\n── 14. Order → invoice on delivery ─────────────')
     api.order.setStatus({ id: ord.id, status: 'RECEIVED' })
     const conv = api.order.toInvoice({ id: ord.id })
-    check('invoice raised from order', conv.bill_no, 'COM2')
+    check('invoice raised from order', conv.bill_no, 'Service1')
     check('order marked delivered', api.order.read({ id: ord.id }).status, 'DELIVERED')
 
     const inv = api.sale.read({ id: conv.id })

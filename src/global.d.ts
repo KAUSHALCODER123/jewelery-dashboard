@@ -85,6 +85,7 @@ declare global {
       }
       account: { list(): Promise<any[]>; save(p: any): Promise<any>; nextCode(): Promise<string> }
       series: { list(p?: any): Promise<any[]>; peek(p: any): Promise<string>; save(p: any): Promise<any> }
+      locks: { check(p: { kind: string; id: number }): Promise<{ editable: boolean; reason: string }> }
 
       sale: {
         list(p?: any): Promise<any[]>

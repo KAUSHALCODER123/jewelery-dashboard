@@ -71,7 +71,7 @@ app.whenReady().then(() => {
 
   // ── A credit sale with old gold exchanged (the video's scenario) ──
   api.sale.save({
-    head: { prefix: 'COM', bill_date: d(-6), party_id: S.customers.sandip,
+    head: { prefix: 'Service', bill_date: d(-6), party_id: S.customers.sandip,
             party_name: 'Sandip Jain', mobile: '9767211065', area: 'Kothrud',
             is_credit: 1, gst_pct: 3, amount_received: 0 },
     items: [{ tag: T('RIN00002').tag, tag_stock_id: T('RIN00002').id, item_id: S.items.ring,
@@ -82,7 +82,7 @@ app.whenReady().then(() => {
 
   // ── A fully-paid cash sale ──
   api.sale.save({
-    head: { prefix: 'COM', bill_date: d(-3), party_id: S.customers.amit, party_name: 'Amit Patel',
+    head: { prefix: 'Service', bill_date: d(-3), party_id: S.customers.amit, party_name: 'Amit Patel',
             mobile: '9822011223', is_credit: 0, gst_pct: 3, amount_received: 125000 },
     items: [{ tag: T('CHA00001').tag, tag_stock_id: T('CHA00001').id, item_id: S.items.chain,
               item_name: 'Chain', hsn: '7113', gross_wt: 24.5, purity: 91.6, stone_wt: 0,
@@ -92,7 +92,7 @@ app.whenReady().then(() => {
 
   // ── A part-paid sale ──
   api.sale.save({
-    head: { prefix: 'COM', bill_date: d(-1), party_id: S.customers.rekha, party_name: 'Rekha Shah',
+    head: { prefix: 'Service', bill_date: d(-1), party_id: S.customers.rekha, party_name: 'Rekha Shah',
             mobile: '9811223344', is_credit: 1, gst_pct: 3, amount_received: 25000,
             bill_discount: 1000 },
     items: [{ tag: T('BAN00001').tag, tag_stock_id: T('BAN00001').id, item_id: S.items.bangle,

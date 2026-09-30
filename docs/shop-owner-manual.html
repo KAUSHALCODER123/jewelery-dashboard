@@ -72,7 +72,7 @@
 <div class="wrap">
 
 <div class="cover">
-  <div class="eyebrow">Parivar Jewellery ERP · Version 1.29</div>
+  <div class="eyebrow">Parivar Jewellery ERP · Version 1.30</div>
   <h1>The Shop Owner's Manual</h1>
   <p class="lead">Every screen of the software, explained the way the shop works: what it is for, what to press, and what happens to your stock, your cash and your khata when you press it.</p>
   <p class="meta">Keep this near the billing computer. Chapters are short on purpose — read the one you need, when you need it.</p>
@@ -119,6 +119,24 @@
 </ol>
 </div>
 
+<h3>What's new in this update</h3>
+<ul>
+  <li><b>Shop header</b> on the Invoice Design tab: put your own banner picture across the top of the A4 bill, with or without the shop name printed over it (chapter 30).</li>
+  <li><b>Sales series</b> are now <b>Service</b> (the GST bill, the default) and <b>ESM</b> (estimate, no GST). Old COM bills still open and print.</li>
+  <li><b>Walk-in bills</b>: an empty received box means paid in full; a short payment asks for a customer (chapter 8).</li>
+  <li><b>Direct amount</b>: a piece with no amount typed is refused, and choosing an estimate switches Direct amount on (chapters 8 and 9).</li>
+  <li><b>Old gold</b> taken on sale bills now shows on the Old Gold Purchase screen, and the Old Gold Report lists old gold taken on order bookings not yet billed (chapters 11 and 12).</li>
+  <li><b>Loose items</b> (mani, fuli, dori) cannot be tagged, and a lot can never go below zero (chapter 4).</li>
+  <li><b>Stock safeguards</b>: a piece on hold cannot be melted, a piece cannot be returned twice, and a melted piece cannot be deleted from Tag &amp; Barcode.</li>
+  <li><b>Balances need a khata</b>: a sale return, purchase, purchase return or refining entry that leaves money open needs its customer or supplier picked. Deleting a bill or purchase that has a return against it names the return to delete first.</li>
+  <li><b>Owner only</b>: Settings (staff keep only the light/dark theme), and deleting returns, karagir slips, metal settlements, stock transfers, branches, rate-master rows, or undoing a scheme instalment (chapter 30).</li>
+  <li><b>Same-day corrections</b>: staff can change a saved bill, purchase, return, receipt or payment, old gold bill or order only on the day it is dated; the owner can change it any day (chapter 30).</li>
+  <li><b>Locked days</b>: once a day's Daily Closing is approved and locked, nothing dated that day can be added, edited or deleted until the owner reopens it (chapter 24).</li>
+  <li><b>Gold scheme</b>: an instalment already spent on a bill cannot be undone, and a scheme account spent on a bill cannot be deleted (chapter 17). The maturity bonus shows as an expense in the Profit &amp; Loss.</li>
+  <li><b>Orders</b>: the advance shows in the Day Book on the day it was paid. A balance payment entered by editing a bill made from an order now reaches cash and the customer's khata.</li>
+  <li><b>Books and GST</b>: the Profit &amp; Loss shows income heads, and a gross loss sits on the correct side. GSTR-1, the Sales and Purchase books and the HSN summary use the value after discount. A making discount % no longer grows each time a bill is edited and saved again.</li>
+</ul>
+
 <!-- ───────────────────────────── 1 ───────────────────────────── -->
 <h2 id="c1"><span class="no">1</span>Your first day — setting up once</h2>
 <p class="sub">Half an hour, done once. After this the software runs the shop.</p>
@@ -163,7 +181,7 @@
 <ol class="steps">
   <li>Press <span class="ui">New Item</span>. Type the name — Ring, Chain, Bangle, Payal, Pendant.</li>
   <li>Choose the <b>Item Type</b> (Gold, Silver, Platinum, Stone) and the <b>Item Group</b> (22K Gold, 18K Gold, Silver…). The group carries the default purity.</li>
-  <li><b>Stocked As</b>: <i>Tagged pieces</i> for anything that gets a barcode. <i>Loose by weight</i> for mani, fuli, dori — bought as 100 g and sold as 10 g, no tag.</li>
+  <li><b>Stocked As</b>: <i>Tagged pieces</i> for anything that gets a barcode. <i>Loose by weight</i> for mani, fuli, dori — bought as 100 g and sold as 10 g, no tag. Such an item cannot be tagged at all: its stock is one lot, entered as the lot's opening weight or on a purchase.</li>
   <li>HSN code (7113 for jewellery) and a <b>reorder level</b> if you want a warning when stock runs low. Save.</li>
 </ol>
 <figure><img src="shots/item-new.png" alt="New item form"><figcaption>New Item: name, type, group, stocked-as.</figcaption></figure>
@@ -193,6 +211,14 @@
   <li><b>Opening metal</b>: the bullion and scrap in the safe on the day you started. Enter it here, not as a purchase.</li>
 </ul>
 <div class="box why"><div class="t">Why tags matter</div>At the counter the tag does the typing. Scan it and the whole piece — weight, purity, making, hallmark — lands on the bill. No retyping, no mistakes, and a piece can never be sold twice.</div>
+
+<h3>Loose items — mani, fuli, dori</h3>
+<p>An item stocked <i>Loose by weight</i> is kept as one <b>lot</b>, in grams, and is never tagged. Try to save tags for it and the screen says <i>This item is sold loose by weight, so it cannot be tagged</i>. Put its stock in as the lot's opening weight, or on a purchase.</p>
+<ul>
+  <li>Older versions allowed tags on these items. When the software opens, any such tag still in stock is folded into its lot as an adjustment named <i>Moved into the lot from tag …</i>, so the grams are counted once.</li>
+  <li>A lot can never go below zero. A sale, the Material Out side of a purchase, cutting down or deleting a purchase, or editing a return that would leave less than nothing is refused, and the message says how many grams are really in stock.</li>
+</ul>
+<p>A piece that has been <b>melted</b> (sent for refining) cannot be deleted from this screen. The message names the refining entry; delete that entry instead and the piece comes back.</p>
 
 <!-- ───────────────────────────── 5 ───────────────────────────── -->
 <h2 id="c5"><span class="no">5</span>Customers</h2>
@@ -229,7 +255,7 @@
   <li><span class="ui">New Purchase</span>. Pick the supplier, the metal, and Cash or Credit.</li>
   <li><b>Material In</b>: one line per item — gross weight, purity, rate per 10 g, and the <b>wastage %</b> the supplier charges. The <b>Fine + Wastage</b> column is what you are really paying for.</li>
   <li><b>Material Out</b>: metal you gave back to the supplier on the same invoice, if any.</li>
-  <li>Discount, sub-tax, GST, TCS, and <b>Paid Amount</b>. A purchase can also be settled by handing over <b>fine gold</b> (Paid in Fine) at a rate — the rest stays due in rupees.</li>
+  <li>Discount, sub-tax, GST, TCS, and <b>Paid Amount</b>. A purchase can also be settled by handing over <b>fine gold</b> (Paid in Fine) at a rate — the rest stays due in rupees. A purchase not paid in full needs the supplier selected, so the balance sits on their khata.</li>
   <li><span class="ui">Save Purchase</span> keeps the invoice open with its <b>Labels Tally</b>; <span class="ui">Save &amp; Make Labels</span> jumps straight to Tag &amp; Barcode with this invoice preselected.</li>
 </ol>
 <figure><img src="shots/purchase-new.png" alt="New purchase"><figcaption>A purchase line: item, gross, purity, wastage, rate — amount and GST follow.</figcaption></figure>
@@ -244,7 +270,7 @@
 <p class="sub">Transactions → Sales Invoice (F2). Scan, rate, save, print.</p>
 <figure><img src="shots/sales.png" alt="Sales Invoice"><figcaption>The bill: customer, items grid, old gold, payment, and the live bill summary.</figcaption></figure>
 <ol class="steps">
-  <li><b>Customer</b>: type a name and pick, or leave blank for a walk-in. Their khata balance appears at once. <b>+</b> creates a new customer without leaving the bill.</li>
+  <li><b>Customer</b>: type a name and pick, or leave blank for a walk-in. Their khata balance appears at once. <b>+</b> creates a new customer without leaving the bill. A walk-in cash bill with Amount Received left empty is saved as <b>paid in full</b>. If a walk-in pays less than the bill, the software asks you to select a customer, so the balance goes on their khata.</li>
   <li><b>Scan the tag</b> in the Tag column, or type the item name and choose the piece from the list. Weight, purity, making and hallmark fill in from the tag. The cursor then waits on the next line, so the next piece can be scanned straight away. A tag that is not found, already sold, or already on this bill is named in a message.</li>
   <li>Type today's <b>Rate/10gm</b> once. Every further piece of the same purity picks up that rate by itself. Making can be a percentage of the metal value or a per-gram figure from the tag.</li>
   <li>Bill Summary on the right updates live: goods, making, discount, GST (CGST + SGST or IGST), total.</li>
@@ -256,7 +282,8 @@
 <ul>
   <li><b>Start from the customer</b>: on Customers, Ledger or Outstanding, the small buttons on a customer's row open a new bill, a receipt or their ledger with the customer already picked. In the Sales Register, the return button on a bill opens a return with that bill's pieces filled in. The Dashboard figures open their full report when clicked.</li>
   <li><b>Untagged item</b>: type a name with no tag for metal sold before it was labelled. Its weight comes off the loose pool. The <b>From Purchase</b> column lets you say which invoice it came from, so that invoice's tally comes down.</li>
-  <li><b>Loose items</b> (mani, fuli): pick the lot and type the grams taken.</li>
+  <li><b>Loose items</b> (mani, fuli): pick the lot and type the grams taken. The bill cannot take more grams than the lot holds.</li>
+  <li><b>Direct amount</b> (type the amount; rate only prints): you type what each piece sells for and the rate is only printed. Every line with a weight needs its amount — a line left blank is refused with <i>type the amount this piece sells for</i>, because it would otherwise go on the bill at ₹0.</li>
   <li><b>Card fee</b>: if the bank's swipe charge is set on your bank account, the customer's share is added and your share is booked as an expense.</li>
   <li><b>Loyalty points</b> and <b>Gold Saving Scheme</b> balances settle the bill once the customer is picked.</li>
   <li><b>Weight-wise bill</b> for trade customers: the metal is owed in fine grams, not rupees; enter what they settle now and the rest stays on their gold khata.</li>
@@ -282,7 +309,7 @@
 <div class="box why"><div class="t">The old gold really comes in</div>It is not only knocked off the total. The metal lands in your <b>URD stock</b> (old gold pool) and shows in the Day Book and Stock. You gave value for it, and now you hold it.</div>
 
 <h3>Estimate (quotation)</h3>
-<p>Change <b>Series</b> to <b>ESM — Estimate</b>. <b>GST not required</b> ticks itself, because an estimate is not a tax invoice. Everything else works the same; the number comes from the estimate series.</p>
+<p>The bill opens on the <b>Service</b> series, the GST bill. Change <b>Series</b> to <b>ESM — Estimate</b>. <b>GST not required</b> ticks itself, because an estimate is not a tax invoice, and <b>Direct amount</b> switches on so you type the price of each piece. Everything else works the same; the number comes from the estimate series. Bills made in the old <b>COM</b> series still open and print as before.</p>
 <figure><img src="shots/sales-estimate.png" alt="Estimate series"><figcaption>Estimate series: GST not required is on by default.</figcaption></figure>
 
 <h3>Credit bill</h3>
@@ -297,9 +324,10 @@
 <figure><img src="shots/return-new.png" alt="Sales return"><figcaption>A sales return pulls the original bill's lines in.</figcaption></figure>
 <ol class="steps">
   <li><span class="ui">Returns → New Sales Return</span>. Pick the original bill; its lines are pulled in. Remove the lines that did not come back.</li>
-  <li>Enter a refund amount if you paid cash back; leave blank to credit the customer's khata instead.</li>
+  <li>Enter a refund amount if you paid cash back; leave blank to credit the customer's khata instead. A return that is not refunded in full needs the customer selected, so the credit has a khata to sit on.</li>
   <li><span class="ui">Save Return</span>. The piece is back in stock, money and metal reverse on the return date.</li>
 </ol>
+<p>A tagged piece can come back only if it is sold. A piece already on the shelf — never sold, or already taken back on an earlier return — is refused, so it cannot be returned twice. A bill or purchase that has a return against it cannot be deleted; the message names the return to delete first.</p>
 <div class="box why"><div class="t">The original bill is never changed</div>A return is its own dated document. A bill that was printed and reported stays exactly as it was — that is what keeps your GST return honest.</div>
 <p><b>Purchase Returns</b> work the same way for metal sent back to a supplier.</p>
 
@@ -316,15 +344,18 @@
 </ol>
 <figure><img src="shots/oldgold-new.png" alt="New old gold bill"><figcaption>10.5 g at 80% and ₹5,800 per fine gram; ₹30,000 paid now, the rest on the khata.</figcaption></figure>
 <div class="box ok"><div class="t">What happens when you save</div>The metal goes into URD stock. Cash or bank drops by what you paid. The Day Book shows old gold bills on their own row; the P&amp;L counts them as Old Gold Purchase.</div>
+<h3>Old Gold on Sale Bills</h3>
+<p>Below the old gold bills, the <b>Old Gold on Sale Bills</b> section lists the old gold customers gave against a purchase in the same period: bill number, date, customer, gross and net weight, and value. Click a row to open that sale bill. The cards at the top — <b>Bills</b> and <b>Old Gold Taken In (net)</b> — count this old gold too, so the screen shows every gram that came in.</p>
 
 <!-- ───────────────────────────── 12 ───────────────────────────── -->
 <h2 id="c12"><span class="no">12</span>Old Gold Report</h2>
-<p class="sub">Reports → Old Gold Report. Every gram taken in, from both kinds of bill.</p>
+<p class="sub">Reports → Old Gold Report. Every gram taken in: on sale bills, on old gold bills, and on order bookings.</p>
 <figure><img src="shots/oldgold-report.png" alt="Old gold report"><figcaption>Old Gold Total: fine grams, rupees paid, average rate, and URD gold in the safe now.</figcaption></figure>
 <ul>
   <li>Pick a date range. The tiles show fine grams taken in, the rupee total, the average rate per fine gram, the split between sale bills and old gold bills, and how much URD gold is in the safe right now.</li>
   <li>The table lists every line with the bill it came from. Click a row to open that bill.</li>
-  <li>Filter by source, search by bill or customer, and print or export.</li>
+  <li>Old gold handed over when an order was booked, and the order not yet billed, is listed with the source <b>On order booking</b>. Click it to open Order Booking. Once the order becomes a bill, that old gold shows on the sale bill instead.</li>
+  <li>Filter by source (<b>All</b>, <b>On sale bills</b>, <b>Old gold bills</b>, <b>Order bookings</b>), search by bill or customer, and print or export.</li>
 </ul>
 
 <!-- ───────────────────────────── 13 ───────────────────────────── -->
@@ -375,8 +406,9 @@
 <figure><img src="shots/refining.png" alt="Refining"><figcaption>Refining entries: direction, fine weight, charges, paid.</figcaption></figure>
 <ol class="steps">
   <li><span class="ui">New Refining Entry</span>. Direction <b>Material Out</b>: pick the refinery and enter the scrap sent — gross, purity. Scan a tag to melt a tagged piece; it is marked melted.</li>
-  <li>When the pure gold returns, a new entry with direction <b>Material In</b>: weight and purity received, the refinery's charges and GST, what you paid.</li>
+  <li>When the pure gold returns, a new entry with direction <b>Material In</b>: weight and purity received, the refinery's charges and GST, what you paid. Charges not paid in full need the refinery selected, so they go on its khata.</li>
 </ol>
+<p>A piece that is <b>reserved</b>, out on an <b>approval memo</b>, or <b>at hallmarking</b> cannot be melted. The message names the hold; release it first (chapters 19 and 21).</p>
 <figure><img src="shots/refining-new.png" alt="Refining entry"><figcaption>Material Out: 30 g of scrap at 85%.</figcaption></figure>
 <p>Your stock drops when the metal leaves and rises when it comes back; the difference between fine out and fine in is your refining loss, in grams, on the screen.</p>
 
@@ -400,6 +432,7 @@
   <li>At maturity the member buys: on their bill, the <b>Saving Scheme</b> box shows the balance and settles the bill. Anything left stays on the card or is handed back in cash.</li>
   <li>Two cards for one person? <span class="ui">Merge Cards</span>.</li>
 </ol>
+<p>Only the owner can undo a received instalment. An instalment whose money has already been spent on a bill cannot be undone, and a scheme account that has been spent on a bill cannot be deleted — cancel or edit that bill first.</p>
 <figure><img src="shots/scheme-member.png" alt="Scheme member"><figcaption>A member's card: instalments due, received, and the balance.</figcaption></figure>
 <div class="box why"><div class="t">Scheme money is kept apart</div>It is a deposit you are holding, not a sale — so it lives in its own account (Gold Saving Scheme) and never muddles the customer's buying-and-selling khata. The bonus is added only once every instalment is in and the maturity date has passed.</div>
 
@@ -410,6 +443,7 @@
 <ul>
   <li>Views: tag-wise detail, or summaries by item, item group, location, category, salesman, or shelf/tray.</li>
   <li><b>Value at cost</b> uses the Cost/gm on each piece — the same basis the Balance Sheet uses for closing stock.</li>
+  <li>Loose lots (mani, fuli, dori) are listed apart from the pieces. The <b>Gross Weight</b> card adds a line <i>+ X g in loose lots</i>, so you still see everything on the shelf.</li>
   <li><b>Edit Stock</b>: found a piece weighed wrong at stock-take? Fix it in place; the fine weight and your metal position move with it. Sold pieces cannot be edited here — fix the bill.</li>
   <li><b>Grid Settings</b> on any table: hide, rename or reorder columns. Print, or export to CSV, Excel or Word.</li>
 </ul>
@@ -509,10 +543,10 @@
   <li>Pick the date and press <span class="ui">Open Close</span>. <b>Expected cash</b> is the day's opening plus that day's cash — the same figure as the Cash Book. Card, UPI, NEFT and cheques are not counted as cash.</li>
   <li>Type how many of each note and coin are in the drawer, and any loose cash. The short or excess shows as you type; <span class="ui">Save Count</span>.</li>
   <li><span class="ui">Submit</span> the day.</li>
-  <li>The owner <b>approves</b> it. A difference needs a note saying why. The owner can also match card and UPI settlements to that day's bank receipts.</li>
+  <li>The owner presses <span class="ui">Approve &amp; Lock</span>. A difference needs a note saying why. The owner can also match card and UPI settlements to that day's bank receipts.</li>
 </ol>
-<p>If a bill, receipt or return for that day is changed after the count, the close is marked out of date so you know to count again; the owner can <b>reopen</b> it with a reason. <span class="ui">All Closes</span> lists every day closed.</p>
-<div class="box"><div class="t">An approved day can still be edited</div>Approving a day does not lock its bills. A later change is only flagged on that day's close — so check the close again if a bill was corrected.</div>
+<p>If a bill, receipt or return for that day is changed after the count but before the day is locked, the close is marked out of date so you know to count again. The owner can <b>reopen</b> a submitted or locked day with a reason. <span class="ui">All Closes</span> lists every day closed.</p>
+<div class="box"><div class="t">A locked day cannot be changed</div>Once a day is approved and locked, no document dated that day can be added, edited or deleted — by staff or by the owner. To correct something on that day, the owner reopens the close first, makes the change, and counts and locks the day again.</div>
 
 <!-- ───────────────────────────── 25 ───────────────────────────── -->
 <h2 id="c25"><span class="no">25</span>Ledger / Khata and Outstanding</h2>
@@ -534,13 +568,13 @@
 <figure><img src="shots/books-pl.png" alt="Profit and loss"><figcaption>Trading and Profit &amp; Loss for the period.</figcaption></figure>
 <ul>
   <li><b>Trial Balance</b>: every head, footing to the paisa, for any period.</li>
-  <li><b>Profit &amp; Loss</b>: sales and other charges against purchases, old gold, refining charges, karagir labour, discounts and shop expenses, with closing stock at cost.</li>
+  <li><b>Profit &amp; Loss</b>: sales and other charges against purchases, old gold, refining charges, karagir labour, discounts and shop expenses, with closing stock at cost. Money received against an income head (commission, interest) shows as income, and a gross loss is carried down on the expense side.</li>
   <li><b>Balance Sheet</b>: cash, bank, debtors and stock against creditors and scheme deposits.</li>
 </ul>
 <figure><img src="shots/registers.png" alt="Cash book"><figcaption>Cash book with running balance; Journal and the Sales &amp; Purchase books on the other tabs.</figcaption></figure>
 <h3>GST</h3>
 <figure><img src="shots/gst.png" alt="GST reports"><figcaption>GSTR-1 outward supplies with CGST/SGST split per bill.</figcaption></figure>
-<p><b>GSTR-1</b> (sales), <b>GSTR-2</b> (purchases), <b>GSTR-3B</b> summary, <b>HSN summary</b> and <b>TCS/TDS</b>. Within the state the tax is split CGST + SGST; inter-state bills are IGST. Export any of them and hand the file to your CA.</p>
+<p><b>GSTR-1</b> (sales), <b>GSTR-2</b> (purchases), <b>GSTR-3B</b> summary, <b>HSN summary</b> and <b>TCS/TDS</b>. Within the state the tax is split CGST + SGST; inter-state bills are IGST. The taxable value in GSTR-1, the Sales and Purchase books and the HSN summary is the value <b>after discount</b>, the same figure the tax was charged on. Export any of them and hand the file to your CA.</p>
 <div class="box why"><div class="t">Why the books can always be trusted</div>They are built from your bills, purchases and receipts every time you open them — not kept as a separate set of totals that could drift. Change a document and the books change with it.</div>
 
 <!-- ───────────────────────────── 27 ───────────────────────────── -->
@@ -579,15 +613,32 @@
 <table>
   <tr><th>Tab</th><th>What it is for</th></tr>
   <tr><td>Company</td><td>Shop name, address, GSTIN, state, bank details, financial year, the declaration printed on bills.</td></tr>
-  <tr><td>Invoice Design</td><td>Paper (A4 or 3-inch thermal), title, colour, which columns print, logo, bank details, old gold table, signature, footer note. The preview is the real bill.</td></tr>
-  <tr><td>Bill Numbering</td><td>Series and prefixes: COM for counter bills, ESM for estimates, MI for purchases, O for old gold bills…</td></tr>
+  <tr><td>Invoice Design</td><td>Paper (A4 or 3-inch thermal), title, colour, which columns print, logo, bank details, old gold table, signature, footer note, and the shop header at the top of the bill. The preview is the real bill.</td></tr>
+  <tr><td>Bill Numbering</td><td>Series and prefixes: Service for GST bills, ESM for estimates, MI for purchases, O for old gold bills…</td></tr>
   <tr><td>Accounts</td><td>Cash, bank and expense heads; opening balances; the bank's card-swipe charges.</td></tr>
   <tr><td>Making &amp; Wastage</td><td>Default making charge and wastage % per item or item group, so nothing is retyped on every tag, bill and purchase.</td></tr>
-  <tr><td>Users</td><td>Staff, Manager, Owner logins. Staff can bill, take money, enter stock and run reports. Managers can also refine and remove tags. Only the Owner can delete documents, change settings or restore a backup.</td></tr>
+  <tr><td>Users</td><td>Staff, Manager, Owner logins. Staff can bill, take money, enter stock and run reports. Managers can also refine and remove tags. Only the Owner can delete documents, change settings or restore a backup. Staff can change only the light or dark theme for themselves.</td></tr>
   <tr><td>Data &amp; Backup</td><td>Backup now, restore, Google Drive backup (chapter 31).</td></tr>
   <tr><td>Mobile View</td><td>Read-only access from a phone on the shop Wi-Fi.</td></tr>
 </table>
 <figure><img src="shots/settings-invoice.png" alt="Invoice design"><figcaption>Invoice Design: the preview is exactly what prints.</figcaption></figure>
+<h3>Shop header — your own banner on the bill</h3>
+<p>The <b>Shop header</b> card on the Invoice Design tab sets the band across the top of an A4 bill. The preview beside it, <span class="ui">Test Print</span> and the real bill all print the same header.</p>
+<table>
+  <tr><th>Setting</th><th>What it does</th></tr>
+  <tr><td>Header style</td><td><b>Standard</b>: the usual shop name, address and logo. <b>Image only</b>: your banner picture fills the band. <b>Image + text</b>: a picture or colour behind, with the shop name and details printed over it.</td></tr>
+  <tr><td>Header height</td><td>A slider from 15 to 90 mm.</td></tr>
+  <tr><td>Image</td><td><span class="ui">Upload image…</span>, <span class="ui">Replace image…</span> or <span class="ui">Remove image</span>. PNG or JPEG. <b>Image fit</b>: <i>Fill (crop)</i> fills the band and trims the edges, <i>Fit whole</i> shows the whole picture, <i>Stretch</i> pulls it to the band's shape.</td></tr>
+  <tr><td>Background colour</td><td>Image + text only. Shows behind the text and around a picture that does not fill the band. <span class="ui">No colour</span> clears it.</td></tr>
+  <tr><td>Logo in the band</td><td>Left, Centre, Right or Hidden.</td></tr>
+  <tr><td>Tagline</td><td>A sub-line under the shop name, such as <i>Trusted jewellers since 1985</i>.</td></tr>
+  <tr><td>Shop name, Tagline, Address, Contact &amp; GST</td><td>For each line: show or hide it, and set its colour, size and alignment (Left, Centre, Right).</td></tr>
+</table>
+<ul>
+  <li><b>Image only</b> prints the Standard header until a picture is chosen, so a bill never goes out without your name.</li>
+  <li>The header is for <b>A4 bills</b>. The 3-inch thermal receipt keeps its simple header.</li>
+</ul>
+<div class="box"><div class="t">Tip: the right shape of picture</div>A banner about <b>7 times as wide as it is tall</b> fills an A4 header without cropping.</div>
 <h3>Seeing the books on your phone</h3>
 <figure><img src="shots/settings-mobile.png" alt="Mobile view"><figcaption>Mobile View: switch on, scan the QR code, sign in with the same login.</figcaption></figure>
 <p>Switch Mobile View on, scan the QR code with a phone on the <b>same Wi-Fi</b>, sign in with your desktop login, and add the page to the home screen. You can see today's sales, stock, any khata, the day book and dues. Nothing can be changed from the phone, and nothing is reachable from outside the shop network.</p>
@@ -599,9 +650,13 @@
   <tr><td>Repairs; make and receive a hallmarking batch</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
   <tr><td>Reserve a piece, issue or close a memo, dispatch hallmarking</td><td>—</td><td>Yes</td><td>Yes</td></tr>
   <tr><td>Approve and close a stock count</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Correct a saved bill, purchase, return, receipt or payment, old gold bill or order</td><td>Same day only</td><td>Same day only</td><td>Any day</td></tr>
   <tr><td>Approve or reopen a day, match settlements</td><td>—</td><td>—</td><td>Yes</td></tr>
-  <tr><td>Catalogue, settings, delete documents, restore a backup</td><td>—</td><td>—</td><td>Yes</td></tr>
+  <tr><td>Catalogue, settings (including Invoice Design, loyalty rates and Mobile View), delete documents, restore a backup</td><td>—</td><td>—</td><td>Yes</td></tr>
+  <tr><td>Delete a return, karagir issue or receive slip, metal settlement, stock transfer, branch or rate-master row; undo a scheme instalment</td><td>—</td><td>—</td><td>Yes</td></tr>
+  <tr><td>Change the light or dark theme</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
 </table>
+<p>Staff and managers can change a document only on the day it is dated; after that, the owner makes the change. Once a day's Daily Closing is locked, nobody — the owner included — can add, edit or delete a document dated that day until the owner reopens the close (chapter 24).</p>
 <p>Each of these is recorded with the name of the person signed in, so every change can be traced to who made it.</p>
 
 <!-- ───────────────────────────── 31 ───────────────────────────── -->
@@ -676,6 +731,12 @@ Gold khata    Dr = they owe you grams  Cr = you owe them grams</pre>
   <tr><td>"This tag is not in stock"</td><td>That piece is already sold, melted or at another branch. It cannot be billed twice — the software is protecting you.</td></tr>
   <tr><td>A purchase shows "… g to label" forever</td><td>The metal was sold untagged without naming the purchase, or tagged with All loose metal. Both are fine; the tally only tracks what was tied to the invoice.</td></tr>
   <tr><td>Old gold bill refuses to save</td><td>A walk-in with no customer must be paid in full; a balance needs a customer's khata to sit on.</td></tr>
+  <tr><td>"Select a customer to put it on their khata"</td><td>A sale bill, return, purchase or refining entry leaves money open and nobody is selected. Pick the customer or supplier, or enter the full amount.</td></tr>
+  <tr><td>"Direct amount is on, so type the amount this piece sells for"</td><td>A line has a weight but no amount. Type its price, or switch Direct amount off.</td></tr>
+  <tr><td>"… cannot be tagged"</td><td>The item is stocked Loose by weight. Enter its grams as the lot's opening weight or on a purchase.</td></tr>
+  <tr><td>"Only … g of … is in stock"</td><td>That change would take a loose lot below zero. Correct the later bills that used the grams first.</td></tr>
+  <tr><td>"Tag … is on hold — release the hold before sending it for refining"</td><td>The piece is reserved, out on a memo or at hallmarking. Release or close that first.</td></tr>
+  <tr><td>A saved document will not save changes</td><td>It opens, but saving is refused with a message (on a sales bill, Save is greyed out and the reason shows at the top). Its day has been locked in Daily Closing, or (for staff and managers) it is from an earlier day. The owner can reopen the close or make the change.</td></tr>
   <tr><td>A scheme benefit has not shown</td><td>It is added only once every instalment is in and the maturity date has passed.</td></tr>
   <tr><td>The label prints with the bottom cut</td><td>Printer paper size or gap calibration — chapter 32.</td></tr>
 </table>
@@ -716,7 +777,7 @@ Gold khata    Dr = they owe you grams  Cr = you owe them grams</pre>
 </table>
 </div>
 </div>
-<p class="meta" style="margin-top:40px;color:var(--ink-3)">Parivar Jewellery ERP · Shop Owner's Manual · Version 1.29. Keep the daily backup, count the drawer each night, and reconcile against your old book for the first month. Do those three things and the rest looks after itself.</p>
+<p class="meta" style="margin-top:40px;color:var(--ink-3)">Parivar Jewellery ERP · Shop Owner's Manual · Version 1.30. Keep the daily backup, count the drawer each night, and reconcile against your old book for the first month. Do those three things and the rest looks after itself.</p>
 
 </div>
 </body>

@@ -99,10 +99,10 @@ app.whenReady().then(async () => {
     ;[...document.querySelectorAll('.nav-item')].find(b => b.textContent.includes('Sales Invoice')).click(); await pause(800)
     const series = [...document.querySelectorAll('select')].find(s => [...s.options].some(o => o.textContent.startsWith('ESM')))
     series.focus(); const before = series.value
-    key(series, 'Tab'); await pause()
+    key(series, 'Tab', true); await pause()
     const checked = t => [...document.querySelectorAll('label')].find(l => l.textContent.includes(t))?.querySelector('input').checked
     const after = series.value, gstOff = checked('GST not required'), direct = checked('Direct amount')
-    key(series, 'Tab', true); await pause()
+    key(series, 'Tab'); await pause()
     const back = series.value
     key(series, 'Enter'); await pause()
     const movedOn = document.activeElement !== series
@@ -115,9 +115,9 @@ app.whenReady().then(async () => {
     const first = idx(); key(item, 'Tab'); await pause(); const second = idx()
     return { before, after, gstOff, direct, back, movedOn, count: items.length, first, second }
   })()`)
-  assert.equal(tab.before, 'COM'); assert.equal(tab.after, 'ESM', 'Tab picks the next option')
+  assert.equal(tab.before, 'Service'); assert.equal(tab.after, 'ESM', 'Shift+Tab picks the previous option')
   assert.equal(tab.gstOff, true); assert.equal(tab.direct, true)
-  assert.equal(tab.back, 'COM', 'Shift+Tab picks the previous option')
+  assert.equal(tab.back, 'Service', 'Tab picks the next option')
   assert.equal(tab.movedOn, true, 'Enter moves to the next field')
   assert.ok(tab.count >= 2, 'suggestions open'); assert.equal(tab.first, 0); assert.equal(tab.second, 1, 'Tab moves down the suggestions')
   assert.deepEqual(errors, [])

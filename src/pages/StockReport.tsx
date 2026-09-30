@@ -266,7 +266,12 @@ export default function StockReport() {
 
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(4, minmax(0,1fr))' }}>
         <div className="stat"><div className="stat-label">Pieces</div><div className="stat-value num">{count}</div></div>
-        <div className="stat"><div className="stat-label">Gross Weight</div><div className="stat-value num">{wt(tot.gross)}<span style={{ fontSize: 13, color: 'var(--text-3)' }}> g</span></div></div>
+        <div className="stat"><div className="stat-label">Gross Weight</div><div className="stat-value num">{wt(tot.gross)}<span style={{ fontSize: 13, color: 'var(--text-3)' }}> g</span></div>
+          {/* Loose lots are listed apart from the pieces, but the shop still reads
+              this card as "what is on the shelf", so their grams are named here. */}
+          {loose.length > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 2 }}>+ {wt(looseWt)} g in loose lots</div>
+          )}</div>
         <div className="stat"><div className="stat-label">Net Weight</div><div className="stat-value num">{wt(tot.net)}<span style={{ fontSize: 13, color: 'var(--text-3)' }}> g</span></div></div>
         <div className="stat">
           <div className="stat-label">Value at Cost</div>

@@ -607,6 +607,15 @@ const tagStock = {
     const db = get()
     const tx = db.transaction(() => {
       const out = []
+      // A loose item's stock is its lot, by weight. A tag on it would sit apart
+      // from that lot: selling grams would come off the lot (driving it below
+      // zero) while the tag went on showing the full weight on the shelf.
+      if (isLooseItem(db, itemId) && rows.some((r) => !r.id)) {
+        throw new Error(
+          'This item is sold loose by weight, so it cannot be tagged. ' +
+          "Enter its weight as the lot's opening stock or on a purchase instead."
+        )
+      }
       const metal = itemMetal(db, itemId)
       const DEFAULTS = {
         gross_wt: 0, black_beads: 0, bag_wt: 0, stone_wt: 0, stone_rate: 0, diamond_wt: 0,
@@ -732,8 +741,17 @@ const tagStock = {
 
   remove: ({ id }) => {
     const db = get()
-    const row = db.prepare(`SELECT status FROM tag_stock WHERE id = ?`).get(id)
+    const row = db.prepare(`SELECT tag, status, sold_doc FROM tag_stock WHERE id = ?`).get(id)
     if (row?.status === 'SOLD') throw new Error('Cannot delete a tag that has been sold.')
+    // A melted piece left stock on a refining document, which still books it
+    // out. Deleting the tag takes back the inflow it came in on, and the tagged
+    // stock goes short by the piece.
+    if (row && row.status !== 'IN_STOCK') {
+      throw new Error(
+        `${row.tag} has been ${row.status === 'MELTED' ? 'sent for refining' : row.status.toLowerCase()}` +
+        ' — delete that document instead.'
+      )
+    }
     // A transfer document names this piece. Deleting the tag would break the
     // foreign key and surface as a bare "FOREIGN KEY constraint failed"; say
     // which document is in the way instead.
@@ -1323,11 +1341,17 @@ const account = {
   },
 }
 
+// Series the shop no longer bills on. Saving a bill in one (an old parked
+// draft still says COM) makes nextDocNo recreate its counter row so the
+// numbering carries on; the picker must still never offer it.
+const RETIRED_SERIES = new Set(['SALE:COM'])
+
 const series = {
   list: ({ docType } = {}) =>
-    docType
+    (docType
       ? get().prepare(`SELECT * FROM voucher_series WHERE doc_type = ? ORDER BY id`).all(docType)
-      : get().prepare(`SELECT * FROM voucher_series ORDER BY doc_type, id`).all(),
+      : get().prepare(`SELECT * FROM voucher_series ORDER BY doc_type, id`).all())
+      .filter((r) => !RETIRED_SERIES.has(`${r.doc_type}:${r.prefix}`)),
   peek: ({ docType, prefix }) => peekDocNo(docType, prefix),
   save: (p) => {
     const db = get()
@@ -1409,6 +1433,32 @@ function postItemStock(db, e) {
   })
 }
 
+/**
+ * Taking a document's weight back off a lot — a purchase cut down or deleted, a
+ * return undone — must not leave the lot owing grams that have already gone out
+ * on later bills. Call before the document's rows are cleared; run the returned
+ * check once its new rows (if any) are in. A lot that was already short before
+ * is only refused if this makes it shorter still, so old data does not block
+ * unrelated corrections.
+ */
+function guardLooseLots(db, docType, docId) {
+  const before = new Map(db.prepare(
+    `SELECT DISTINCT item_id FROM item_stock WHERE doc_type = ? AND doc_id = ?`
+  ).all(docType, docId).map((r) => [r.item_id, looseOnHand(db, r.item_id)]))
+  return () => {
+    for (const [itemId, was] of before) {
+      const now = looseOnHand(db, itemId)
+      if (now < 0 && now < was) {
+        const name = db.prepare(`SELECT name FROM item WHERE id = ?`).get(itemId)?.name || 'a loose item'
+        throw new Error(
+          `Only ${was} g of ${name} is in stock — the rest has already gone out on other bills, ` +
+          `so this change would leave ${now} g. Correct those bills first.`
+        )
+      }
+    }
+  }
+}
+
 function itemMetal(db, itemId) {
   if (!itemId) return 'Gold'
   const t = db.prepare(
@@ -1433,6 +1483,28 @@ function itemMetal(db, itemId) {
 const CASH_MODES = new Set(['Cash', ''])
 const moneyAccountFor = (db, mode) =>
   accountIdByName(db, CASH_MODES.has(mode ?? '') ? 'Cash Account' : 'Bank Account')
+
+/**
+ * The legs of a bill's payment that are NEW money, once an order advance the
+ * bill counts as received has been taken off. The advance was booked into the
+ * Cash Account on the order date, so it comes off the cash legs first and only
+ * then off the others. Used by the bill's postings and by the Day Book, so the
+ * two can never disagree about what reached the till on the bill date.
+ */
+function advanceOffLegs(legs, advance) {
+  let left = calc.r2(Math.max(0, num(advance)))
+  const cashFirst = legs
+    .map((l, i) => ({ ...l, i }))
+    .sort((a, b) => Number(!CASH_MODES.has(a.mode ?? '')) - Number(!CASH_MODES.has(b.mode ?? '')) || a.i - b.i)
+  for (const l of cashFirst) {
+    const take = Math.min(left, num(l.amount))
+    l.amount = calc.r2(num(l.amount) - take)
+    left = calc.r2(left - take)
+  }
+  return cashFirst.sort((a, b) => a.i - b.i)
+    .filter((l) => l.amount > 0.005)
+    .map(({ i, ...l }) => l)
+}
 
 /**
  * The accounting books — Trial Balance, Trading & P&L, Balance Sheet — derived
@@ -1461,45 +1533,91 @@ function computeBooks(db, { from, to, openingStock = 0 } = {}) {
   // ── income & direct-cost documents over the period ──
   const sales = one(
     `SELECT COALESCE(SUM(bill_amount),0) goods, COALESCE(SUM(gst_amount),0) gst,
-            COALESCE(SUM(tcs_amount),0) tcs, COALESCE(SUM(other_amount),0) other,
-            COALESCE(SUM(bill_discount+making_discount),0) discount,
+            COALESCE(SUM(tcs_amount),0) tcs,
+            -- The card fee passed on to the customer is billed to them like any
+            -- other charge; leaving it out put it on their khata with no income
+            -- against it.
+            COALESCE(SUM(other_amount + card_charge_customer),0) other,
+            -- Points redeemed are a discount before tax, the same as the other two.
+            COALESCE(SUM(bill_discount+making_discount+loyalty_discount),0) discount,
             COALESCE(SUM(urd_amount),0) urd
      FROM sale WHERE bill_date BETWEEN @from AND @to`)
   const salesRet = one(
     `SELECT COALESCE(SUM(bill_amount),0) goods, COALESCE(SUM(gst_amount),0) gst
      FROM sale_return WHERE return_date BETWEEN @from AND @to`)
+  // A settlement runs either way. IN: the party owed us metal and pays for it
+  // in rupees — a sale. OUT: we owed them metal and pay rupees instead — a
+  // purchase. Counting both as sales put an OUT settlement's value on the
+  // credit side twice.
   const settle = one(
-    `SELECT COALESCE(SUM(amount),0) goods, COALESCE(SUM(gst_amount),0) gst
+    `SELECT COALESCE(SUM(CASE WHEN direction='IN' THEN amount END),0) goods,
+            COALESCE(SUM(CASE WHEN direction='IN' THEN gst_amount END),0) gst,
+            COALESCE(SUM(CASE WHEN direction='OUT' THEN amount END),0) bought,
+            COALESCE(SUM(CASE WHEN direction='OUT' THEN gst_amount END),0) gst_in
      FROM stock_settlement WHERE settle_date BETWEEN @from AND @to`)
+  // What the supplier is credited with, before tax: the metal in, plus
+  // hallmarking and extra tax, less the discount, the metal handed back on the
+  // bill and the fine paid over as settlement. Reading purchase_amount alone
+  // left every one of those on the supplier's khata with nothing against it.
   const purch = one(
-    `SELECT COALESCE(SUM(purchase_amount),0) goods, COALESCE(SUM(gst_amount),0) gst
+    `SELECT COALESCE(SUM(bill_amount - gst_amount - tcs_amount - paid_fine_amount),0) goods,
+            COALESCE(SUM(gst_amount),0) gst, COALESCE(SUM(tcs_amount),0) tcs,
+            COALESCE(SUM(purchase_amount),0) metal_in
      FROM purchase WHERE invoice_date BETWEEN @from AND @to`)
   const purchRet = one(
     `SELECT COALESCE(SUM(bill_amount),0) goods, COALESCE(SUM(gst_amount),0) gst
      FROM purchase_return WHERE return_date BETWEEN @from AND @to`)
   const refine = one(
-    `SELECT COALESCE(SUM(bill_amount),0) charges, COALESCE(SUM(gst_amount),0) gst
+    `SELECT COALESCE(SUM(bill_amount - gst_amount),0) charges, COALESCE(SUM(gst_amount),0) gst
      FROM refinery WHERE invoice_date BETWEEN @from AND @to`)
   const karagir = one(
-    `SELECT COALESCE(SUM(labour_amount),0) labour, COALESCE(SUM(tds_amount),0) tds
+    // Labour net of the discount the goldsmith gave — the khata is credited
+    // with the discounted figure, so the gross one left the books out by it.
+    `SELECT COALESCE(SUM(labour_amount - discount),0) labour, COALESCE(SUM(tds_amount),0) tds
      FROM karagir_receive WHERE receive_date BETWEEN @from AND @to`)
   // Old gold bought on its own bill, with no sale against it.
   const urdBills = one(
     `SELECT COALESCE(SUM(purchase_amount - discount + other_amount),0) amt
      FROM urd_bill WHERE bill_date BETWEEN @from AND @to`)
+  // Old gold handed in at an order booking. It is in the safe (and so in
+  // closing stock) from the booking day, so its cost belongs to that day too —
+  // leaving it out until the bill overstated profit by its full value while the
+  // order was open. When the order is billed, the same lines come back as the
+  // bill's URD; those are taken off again so nothing counts twice, whichever
+  // period the booking and the bill fall in.
+  const orderUrd = one(
+    `SELECT COALESCE(SUM(u.amount),0) amt, COALESCE(SUM(u.final_wt),0) fine
+     FROM order_urd u JOIN order_booking o ON o.id = u.order_id
+     WHERE o.order_date BETWEEN @from AND @to`)
+  const orderUrdBilled = one(
+    `SELECT COALESCE(SUM(u.amount),0) amt, COALESCE(SUM(u.final_wt),0) fine
+     FROM order_urd u JOIN order_booking o ON o.id = u.order_id
+     JOIN sale s ON s.id = o.sale_id
+     WHERE s.bill_date BETWEEN @from AND @to`)
+  // As-on `to`: the old gold of orders not yet billed. The customer has handed
+  // it over against a piece not yet sold to them, so the shop owes them its
+  // value — the other side of the cost above, until the bill nets it off.
+  const orderUrdOpen = calc.r2(db.prepare(
+    `SELECT COALESCE(SUM(u.amount),0) v
+     FROM order_urd u JOIN order_booking o ON o.id = u.order_id
+     LEFT JOIN sale s ON s.id = o.sale_id
+     WHERE o.order_date <= @asOn AND (s.id IS NULL OR s.bill_date > @asOn)`).get({ asOn }).v)
 
   // ── trading heads (net of returns) ──
   const salesRevenue = calc.r2(num(sales.goods) + num(settle.goods) - num(salesRet.goods))
-  const purchases = calc.r2(num(purch.goods) - num(purchRet.goods))
-  const oldGold = calc.r2(num(sales.urd) + num(urdBills.amt))
+  const purchases = calc.r2(num(purch.goods) + num(settle.bought) - num(purchRet.goods))
+  const oldGold = calc.r2(
+    num(sales.urd) + num(urdBills.amt) + num(orderUrd.amt) - num(orderUrdBilled.amt))
   const discountAllowed = calc.r2(num(sales.discount))
   const otherCharges = calc.r2(num(sales.other))
 
   // GST: what we collected on sales less what we paid on buys — a net liability.
   const gstOutput = calc.r2(num(sales.gst) + num(settle.gst) - num(salesRet.gst))
-  const gstInput = calc.r2(num(purch.gst) - num(purchRet.gst) + num(refine.gst))
+  const gstInput = calc.r2(num(purch.gst) + num(settle.gst_in) - num(purchRet.gst) + num(refine.gst))
   const gstPayable = calc.r2(gstOutput - gstInput)
   const tcsPayable = calc.r2(num(sales.tcs))
+  // TCS a supplier charged us is a credit we claim back, not a cost.
+  const tcsReceivable = calc.r2(num(purch.tcs))
   const tdsPayable = calc.r2(num(karagir.tds))
 
   // ── real account balances as-on `to` ──
@@ -1532,6 +1650,25 @@ function computeBooks(db, { from, to, openingStock = 0 } = {}) {
      GROUP BY a.id HAVING amt <> 0 ORDER BY a.name`).all(p)
     .map((r) => ({ name: r.name, amount: calc.r2(r.amt) }))
   const shopExpenses = calc.r2(expenseHeads.reduce((s, r) => s + r.amount, 0))
+
+  // Every other head a voucher can post to. The receipt screen offers Income,
+  // Asset and Liability heads, and Settings lets the owner add more cash and
+  // bank accounts — but only Cash, Bank, the scheme and Expense heads were read
+  // here, so a receipt of commission or a loan taken left the cash book up and
+  // the trial balance out by the same amount.
+  const incomeHeads = db.prepare(
+    `SELECT a.name, COALESCE(SUM(l.credit - l.debit),0) amt
+     FROM account a JOIN ledger_entry l ON l.account_id = a.id
+     WHERE a.acc_type = 'Income' AND l.entry_date BETWEEN @from AND @to
+     GROUP BY a.id HAVING amt <> 0 ORDER BY a.name`).all(p)
+    .map((r) => ({ name: r.name, amount: calc.r2(r.amt) }))
+  const otherIncome = calc.r2(incomeHeads.reduce((s, r) => s + r.amount, 0))
+  const MAIN_HEADS = new Set(['Cash Account', 'Bank Account', 'Gold Saving Scheme'])
+  // Balances as-on `to`, positive = debit (an asset), negative = credit (owed).
+  const otherHeads = acct
+    .filter((a) => !MAIN_HEADS.has(a.name) && a.acc_type !== 'Expense' && a.acc_type !== 'Income')
+    .map((a) => ({ name: a.name, amount: calc.r2(a.bal) }))
+    .filter((a) => Math.abs(a.amount) >= 0.005)
 
   // ── debtors / creditors as-on `to` (money side only) ──
   const parties = db.prepare(
@@ -1573,16 +1710,19 @@ function computeBooks(db, { from, to, openingStock = 0 } = {}) {
   const fineBought = calc.r3(db.prepare(
     `SELECT COALESCE(SUM(pi.fine_plus_wastage),0) v
      FROM purchase_item pi JOIN purchase p2 ON p2.id = pi.purchase_id
-     WHERE p2.invoice_date BETWEEN @from AND @to`).get(p).v)
+     WHERE p2.invoice_date BETWEEN @from AND @to AND pi.direction <> 'OUT'`).get(p).v)
   const fineUrd = calc.r3(db.prepare(
     `SELECT COALESCE(SUM(u.final_wt),0) v
      FROM sale_urd u
      LEFT JOIN sale s2 ON s2.id = u.sale_id
      LEFT JOIN urd_bill b2 ON b2.id = u.urd_bill_id
      WHERE COALESCE(s2.bill_date, b2.bill_date) BETWEEN @from AND @to`).get(p).v)
-  const fineAcquired = calc.r3(fineBought + fineUrd)
+  const fineAcquired = calc.r3(
+    fineBought + fineUrd + num(orderUrd.fine) - num(orderUrdBilled.fine))
   const avgMetalCost = fineAcquired > 0
-    ? calc.r2((purchases + oldGold) / fineAcquired) : 0
+    // The price of the metal that came IN, over the grams that came in. The
+    // purchases head is net of metal handed back, which is not a price.
+    ? calc.r2((num(purch.metal_in) - num(purchRet.goods) + oldGold) / fineAcquired) : 0
   const looseStockValue = calc.r2(Math.max(0, looseFine) * avgMetalCost)
 
   const closingStock = calc.r2(taggedStock + looseStockValue)
@@ -1594,13 +1734,14 @@ function computeBooks(db, { from, to, openingStock = 0 } = {}) {
   const refiningCharges = calc.r2(num(refine.charges))
   const karagirLabour = calc.r2(num(karagir.labour))
   const indirectExpenses = calc.r2(shopExpenses + refiningCharges + karagirLabour + discountAllowed)
-  const netProfit = calc.r2(grossProfit - indirectExpenses)
+  const netProfit = calc.r2(grossProfit - indirectExpenses + otherIncome)
 
   return {
     range: p,
     salesRevenue, purchases, oldGold, discountAllowed, otherCharges,
-    gstOutput, gstInput, gstPayable, tcsPayable, tdsPayable,
-    cash, bank, gss, expenseHeads, shopExpenses, refiningCharges, karagirLabour,
+    gstOutput, gstInput, gstPayable, tcsPayable, tdsPayable, tcsReceivable,
+    cash, bank, gss, orderUrdOpen, expenseHeads, shopExpenses, refiningCharges, karagirLabour,
+    incomeHeads, otherIncome, otherHeads,
     debtors, creditors, debtorTotal, creditorTotal,
     openStock, closingStock, grossProfit, indirectExpenses, netProfit,
     taggedStock, looseStockValue, looseFine, avgMetalCost,
@@ -1675,6 +1816,8 @@ const sale = {
       })
 
       let id = head.id
+      // The making discount as typed, before a scheme's waiver is folded in below.
+      const making_disc_rs = num(head.making_discount)
 
       // ── loyalty: resolve how many points this bill redeems (capped to the
       // customer's available balance and to the bill's own value) before the
@@ -1789,16 +1932,60 @@ const sale = {
         }
       }
 
+      // Direct amount: the typed figure IS the line's price — the rate only
+      // prints, and making, stone and hallmark are all inside it. A piece left
+      // with that figure blank would go out on the bill at ₹0, so it is refused
+      // rather than guessed from weight × rate, which would leave out the making.
+      if (head.direct_amount) {
+        items.forEach((l, i) => {
+          if ((num(l.gross_wt) > 0 || num(l.qty) > 0) && !(num(l.entered_amount) > 0)) {
+            throw new Error(
+              `Line ${i + 1} (${l.item_name || l.tag || 'item'}): Direct amount is on, so type the ` +
+              'amount this piece sells for — a blank amount would bill it at ₹0.'
+            )
+          }
+        })
+      }
+
+      // A counter bill — no customer, not on credit — with the received box left
+      // blank was paid at the counter: the customer walked out with the piece and
+      // there is nobody to chase. The Day Book already counts it as a cash sale;
+      // take it as received in full so the cash book says the same. Left at 0 it
+      // posted the sale but no money and no receivable, and the trial balance
+      // went out by the whole bill.
+      if (!head.party_id && !head.is_credit && !isSplit && !(num(head.amount_received) > 0)) {
+        const t0 = calc.saleTotals(head, items, payload.urds || [], payload.metals || []).totals
+        const due = calc.r2(t0.total_amount - t0.urd_amount - t0.gss_amount)
+        if (due > 0) head.amount_received = due
+      }
       const computed = calc.saleTotals(
         head, items, payload.urds || [], payload.metals || []
       )
       const t = computed.totals
+      // Whatever is still open has to sit on somebody's khata — a short payment
+      // typed on a walk-in bill, a credit bill with no customer, or an exchange
+      // that leaves the shop owing a customer it cannot name. Same rule as an
+      // old gold bill.
+      if (!head.party_id && Math.abs(t.net_balance) >= 0.005) {
+        throw new Error(
+          `This bill leaves ₹${t.net_balance.toFixed(2)} unsettled. Select a customer to put ` +
+          'it on their khata, or enter the full amount received.'
+        )
+      }
       // Points earned: a percentage of the bill's goods value, for members only.
       const loyalty_earned = party0 && party0.loyalty_enabled
         ? calc.r2(t.bill_amount * earnPct / 100) : 0
 
       let bill_no = head.bill_no
 
+      // Pieces this bill sold that have since come back on a sales return (and
+      // may have been sold again). The bill still shows them — it did sell them —
+      // but correcting it must not sell them a second time off the shelf or
+      // refuse because another bill now holds them.
+      const cameBack = new Set(id ? db.prepare(
+        `SELECT si.tag_stock_id FROM sale_item si JOIN tag_stock ts ON ts.id = si.tag_stock_id
+         WHERE si.sale_id = ? AND ts.sold_doc <> ?`
+      ).all(id, `SALE:${id}`).map((r) => r.tag_stock_id) : [])
       if (id) {
         clearPostings(db, 'SALE', id)
         db.prepare(`UPDATE tag_stock SET status='IN_STOCK', sold_doc='' WHERE sold_doc = ?`)
@@ -1808,7 +1995,7 @@ const sale = {
         db.prepare(`DELETE FROM sale_metal WHERE sale_id = ?`).run(id)
         db.prepare(`DELETE FROM sale_payment WHERE sale_id = ?`).run(id)
       } else {
-        bill_no = nextDocNo('SALE', head.prefix || 'COM')
+        bill_no = nextDocNo('SALE', head.prefix || 'Service')
       }
 
       const row = {
@@ -1822,14 +2009,32 @@ const sale = {
         advance_posted: 0,
         ...head,
         bill_no,
-        prefix: head.prefix || 'COM',
+        prefix: head.prefix || 'Service',
         bill_date: head.bill_date || today(),
         ...t,
-        loyalty_earned, loyalty_redeemed,
+        loyalty_earned, loyalty_redeemed, making_disc_rs,
       }
       row.is_credit = row.is_credit ? 1 : 0
       row.gst_not_required = row.gst_not_required ? 1 : 0
       row.weightwise = row.weightwise ? 1 : 0
+      // The part of "received" that is an order advance, already on the books
+      // on the order date. A saved bill reads it off the order it was made from
+      // — the invoice screen does not send it back, and trusting a flag meant an
+      // edit either re-posted the advance or, holding the flag, posted none of
+      // the balance the customer came back to pay.
+      row.advance_posted = calc.r2(id
+        ? num(db.prepare(
+            `SELECT COALESCE(SUM(advance_amount),0) v FROM order_booking WHERE sale_id = ?`
+          ).get(id).v)
+        : num(head.advance_posted))
+      if (row.advance_posted > 0 && t.amount_received < row.advance_posted - 0.005) {
+        throw new Error(
+          `This bill was made from an order with an advance of ₹${row.advance_posted.toFixed(2)} ` +
+          'already paid. The amount received cannot be less than the advance.'
+        )
+      }
+      // Money this bill itself took, over and above the advance.
+      const freshReceived = calc.r2(t.amount_received - row.advance_posted)
 
       // ── how the money was tendered ──
       // Blank rows are the grid's normal resting state, so they are dropped
@@ -1873,7 +2078,8 @@ const sale = {
            gss_id=@gss_id, gss_amount=@gss_amount, gss_weight=@gss_weight,
            gss_rate=@gss_rate, gss_return=@gss_return,
            card_charge_customer=@card_charge_customer, card_charge_shop=@card_charge_shop,
-           making_disc_pct=@making_disc_pct, direct_amount=@direct_amount WHERE id=@id`
+           making_disc_pct=@making_disc_pct, making_disc_rs=@making_disc_rs,
+           direct_amount=@direct_amount WHERE id=@id`
         ).run(row)
       } else {
         id = db
@@ -1885,7 +2091,7 @@ const sale = {
              tcs_pct, tcs_amount, total_amount, amount_received, net_balance,
              loyalty_earned, loyalty_redeemed, loyalty_discount,
              gss_id, gss_amount, gss_weight, gss_rate, gss_return,
-             card_charge_customer, card_charge_shop, making_disc_pct, direct_amount)
+             card_charge_customer, card_charge_shop, making_disc_pct, making_disc_rs, direct_amount)
              VALUES (@prefix,@bill_no,@manual_no,@bill_date,@due_date,@party_id,@party_name,
              @address,@mobile,@area,@state,@salesman,@is_credit,@payment_mode,@gst_not_required,
              @weightwise,@goods_amount,@making_amount,@hallmark_amount,@bill_amount,@gst_pct,
@@ -1893,7 +2099,7 @@ const sale = {
              @manual_urd_amount,@tcs_pct,@tcs_amount,@total_amount,@amount_received,@net_balance,
              @loyalty_earned,@loyalty_redeemed,@loyalty_discount,
              @gss_id,@gss_amount,@gss_weight,@gss_rate,@gss_return,
-             @card_charge_customer,@card_charge_shop,@making_disc_pct,@direct_amount)`
+             @card_charge_customer,@card_charge_shop,@making_disc_pct,@making_disc_rs,@direct_amount)`
           )
           .run(row).lastInsertRowid
       }
@@ -1991,7 +2197,9 @@ const sale = {
           ).run(l.metal || 'Gold', num(l.gross_wt), num(l.net_wt),
                 calc.fineWeight(num(l.net_wt), l.purity), id, bill_no, row.bill_date)
         }
-        if (l.tag_stock_id) {
+        // A piece that came back on a return keeps its sale (the return books it
+        // back in); only its shelf status is left alone.
+        if (l.tag_stock_id && !cameBack.has(l.tag_stock_id)) {
           // T05/T11 final saleability: re-check holds AND status at save time.
           // Lookup-time availability is not enough — a hold placed after the
           // picker opened must still block the bill.
@@ -2012,6 +2220,8 @@ const sale = {
                 : 'That tagged piece no longer exists.'
             )
           }
+        }
+        if (l.tag_stock_id) {
           const ts = db
             .prepare(`SELECT final_wt FROM tag_stock WHERE id = ?`)
             .get(l.tag_stock_id)
@@ -2067,10 +2277,10 @@ const sale = {
             particulars: 'Sales Account', debit: netSale,
           })
         }
-        if (t.amount_received > 0 && !row.advance_posted) {
+        if (freshReceived > 0) {
           postLedger(db, {
             entry_date: row.bill_date, party_id: row.party_id, doc_type: 'SALE', doc_id: id,
-            doc_no: bill_no, particulars: 'Cash Account', credit: t.amount_received,
+            doc_no: bill_no, particulars: 'Cash Account', credit: freshReceived,
           })
         }
         // Scheme money settles the customer's bill exactly like cash would.
@@ -2085,8 +2295,10 @@ const sale = {
       // single leg on the bill's own payment_mode; a split posts one leg per
       // mode, so the cash drawer and the bank each move by what actually
       // reached them instead of the whole bill landing in one of them.
-      if (t.amount_received > 0 && !row.advance_posted) {
-        for (const s of splits.length ? splits : [{ mode: row.payment_mode, amount: t.amount_received, ref: '' }]) {
+      if (freshReceived > 0) {
+        const legs = splits.length
+          ? splits : [{ mode: row.payment_mode, amount: t.amount_received, ref: '' }]
+        for (const s of advanceOffLegs(legs, row.advance_posted)) {
           postLedger(db, {
             entry_date: row.bill_date, account_id: moneyAccountFor(db, s.mode),
             doc_type: 'SALE', doc_id: id, doc_no: bill_no,
@@ -2099,13 +2311,52 @@ const sale = {
       }
       // Redeeming releases the deposit the shop was holding: the liability falls
       // by everything the bill consumed, and any part handed back leaves the till.
+      //
+      // But the liability only ever held what the member paid in. The maturity
+      // bonus (and, on a weight scheme, the rise in the metal's price) is the
+      // shop's own money, so that part of the redemption is an expense — taken
+      // through the liability it drove the account negative and never showed
+      // in the P&L. Deposits are used up first; a bill that empties the account
+      // releases whatever deposit is left, so the liability ends at exactly zero.
       if (t.gss_amount + t.gss_return > 0) {
-        postLedger(db, {
-          entry_date: row.bill_date, account_id: accountIdByName(db, 'Gold Saving Scheme'),
-          doc_type: 'SALE', doc_id: id, doc_no: bill_no,
-          particulars: `${row.party_name || 'Customer'} — scheme redeemed`,
-          debit: calc.r2(t.gss_amount + t.gss_return),
-        })
+        const consumed = calc.r2(t.gss_amount + t.gss_return)
+        const gssAcc = accountIdByName(db, 'Gold Saving Scheme')
+        const paidIn = num(db.prepare(
+          `SELECT COALESCE(SUM(amount),0) v FROM gss_receipt WHERE gss_id = ? AND status = 'RECEIVED'`
+        ).get(row.gss_id).v)
+        const released = num(db.prepare(
+          `SELECT COALESCE(SUM(l.debit - l.credit),0) v FROM ledger_entry l
+           JOIN sale s2 ON s2.id = l.doc_id
+           WHERE l.doc_type = 'SALE' AND l.account_id = ? AND s2.gss_id = ? AND s2.id <> ?`
+        ).get(gssAcc, row.gss_id, id).v)
+        const held = calc.r2(Math.max(0, paidIn - released))
+        const left = gss.balance({ id: row.gss_id, as_of: row.bill_date })
+        const emptied = left.weighted
+          ? left.balance_weight <= 0.0005 : left.balance_amount <= 0.005
+        const fromDeposits = calc.r2(emptied ? held : Math.min(held, consumed))
+        const bonus = calc.r2(consumed - fromDeposits)
+        if (fromDeposits > 0) {
+          postLedger(db, {
+            entry_date: row.bill_date, account_id: gssAcc,
+            doc_type: 'SALE', doc_id: id, doc_no: bill_no,
+            particulars: `${row.party_name || 'Customer'} — scheme redeemed`,
+            debit: fromDeposits,
+          })
+        }
+        if (Math.abs(bonus) >= 0.005) {
+          // Seeded with the system accounts; created here for a book whose
+          // account code was already taken by one of the shop's own heads.
+          db.prepare(
+            `INSERT OR IGNORE INTO account (code, name, acc_type, acc_group, is_system)
+             VALUES (NULL, 'Scheme Bonus', 'Expense', 'Indirect Expense', 1)`
+          ).run()
+          postLedger(db, {
+            entry_date: row.bill_date, account_id: accountIdByName(db, 'Scheme Bonus'),
+            doc_type: 'SALE', doc_id: id, doc_no: bill_no,
+            particulars: `${row.party_name || 'Customer'} — scheme bonus on ${bill_no}`,
+            debit: bonus > 0 ? bonus : 0, credit: bonus < 0 ? -bonus : 0,
+          })
+        }
       }
       // The shop's slice of the swipe fee is a real cost — it must reach the P&L,
       // so it posts to an expense head and out of the bank, like any other fee.
@@ -2168,6 +2419,17 @@ const sale = {
   remove: ({ id }) => {
     const db = get()
     const tx = db.transaction(() => {
+      // A return credits the customer for part of this bill. Deleting the bill
+      // under it failed on the database's foreign key and showed the shopkeeper
+      // "FOREIGN KEY constraint failed"; say what to do instead.
+      const ret = db.prepare(
+        `SELECT return_no FROM sale_return WHERE against_sale_id = ? ORDER BY id LIMIT 1`
+      ).get(id)
+      if (ret) {
+        throw new Error(
+          `Sales return ${ret.return_no} was made against this bill. Delete the return first.`
+        )
+      }
       clearPostings(db, 'SALE', id)
       db.prepare(`UPDATE tag_stock SET status='IN_STOCK', sold_doc='' WHERE sold_doc = ?`)
         .run(`SALE:${id}`)
@@ -2175,9 +2437,15 @@ const sale = {
       // billed again. Its advance is untouched — that money was received on the
       // order and never belonged to the bill. Left as DELIVERED the order would
       // be a dead end: no bill, and toInvoice refusing to make another one.
+      // The old gold taken at booking went onto this bill, and the order's own
+      // copy of it was taken off when the bill was raised. With the bill gone
+      // the order carries it again, or the gold drops out of stock and off the
+      // customer's khata.
+      const reopened = db.prepare(`SELECT id FROM order_booking WHERE sale_id = ?`).all(id)
       db.prepare(
         `UPDATE order_booking SET status='RECEIVED', sale_id=NULL WHERE sale_id = ?`
       ).run(id)
+      for (const o of reopened) postOrderUrd(db, o.id)
       db.prepare(`DELETE FROM sale WHERE id = ?`).run(id)
       return true
     })
@@ -2566,9 +2834,18 @@ const purchase = {
       }))
       const computed = calc.purchaseTotals(head, lines)
       const t = computed.totals
+      // What is not paid now is owed to the supplier — and with no supplier on
+      // the bill there is no khata to owe it on, so it would vanish from the books.
+      if (!head.party_id && Math.abs(t.net_balance) >= 0.005) {
+        throw new Error(
+          `This purchase leaves ₹${t.net_balance.toFixed(2)} unpaid. Select the supplier to put ` +
+          'it on their khata, or pay it in full.'
+        )
+      }
 
       let id = head.id
       let invoice_no = head.invoice_no
+      const lotsOk = id ? guardLooseLots(db, 'PURCHASE', id) : () => {}
       if (id) {
         clearPostings(db, 'PURCHASE', id)
         db.prepare(`DELETE FROM purchase_item WHERE purchase_id = ?`).run(id)
@@ -2628,6 +2905,16 @@ const purchase = {
         // not metal, so it must not also land in loose_stock — that would add
         // beads to the shop's gold position.
         if (isLooseItem(db, l.item_id)) {
+          // Beads going back to the supplier can only be beads the shop holds.
+          if (l.direction === 'OUT') {
+            const onHand = looseOnHand(db, l.item_id)
+            if (num(l.gross_wt) > onHand) {
+              throw new Error(
+                `Line ${i + 1}: only ${onHand} g of ${l.item_name || 'this item'} is in stock — ` +
+                `the purchase sends out ${num(l.gross_wt)} g.`
+              )
+            }
+          }
           postItemStock(db, {
             item_id: l.item_id, gross_wt: num(l.gross_wt), qty: num(l.qty),
             rate: num(l.rate), amount: num(l.amount),
@@ -2715,6 +3002,7 @@ const purchase = {
               'Paid in fine', t.paid_fine_wt)
       }
 
+      lotsOk()
       return { id, invoice_no, tally: purchaseTally(db, id) }
     })
     return tx()
@@ -2723,7 +3011,19 @@ const purchase = {
   remove: ({ id }) => {
     const db = get()
     const tx = db.transaction(() => {
+      // Same as a sale: a return against this purchase would otherwise surface
+      // as a bare "FOREIGN KEY constraint failed".
+      const ret = db.prepare(
+        `SELECT return_no FROM purchase_return WHERE against_purchase_id = ? ORDER BY id LIMIT 1`
+      ).get(id)
+      if (ret) {
+        throw new Error(
+          `Purchase return ${ret.return_no} was made against this purchase. Delete the return first.`
+        )
+      }
+      const lotsOk = guardLooseLots(db, 'PURCHASE', id)
       clearPostings(db, 'PURCHASE', id)
+      lotsOk()
       // Untagged sales booked to this purchase (Loose gold books them to the
       // oldest one automatically) stay sold; they just stop naming it.
       db.prepare(`UPDATE sale_item SET purchase_id = NULL WHERE purchase_id = ?`).run(id)
@@ -2774,11 +3074,21 @@ const refinery = {
       const { head } = payload
       const computed = calc.refineryTotals(head, payload.items || [])
       const t = computed.totals
+      // Unpaid refining charges are owed to the refiner; with no refiner on the
+      // document they would reach the P&L with nobody on the other side.
+      if (!head.party_id && Math.abs(num(t.bill_amount) - num(t.paid_amount)) >= 0.005) {
+        throw new Error('Select the refiner to put the unpaid charges on their khata, or pay them in full.')
+      }
 
       let id = head.id
       let invoice_no = head.invoice_no
       if (id) {
         clearPostings(db, 'REFINERY', id)
+        // Put back the pieces the previous version melted, as remove() does.
+        // Left MELTED, every tag still on the document would be refused below as
+        // "not in stock", and one taken off it would stay melted for good.
+        db.prepare(`UPDATE tag_stock SET status='IN_STOCK', sold_doc='' WHERE sold_doc = ?`)
+          .run(`REFINERY:${id}`)
         db.prepare(`DELETE FROM refinery_item WHERE refinery_id = ?`).run(id)
       } else {
         invoice_no = nextDocNo('REFINERY', head.prefix || 'MO')
@@ -2837,6 +3147,17 @@ const refinery = {
         // if it is actually in stock. Melting something already sold would create
         // metal out of nothing.
         if (dir === 'OUT' && l.tag) {
+          // A piece reserved for a customer, out on a memo or at the hallmarking
+          // centre is held, the same as for a sale: it cannot be melted until
+          // that hold is released.
+          const cur0 = db.prepare(`SELECT * FROM tag_stock WHERE tag = ?`).get(l.tag)
+          const avail = cur0?.status === 'IN_STOCK' ? erp.availability.availability(db, cur0) : null
+          if (avail && !avail.saleable) {
+            const kinds = (avail.holds || []).map((h) => h.kind.toLowerCase()).join(', ')
+            throw new Error(
+              `Tag ${l.tag} is on hold (${kinds}) — release the hold before sending it for refining.`
+            )
+          }
           const res = db.prepare(
             `UPDATE tag_stock SET status='MELTED', sold_doc=? WHERE tag=? AND status='IN_STOCK'`
           ).run(`REFINERY:${id}`, l.tag)
@@ -2898,6 +3219,36 @@ const refinery = {
     })
     return tx()
   },
+}
+
+/**
+ * Old gold handed in when an order is booked: onto the customer's gold khata
+ * and into URD stock, from the order's stored lines. Posted by the order, taken
+ * off again when the order becomes a bill (the bill books the same gold), and
+ * posted afresh if that bill is cancelled and the order is open again.
+ */
+function postOrderUrd(db, orderId) {
+  const o = db.prepare(`SELECT * FROM order_booking WHERE id = ?`).get(orderId)
+  // Once billed the gold is on the bill; re-saving the delivered order must not
+  // put a second copy in the safe.
+  if (!o || o.sale_id) return
+  const urds = db.prepare(`SELECT * FROM order_urd WHERE order_id = ?`).all(orderId)
+  const urdFine = calc.r3(urds.reduce((s, u) => s + num(u.final_wt), 0))
+  if (o.party_id && urdFine > 0) {
+    db.prepare(
+      `INSERT INTO metal_entry (entry_date, party_id, metal, doc_type, doc_id, doc_no,
+       particulars, fine_in, fine_out) VALUES (?,?,'Gold','ORDER',?,?,?,?,0)`
+    ).run(o.order_date, o.party_id, orderId, o.order_no, 'Old gold at booking', urdFine)
+    db.prepare(
+      `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id,
+       doc_no, direction, is_urd, entry_date)
+       VALUES ('Gold',?,?,?,'ORDER',?,?,'IN',1,?)`
+    ).run(
+      calc.r3(urds.reduce((s, u) => s + num(u.gross_wt), 0)),
+      calc.r3(urds.reduce((s, u) => s + num(u.net_wt), 0)),
+      urdFine, orderId, o.order_no, o.order_date
+    )
+  }
 }
 
 /* ───────────────────────────── Karagir orders ───────────────────────────── */
@@ -2994,22 +3345,7 @@ const order = {
           order_id: id, line_no: i + 1,
         })
       })
-      const urdFine = calc.r3((computed.urds || []).reduce((s, u) => s + num(u.final_wt), 0))
-      if (row.party_id && urdFine > 0) {
-        db.prepare(
-          `INSERT INTO metal_entry (entry_date, party_id, metal, doc_type, doc_id, doc_no,
-           particulars, fine_in, fine_out) VALUES (?,?,'Gold','ORDER',?,?,?,?,0)`
-        ).run(row.order_date, row.party_id, id, order_no, 'Old gold at booking', urdFine)
-        db.prepare(
-          `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id,
-           doc_no, direction, is_urd, entry_date)
-           VALUES ('Gold',?,?,?,'ORDER',?,?,'IN',1,?)`
-        ).run(
-          calc.r3((computed.urds || []).reduce((s, u) => s + num(u.gross_wt), 0)),
-          calc.r3((computed.urds || []).reduce((s, u) => s + num(u.net_wt), 0)),
-          urdFine, id, order_no, row.order_date
-        )
-      }
+      postOrderUrd(db, id)
 
       const insItem = db.prepare(
         `INSERT INTO order_item (order_id, line_no, tag, item_id, item_name, qty, gross_wt,
@@ -3078,13 +3414,14 @@ const order = {
 
     const res = sale.save({
       head: {
-        prefix: 'COM', bill_date: bill_date || today(),
+        prefix: 'Service', bill_date: bill_date || today(),
         party_id: o.party_id, party_name: o.party_name,
         is_credit: 1, gst_pct: 3, amount_received: o.advance_amount,
         // The advance is already on the books, dated the day it was taken. The
         // bill shows it as received so the customer's balance comes out right,
-        // but it must not be booked into the till a second time.
-        advance_posted: 1,
+        // but it must not be booked into the till a second time. Once saved,
+        // the bill reads this figure off the order (see sale.save).
+        advance_posted: num(o.advance_amount),
         manual_no: `Order ${o.order_no}`,
       },
       items: o.items.map((l) => ({
@@ -3135,10 +3472,18 @@ const voucher = {
   save: (p) => {
     const db = get()
     const tx = db.transaction(() => {
-      const kind = p.kind || 'RECEIPT'
+      // A saved voucher keeps its kind (the UPDATE below never changes it), so its
+      // postings are cleared under the kind it was saved as — clearing under the
+      // kind the caller sent left the old legs on the books beside the new ones.
+      const stored = p.id ? db.prepare(`SELECT kind FROM voucher WHERE id = ?`).get(p.id) : null
+      const kind = stored?.kind || p.kind || 'RECEIPT'
       const prefix = p.prefix || (kind === 'RECEIPT' ? 'VR' : 'VP')
       let id = p.id
       let voucher_no = p.voucher_no
+      // One side is always cash or bank; the other has to be somebody or some
+      // head, or the money moves with nothing against it.
+      if (!p.party_id && !p.account_id) throw new Error('Select a party or an account head')
+      if (!(num(p.amount) > 0)) throw new Error('Enter an amount greater than zero')
 
       if (id) clearPostings(db, kind, id)
       else voucher_no = nextDocNo(kind, prefix)
@@ -3515,6 +3860,35 @@ function returnLine(l) {
   }
 }
 
+/**
+ * The bill a returned piece goes back to when its return is undone: the bill
+ * the return was made against, if that bill sold it, else the latest bill that
+ * did. Putting it back as SOLD with no bill left it on nobody — deleting the
+ * bill afterwards could not find it to put it back on the shelf.
+ */
+function soldDocForReturn(db, tagStockId, againstSaleId) {
+  const own = againstSaleId && db.prepare(
+    `SELECT 1 FROM sale_item WHERE sale_id = ? AND tag_stock_id = ?`).get(againstSaleId, tagStockId)
+  const saleId = own ? againstSaleId : db.prepare(
+    `SELECT sale_id FROM sale_item WHERE tag_stock_id = ? ORDER BY sale_id DESC LIMIT 1`
+  ).get(tagStockId)?.sale_id
+  return saleId ? `SALE:${saleId}` : ''
+}
+
+/** Refuse to undo a return whose piece has since left the shelf again. */
+function assertReturnedPieceOnShelf(db, tagStockId, what) {
+  const cur = db.prepare(`SELECT tag, status, sold_doc FROM tag_stock WHERE id = ?`).get(tagStockId)
+  if (cur && cur.status !== 'IN_STOCK') {
+    const [kind, docId] = String(cur.sold_doc || '').split(':')
+    const bill = kind === 'SALE'
+      ? db.prepare(`SELECT bill_no FROM sale WHERE id = ?`).get(docId)?.bill_no : null
+    throw new Error(
+      `Tag ${cur.tag} has ${bill ? `been sold again on bill ${bill}` : `left the shop again (${cur.status.toLowerCase()})`} ` +
+      `since this return — the return can no longer be ${what}.`
+    )
+  }
+}
+
 const saleReturn = {
   list: ({ from, to, search } = {}) => {
     const clauses = []
@@ -3560,16 +3934,31 @@ const saleReturn = {
       const gst_amount = calc.r2(bill_amount * (gst_pct / 100))
       const total_amount = calc.r2(bill_amount + gst_amount)
       const refund_amount = Math.max(0, num(h.refund_amount))
+      // With no customer there is no khata to hold a credit note, so whatever is
+      // not refunded in cash would drop out of the books altogether.
+      if (!h.party_id && Math.abs(total_amount - refund_amount) >= 0.005) {
+        throw new Error(
+          `This return is worth ₹${total_amount.toFixed(2)}. Select the customer to credit it ` +
+          'to their khata, or refund it in full.'
+        )
+      }
 
       let id = h.id
       let return_no = h.return_no
+      const lotsOk = id ? guardLooseLots(db, 'SALERET', id) : () => {}
       if (id) {
         clearPostings(db, 'SALERET', id)
         // Put back whatever the previous version of this document had taken.
+        const was = db.prepare(`SELECT against_sale_id FROM sale_return WHERE id = ?`).get(id)
         for (const old of db.prepare(
           `SELECT tag_stock_id FROM sale_return_item WHERE return_id = ?`).all(id)) {
           if (old.tag_stock_id) {
-            db.prepare(`UPDATE tag_stock SET status='SOLD' WHERE id = ?`).run(old.tag_stock_id)
+            // The piece this return brought back has since left the shelf again —
+            // sold on another bill, melted. Re-saving would put it back in stock
+            // while it is with its new owner.
+            assertReturnedPieceOnShelf(db, old.tag_stock_id, 'changed')
+            db.prepare(`UPDATE tag_stock SET status='SOLD', sold_doc=? WHERE id = ?`)
+              .run(soldDocForReturn(db, old.tag_stock_id, was?.against_sale_id), old.tag_stock_id)
           }
         }
         db.prepare(`DELETE FROM sale_return_item WHERE return_id = ?`).run(id)
@@ -3629,10 +4018,22 @@ const saleReturn = {
           gross_wt: 0, stone_wt: 0, purity: 0, rate_per_gm: 0, mkg_per_gm: 0,
           ...l, return_id: id, line_no: i + 1, purchase_id,
         })
-        // A tagged piece coming back becomes sellable again.
+        // A tagged piece coming back becomes sellable again — but only a piece
+        // that is out with a customer. One already on the shelf (never sold, or
+        // taken back on an earlier return) would be booked into stock and
+        // credited to the customer a second time.
         if (l.tag_stock_id) {
-          db.prepare(`UPDATE tag_stock SET status='IN_STOCK', sold_doc='' WHERE id = ?`)
-            .run(l.tag_stock_id)
+          const res = db.prepare(
+            `UPDATE tag_stock SET status='IN_STOCK', sold_doc='' WHERE id = ? AND status = 'SOLD'`
+          ).run(l.tag_stock_id)
+          if (res.changes === 0) {
+            const cur = db.prepare(`SELECT tag, status FROM tag_stock WHERE id = ?`).get(l.tag_stock_id)
+            throw new Error(
+              cur
+                ? `Line ${i + 1}: tag ${cur.tag} is not sold (${cur.status.toLowerCase().replace('_', ' ')}) — it cannot come back on a return.`
+                : `Line ${i + 1}: that tagged piece no longer exists.`
+            )
+          }
         }
         // A loose item has no tag to flip back — the weight itself is the stock,
         // so the grams have to go back into the lot or they are lost for good.
@@ -3703,6 +4104,7 @@ const saleReturn = {
         })
       }
 
+      lotsOk()
       return { id, return_no }
     })
     return tx()
@@ -3711,14 +4113,21 @@ const saleReturn = {
   remove: ({ id }) => {
     const db = get()
     const tx = db.transaction(() => {
+      const was = db.prepare(`SELECT against_sale_id FROM sale_return WHERE id = ?`).get(id)
       for (const l of db.prepare(
         `SELECT tag_stock_id FROM sale_return_item WHERE return_id = ?`).all(id)) {
-        // Undoing the return puts the piece back to sold — it never came back.
+        // Undoing the return puts the piece back to sold, on the bill that sold
+        // it — it never came back. A piece sold again since is with its new
+        // owner: undoing the return would sell it twice.
         if (l.tag_stock_id) {
-          db.prepare(`UPDATE tag_stock SET status='SOLD' WHERE id = ?`).run(l.tag_stock_id)
+          assertReturnedPieceOnShelf(db, l.tag_stock_id, 'removed')
+          db.prepare(`UPDATE tag_stock SET status='SOLD', sold_doc=? WHERE id = ?`)
+            .run(soldDocForReturn(db, l.tag_stock_id, was?.against_sale_id), l.tag_stock_id)
         }
       }
+      const lotsOk = guardLooseLots(db, 'SALERET', id)
       clearPostings(db, 'SALERET', id)
+      lotsOk()
       db.prepare(`DELETE FROM sale_return WHERE id = ?`).run(id)
       return true
     })
@@ -3761,6 +4170,13 @@ const purchaseReturn = {
       const gst_amount = calc.r2(bill_amount * (gst_pct / 100))
       const total_amount = calc.r2(bill_amount + gst_amount)
       const received_amount = Math.max(0, num(h.received_amount))
+      // Same rule as the purchase: a debit note needs a supplier's khata to sit on.
+      if (!h.party_id && Math.abs(total_amount - received_amount) >= 0.005) {
+        throw new Error(
+          `This return is worth ₹${total_amount.toFixed(2)}. Select the supplier to put it on ` +
+          'their khata, or take the full amount back now.'
+        )
+      }
 
       let id = h.id
       let return_no = h.return_no
@@ -4345,6 +4761,9 @@ const gss = {
           weight = calc.r3(amount / rate)
         }
       }
+      // A negative instalment would take cash out of the drawer and off the
+      // member's balance while reading as a receipt.
+      if (!(amount > 0)) throw new Error('Enter the amount for this instalment')
 
       db.prepare(
         `UPDATE gss_receipt SET receipt_no=?, manual_no=?, received_date=?, amount=?,
@@ -4375,6 +4794,28 @@ const gss = {
     const tx = db.transaction(() => {
       const r = db.prepare(`SELECT * FROM gss_receipt WHERE id = ?`).get(receipt_id)
       if (!r) throw new Error('Instalment not found')
+      // Money a bill has already spent from the account cannot be un-received:
+      // the member would keep the goods, the cash would leave the books and the
+      // scheme would show a negative balance.
+      if (r.status === 'RECEIVED') {
+        const paid = db.prepare(
+          `SELECT COALESCE(SUM(amount),0) amt, COALESCE(SUM(weight),0) wt
+           FROM gss_receipt WHERE gss_id = ? AND status = 'RECEIVED' AND id <> ?`
+        ).get(r.gss_id, r.id)
+        const spent = db.prepare(
+          `SELECT COALESCE(SUM(gss_amount + gss_return),0) amt, COALESCE(SUM(gss_weight),0) wt
+           FROM sale WHERE gss_id = ?`
+        ).get(r.gss_id)
+        const kind = db.prepare(`SELECT scheme_type FROM gss_account WHERE id = ?`).get(r.gss_id)
+        const short = isWeightScheme(kind?.scheme_type)
+          ? num(spent.wt) - num(paid.wt) > 0.0005
+          : num(spent.amt) - num(paid.amt) > 0.005
+        if (short) {
+          throw new Error(
+            'This instalment has already been redeemed on a bill. Cancel or edit that bill first.'
+          )
+        }
+      }
       clearPostings(db, 'GSS', receipt_id)
       const acct = db
         .prepare(`SELECT monthly_amount, monthly_weight, scheme_type FROM gss_account WHERE id = ?`)
@@ -4452,6 +4893,11 @@ const gss = {
   removeAccount: ({ id }) => {
     const db = get()
     const tx = db.transaction(() => {
+      // Its receipts' cash would leave the books while a bill still counts the
+      // money it spent from them.
+      if (db.prepare(`SELECT 1 FROM sale WHERE gss_id = ? LIMIT 1`).get(id)) {
+        throw new Error('This scheme account has been redeemed on a bill. Cancel or edit that bill first.')
+      }
       const rs = db.prepare(`SELECT id FROM gss_receipt WHERE gss_id = ?`).all(id)
       for (const r of rs) clearPostings(db, 'GSS', r.id)
       db.prepare(`DELETE FROM gss_account WHERE id = ?`).run(id)
@@ -5149,7 +5595,8 @@ const reports = {
     const range = { from: from || '1900-01-01', to: to || '2999-12-31' }
     const specs = {
       SALES: { title: 'Sales Register', sql:
-        `SELECT bill_date AS date, bill_no AS doc_no, party_name, bill_amount AS taxable,
+        `SELECT bill_date AS date, bill_no AS doc_no, party_name,
+                MAX(0, bill_amount - bill_discount - making_discount - loyalty_discount) AS taxable,
                 gst_amount, total_amount AS total FROM sale
          WHERE bill_date BETWEEN @from AND @to ORDER BY bill_date, id` },
       SALERETURN: { title: 'Sales Return Register', sql:
@@ -5157,7 +5604,8 @@ const reports = {
                 gst_amount, total_amount AS total FROM sale_return
          WHERE return_date BETWEEN @from AND @to ORDER BY return_date, id` },
       PURCHASE: { title: 'Purchase Register', sql:
-        `SELECT invoice_date AS date, invoice_no AS doc_no, party_name, purchase_amount AS taxable,
+        `SELECT invoice_date AS date, invoice_no AS doc_no, party_name,
+                bill_amount - gst_amount - tcs_amount - sub_tax AS taxable,
                 gst_amount, bill_amount AS total FROM purchase
          WHERE invoice_date BETWEEN @from AND @to ORDER BY invoice_date, id` },
       PURCHASERETURN: { title: 'Purchase Return Register', sql:
@@ -5194,7 +5642,7 @@ const reports = {
               COALESCE(s.bill_no, b.bill_no)       AS doc_no,
               COALESCE(s.party_name, b.party_name) AS party_name,
               CASE WHEN s.id IS NOT NULL THEN 'SALE' ELSE 'URD' END AS source,
-              s.id AS sale_id, b.id AS urd_bill_id
+              s.id AS sale_id, b.id AS urd_bill_id, NULL AS order_id, u.line_no
        FROM sale_urd u
        LEFT JOIN sale s     ON s.id = u.sale_id
        LEFT JOIN urd_bill b ON b.id = u.urd_bill_id
@@ -5202,7 +5650,19 @@ const reports = {
          AND (@search = ''
               OR COALESCE(s.party_name, b.party_name) LIKE '%'||@search||'%'
               OR COALESCE(s.bill_no, b.bill_no) LIKE '%'||@search||'%')
-       ORDER BY date, doc_no, u.line_no`
+       -- Old gold handed in when an order was booked is in the safe from that
+       -- day (the stock strip below counts it). Once the order is billed the
+       -- same lines are on the bill, so only orders not yet billed are read here.
+       UNION ALL
+       SELECT u.id, u.item_name, '', u.gross_wt, u.net_wt, u.purity, u.final_wt,
+              u.rate, u.amount, o.order_date, o.order_no, o.party_name,
+              'ORDER', NULL, NULL, o.id, u.line_no
+       FROM order_urd u
+       JOIN order_booking o ON o.id = u.order_id
+       WHERE o.sale_id IS NULL AND o.order_date BETWEEN @from AND @to
+         AND (@search = '' OR o.party_name LIKE '%'||@search||'%'
+              OR o.order_no LIKE '%'||@search||'%')
+       ORDER BY date, doc_no, line_no`
     ).all(range)
 
     const sum = (list, k) => list.reduce((a, r) => a + num(r[k]), 0)
@@ -5243,6 +5703,7 @@ const reports = {
       bySource: {
         SALE: tot(rows.filter((r) => r.source === 'SALE')),
         URD: tot(rows.filter((r) => r.source === 'URD')),
+        ORDER: tot(rows.filter((r) => r.source === 'ORDER')),
       },
       byMonth: [...byMonth.entries()].map(([month, list]) => ({ month, ...tot(list) })),
       stock: {
@@ -5438,18 +5899,44 @@ const reports = {
     // A bill settled in more than one way is counted leg by leg — the split rows
     // are the truth for it, and its own payment_mode would otherwise book the
     // whole amount against the largest leg's mode alone.
+    // A bill made from an order counts the order's advance as received, but
+    // that money reached the till on the order date — those bills are taken
+    // separately below, less the advance.
+    const noAdvance = `NOT EXISTS (SELECT 1 FROM order_booking o
+                                   WHERE o.sale_id = s.id AND o.advance_amount > 0)`
     db.prepare(
       `SELECT s.payment_mode, COALESCE(SUM(s.amount_received),0) v FROM sale s
        WHERE s.bill_date BETWEEN @from AND @to AND s.amount_received > 0
          AND NOT EXISTS (SELECT 1 FROM sale_payment p WHERE p.sale_id = s.id)
+         AND ${noAdvance}
        GROUP BY s.payment_mode`
     ).all(range).forEach((r) => bump(r.payment_mode, r.v))
     db.prepare(
       `SELECT p.mode, COALESCE(SUM(p.amount),0) v FROM sale_payment p
        JOIN sale s ON s.id = p.sale_id
-       WHERE s.bill_date BETWEEN @from AND @to
+       WHERE s.bill_date BETWEEN @from AND @to AND ${noAdvance}
        GROUP BY p.mode`
     ).all(range).forEach((r) => bump(r.mode, r.v))
+    // Only what those bills took beyond the advance, leg by leg exactly as the
+    // bill posted it.
+    const paysOf = db.prepare(`SELECT mode, amount FROM sale_payment WHERE sale_id = ? ORDER BY line_no`)
+    db.prepare(
+      `SELECT s.id, s.payment_mode, s.amount_received, SUM(o.advance_amount) advance
+       FROM sale s JOIN order_booking o ON o.sale_id = s.id
+       WHERE s.bill_date BETWEEN @from AND @to AND o.advance_amount > 0
+       GROUP BY s.id`
+    ).all(range).forEach((s) => {
+      const pays = paysOf.all(s.id)
+      const legs = pays.length ? pays : [{ mode: s.payment_mode, amount: s.amount_received }]
+      advanceOffLegs(legs, s.advance).forEach((l) => bump(l.mode, l.amount))
+    })
+    // The advance itself, on the day the customer paid it. order.save books it
+    // into the Cash Account, so it is cash here too.
+    const advances = db.prepare(
+      `SELECT COALESCE(SUM(advance_amount),0) v FROM order_booking
+       WHERE order_date BETWEEN @from AND @to AND advance_amount > 0`
+    ).get(range).v
+    if (num(advances) > 0) bump('Cash', advances)
     db.prepare(
       `SELECT payment_type, COALESCE(SUM(amount),0) v FROM voucher
        WHERE kind = 'RECEIPT' AND voucher_date BETWEEN @from AND @to
@@ -5614,7 +6101,8 @@ const reports = {
       .prepare(
         // "transaction" is a reserved word in SQLite — it must stay quoted.
         `SELECT s.bill_date AS date, s.bill_no AS invoice_no, 'Sales' AS "transaction",
-                s.party_name, s.gst_amount, s.bill_amount AS taxable_value,
+                s.party_name, s.gst_amount,
+                MAX(0, s.bill_amount - s.bill_discount - s.making_discount - s.loyalty_discount) AS taxable_value,
                 s.total_amount AS invoice_value, p.gstin, s.state AS place_of_supply
          FROM sale s LEFT JOIN party p ON p.id = s.party_id
          WHERE s.bill_date BETWEEN @from AND @to AND s.gst_amount > 0
@@ -5637,14 +6125,16 @@ const reports = {
     const raw = direction === 'IN'
       ? db.prepare(
           `SELECT pu.invoice_date AS date, pu.invoice_no AS doc_no, pu.party_name,
-                  pu.purchase_amount AS taxable, pu.gst_amount, pu.bill_amount AS total,
+                  pu.bill_amount - pu.gst_amount - pu.tcs_amount - pu.sub_tax AS taxable,
+                  pu.gst_amount, pu.bill_amount AS total,
                   pu.state AS place_of_supply, p.gstin
            FROM purchase pu LEFT JOIN party p ON p.id = pu.party_id
            WHERE pu.invoice_date BETWEEN @from AND @to AND pu.gst_amount > 0
            ORDER BY pu.invoice_date, pu.id`).all(range)
       : db.prepare(
           `SELECT s.bill_date AS date, s.bill_no AS doc_no, s.party_name,
-                  s.bill_amount AS taxable, s.gst_amount, s.total_amount AS total,
+                  MAX(0, s.bill_amount - s.bill_discount - s.making_discount - s.loyalty_discount) AS taxable,
+                  s.gst_amount, s.total_amount AS total,
                   s.state AS place_of_supply, p.gstin
            FROM sale s LEFT JOIN party p ON p.id = s.party_id
            WHERE s.bill_date BETWEEN @from AND @to AND s.gst_amount > 0
@@ -5712,15 +6202,29 @@ const reports = {
   hsnSummary: ({ from, to } = {}) => {
     const db = get()
     const range = { from: from || '1900-01-01', to: to || '2999-12-31' }
-    const rows = db.prepare(
-      `SELECT COALESCE(NULLIF(i.hsn,''),'—') AS hsn,
-              COUNT(*) AS lines,
-              COALESCE(SUM(i.qty),0) AS qty,
-              COALESCE(SUM(i.item_total),0) AS taxable,
-              COALESCE(SUM(i.item_total * s.gst_pct / 100.0),0) AS tax
+    // Each line takes its share of the bill's taxable value and GST, as the
+    // bill charged them. Summing the lines' own totals ignored the bill and
+    // making discounts (so the HSN summary came out higher than the invoices
+    // it summarises) and, on a weightwise bill, the metal actually settled.
+    const lines = db.prepare(
+      `SELECT COALESCE(NULLIF(i.hsn,''),'—') AS hsn, i.qty, i.item_total,
+              MAX(0, s.bill_amount - s.bill_discount - s.making_discount - s.loyalty_discount)
+                AS bill_taxable,
+              s.gst_amount,
+              (SELECT SUM(i2.item_total) FROM sale_item i2 WHERE i2.sale_id = s.id) AS bill_lines
        FROM sale_item i JOIN sale s ON s.id = i.sale_id
-       WHERE s.bill_date BETWEEN @from AND @to AND s.gst_not_required = 0
-       GROUP BY hsn ORDER BY taxable DESC`).all(range)
+       WHERE s.bill_date BETWEEN @from AND @to AND s.gst_not_required = 0`).all(range)
+    const byHsn = new Map()
+    for (const l of lines) {
+      const share = num(l.bill_lines) > 0 ? num(l.item_total) / num(l.bill_lines) : 0
+      const g = byHsn.get(l.hsn) || { hsn: l.hsn, lines: 0, qty: 0, taxable: 0, tax: 0 }
+      g.lines += 1
+      g.qty += num(l.qty)
+      g.taxable += num(l.bill_taxable) * share
+      g.tax += num(l.gst_amount) * share
+      byHsn.set(l.hsn, g)
+    }
+    const rows = [...byHsn.values()].sort((a, b) => b.taxable - a.taxable)
     return {
       rows: rows.map((r) => ({
         hsn: r.hsn, lines: r.lines, qty: calc.r3(r.qty),
@@ -5775,12 +6279,16 @@ const reports = {
     // liabilities
     put('Cr', 'Sundry Creditors', b.creditorTotal)
     put('Cr', 'Gold Saving Scheme', b.gss)
+    put('Cr', 'Old Gold on Open Orders', b.orderUrdOpen)
     put(b.gstPayable >= 0 ? 'Cr' : 'Dr', 'GST Payable', Math.abs(b.gstPayable))
     put('Cr', 'TCS Payable', b.tcsPayable)
     put('Cr', 'TDS Payable', b.tdsPayable)
+    put('Dr', 'TCS Receivable', b.tcsReceivable)
+    b.otherHeads.forEach((h) => put(h.amount >= 0 ? 'Dr' : 'Cr', h.name, Math.abs(h.amount)))
     // income
     put('Cr', 'Sales Account', b.salesRevenue)
     put('Cr', 'Other Charges', b.otherCharges)
+    b.incomeHeads.forEach((e) => put('Cr', e.name, e.amount))
     // direct + indirect expense
     put('Dr', 'Purchase Account', b.purchases)
     put('Dr', 'Old Gold Purchase', b.oldGold)
@@ -5826,7 +6334,11 @@ const reports = {
     return {
       range: b.range,
       trading: { dr: tradingDr, cr: tradingCr, grossProfit: b.grossProfit },
-      pl: { dr: plDr, indirectExpenses: b.indirectExpenses, netProfit: b.netProfit },
+      pl: {
+        dr: plDr, indirectExpenses: b.indirectExpenses, netProfit: b.netProfit,
+        cr: b.incomeHeads.filter((r) => Math.abs(r.amount) >= 0.005),
+        otherIncome: b.otherIncome,
+      },
       grossProfit: b.grossProfit, netProfit: b.netProfit,
     }
   },
@@ -5843,6 +6355,8 @@ const reports = {
       { name: 'Bank Account', amount: b.bank },
       { name: 'Sundry Debtors', amount: b.debtorTotal },
       { name: 'Closing Stock (at cost)', amount: b.closingStock },
+      { name: 'TCS Receivable', amount: b.tcsReceivable },
+      ...b.otherHeads.filter((h) => h.amount > 0),
     ]
     // A net GST *credit* (we paid more than we collected) is money owed back to
     // us — an asset — so it swaps sides.
@@ -5853,9 +6367,11 @@ const reports = {
     const outsideLiabs = [
       { name: 'Sundry Creditors', amount: b.creditorTotal },
       { name: 'Gold Saving Scheme deposits', amount: b.gss },
+      { name: 'Old Gold on Open Orders', amount: b.orderUrdOpen },
       { name: 'GST Payable', amount: b.gstPayable > 0.005 ? b.gstPayable : 0 },
       { name: 'TCS Payable', amount: b.tcsPayable },
       { name: 'TDS Payable', amount: b.tdsPayable },
+      ...b.otherHeads.filter((h) => h.amount < 0).map((h) => ({ name: h.name, amount: -h.amount })),
     ].filter((r) => Math.abs(r.amount) >= 0.005)
     const outsideTotal = calc.r2(outsideLiabs.reduce((s, r) => s + r.amount, 0))
     // Capital is whatever makes the two sides meet. Of that, the period's profit
@@ -5978,3 +6494,6 @@ module.exports = {
     amountInWords: ({ amount }) => calc.amountInWords(amount),
   },
 }
+
+// Same-day and Daily Closing locks on saved documents (see doclock.cjs).
+require('./doclock.cjs').install(module.exports)

@@ -1,5 +1,6 @@
 import { money, wt, dmy } from '../lib/format'
 import { applyLayout, normalizeLayout, type InvoiceLayout } from './layout'
+import { DEFAULT_HEADER, HEADER_CSS, headerBandHtml, normalizeHeader, type HeaderDesign } from './header'
 import shopLogo from '../assets/parivar-jewellers.jpeg?inline'
 
 const esc = (s: any) =>
@@ -22,6 +23,8 @@ export type InvoiceConfig = {
   columnWidths?: Record<string, number>
   minRows?: number
   footerNote: string
+  /** Shop header design; "standard" prints the original centred header. */
+  header: HeaderDesign
 }
 
 export const DEFAULT_INVOICE_CONFIG: InvoiceConfig = {
@@ -37,13 +40,14 @@ export const DEFAULT_INVOICE_CONFIG: InvoiceConfig = {
   cols: { hsn: true, purity: true, huid: true, qty: true, gross: true, net: true, rate: true, mkg: true,
     stone: false, mkgamt: false, hallmark: false },
   footerNote: '',
+  header: DEFAULT_HEADER,
 }
 
 export function loadConfig(raw?: string | null): InvoiceConfig {
   if (!raw) return DEFAULT_INVOICE_CONFIG
   try {
     const p = JSON.parse(raw)
-    return { ...DEFAULT_INVOICE_CONFIG, ...p, layout: normalizeLayout(p.layout), cols: { ...DEFAULT_INVOICE_CONFIG.cols, ...(p.cols || {}) } }
+    return { ...DEFAULT_INVOICE_CONFIG, ...p, layout: normalizeLayout(p.layout), header: normalizeHeader(p.header), cols: { ...DEFAULT_INVOICE_CONFIG.cols, ...(p.cols || {}) } }
   } catch {
     return DEFAULT_INVOICE_CONFIG
   }
@@ -147,6 +151,9 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
        </div>`
     : ''
 
+  // Empty for the standard header, which keeps its original markup and styles.
+  const band = headerBandHtml(cfg.header, c, cfg.title, shopLogo)
+
   const line = (k: string, v: string, cls = '') =>
     `<tr class="${cls}"><td class="k">${k}</td><td class="v">${v}</td></tr>`
 
@@ -202,17 +209,17 @@ export function invoiceHtml(data: any, cfgIn?: Partial<InvoiceConfig>) {
   .urd { border-top: 1px solid #000; padding: 4px 8px; }
   .urd-title { font-weight: 700; font-size: 9.5px; margin-bottom: 2px; }
   .urd-tbl { width: 100%; border-collapse: collapse; font-size: 9.5px; }
-  .urd-tbl th, .urd-tbl td { border: 1px solid #999; padding: 2px 4px; }
+  .urd-tbl th, .urd-tbl td { border: 1px solid #999; padding: 2px 4px; }${band ? HEADER_CSS : ''}
 </style>
 <div class="sheet">
   <!--block:header-->
-  <div class="hd">
+  ${band || `<div class="hd">
     ${cfg.showLogo ? `<img class="shop-logo" src="${shopLogo}" alt="Parivar Jewellers">` : ''}
     <div class="co">${esc(c?.name || 'Demo')}</div>
     ${c?.address ? `<div class="co-sub">${esc(c.address)}</div>` : ''}
     <div class="co-sub">Contact No.: ${esc(c?.phone || '')} ${c?.gstin ? `&nbsp;&nbsp; GST No: ${esc(c.gstin)}` : ''}</div>
     <div class="ti">${esc(cfg.title)}</div>
-  </div>
+  </div>`}
 
   <!--block:customer-->
   <div class="meta">

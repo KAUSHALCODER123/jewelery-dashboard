@@ -294,7 +294,7 @@ app.whenReady().then(async () => {
     await js(`__t.click('Save'); await __t.wait(1400)`)
     const bills = api.sale.list({})
     check('bill created from UI', bills.length, 1)
-    check('bill numbered', bills[0]?.bill_no, 'COM1')
+    check('bill numbered', bills[0]?.bill_no, 'Service1')
     check('bill linked to customer', bills[0]?.party_name, 'Sandip Jain')
     check('saved goods match the on-screen total', bills[0]?.goods_amount, 45900)
     check('saved total matches', bills[0]?.total_amount, 52051.05)
@@ -365,7 +365,7 @@ app.whenReady().then(async () => {
       const m = document.querySelector('.modal')
       return m ? [...m.querySelectorAll('input')].map(i => i.value).join(' ') : ''
     `)
-    ok('a return started from a bill has that bill', /COM1/.test(retFromBill))
+    ok('a return started from a bill has that bill', /Service1/.test(retFromBill))
     await js(`__t.click('Cancel', document.querySelector('.modal').parentElement); await __t.wait(300)`)
 
     // ── 6. Receipts ───────────────────────────────────────────────────
@@ -644,7 +644,7 @@ app.whenReady().then(async () => {
       const m = document.querySelector('.modal')
       // Pull the original bill in — its lines should populate the grid.
       const bill = m.querySelectorAll('.ac input.input')[0]
-      bill.focus(); __t.set(bill, 'COM'); await __t.wait(1400)
+      bill.focus(); __t.set(bill, 'Service'); await __t.wait(1400)
       const opt = document.querySelector('.ac-list .ac-item')
       if (!opt) throw new Error('bill autocomplete empty')
       opt.click(); await __t.wait(1200)

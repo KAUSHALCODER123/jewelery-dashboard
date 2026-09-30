@@ -22,7 +22,7 @@ function tradingHistory(api, S) {
     if (!tag) return
     api.sale.save({
       head: {
-        prefix: 'COM', bill_date: day(back), party_id, party_name,
+        prefix: 'Service', bill_date: day(back), party_id, party_name,
         state: 'Maharashtra', gst_pct: 3, payment_mode: 'Cash', ...opts,
       },
       items: [{

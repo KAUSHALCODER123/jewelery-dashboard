@@ -97,7 +97,7 @@ app.whenReady().then(async () => {
   const chain = api.tagStock.list({ status: 'IN_STOCK', search: 'Chain' })[0]
   if (chain) {
     api.sale.save({
-      head: { prefix: 'COM', bill_date: today, party_id: S.customers.priya, party_name: 'Priya Deshmukh',
+      head: { prefix: 'Service', bill_date: today, party_id: S.customers.priya, party_name: 'Priya Deshmukh',
               state: 'Maharashtra', gst_pct: 3, payment_mode: 'Cash' },
       items: [{ tag: chain.tag, tag_stock_id: chain.id, item_id: chain.item_id, item_name: chain.item_name,
                 qty: chain.qty, gross_wt: chain.gross_wt, purity: chain.purity, stone_wt: chain.stone_wt,

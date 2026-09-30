@@ -3,7 +3,7 @@ import { Icon } from '../lib/icons'
 import { Check, Field, Input, Loading, Modal, Segmented, Select, useAction, useAsync } from '../lib/ui'
 import { DEFAULT_INVOICE_CONFIG, invoiceHtml, loadConfig, type InvoiceConfig } from '../print/invoice'
 import { num } from '../lib/calc'
-import InvoiceLayoutEditor from './InvoiceLayoutEditor'
+import InvoiceLayoutEditor, { HeaderDesigner } from './InvoiceLayoutEditor'
 import Users from './Users'
 import GoogleDrive from './GoogleDrive'
 import MobileAccess from './MobileAccess'
@@ -672,7 +672,7 @@ const SAMPLE = (company: any) => ({
   pending_balance: 29140.4,
   amount_in_words: 'Rs. Fourty Nine Thousand Six Hundred Fourty and Fourty Paise Only',
   sale: {
-    prefix: 'COM', bill_no: 'COM1', bill_date: new Date().toISOString().slice(0, 10),
+    prefix: 'Service', bill_no: 'Service1', bill_date: new Date().toISOString().slice(0, 10),
     manual_no: '', party_name: 'Sandip Jain', address: 'Kothrud, Pune',
     mobile: '9767211065', is_credit: 1, payment_mode: 'Cash',
     goods_amount: 55080, making_amount: 3600, hallmark_amount: 0,
@@ -754,6 +754,8 @@ function InvoiceDesign({ company }: { company: any }) {
               </div>
             </div>
           </div>
+
+          <HeaderDesigner cfg={cfg} onChange={set} />
         </div>
 
         <div className="card" style={{ position: 'sticky', top: 0 }}>

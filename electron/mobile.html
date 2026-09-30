@@ -126,7 +126,7 @@ const screens={
     const d=await get('stock',{groupBy:'item',search:q});
     const out=$('#out');if(!out)return;
     out.className='';
-    out.innerHTML=`<div class="tiles"><div class="tile"><div class="l">Pieces</div><div class="v">${d.totals.count}</div></div><div class="tile"><div class="l">Loose metal</div><div class="v">${g(d.looseTotals.balance_wt)} g</div><div class="m">${d.looseTotals.count} lots</div></div></div>
+    out.innerHTML=`<div class="tiles"><div class="tile"><div class="l">Pieces</div><div class="v">${d.totals.count}</div></div><div class="tile"><div class="l">Loose lots</div><div class="v">${g(d.looseTotals.balance_wt)} g</div><div class="m">${d.looseTotals.count} lots</div></div></div>
       <div class="card"><h2>By item</h2>${d.groups.length?d.groups.map(r=>`<div class="row"><div class="t"><b>${esc(r.key)}</b><small>${r.count} pcs · ${g(r.gross_wt)} g gross · ${g(r.net_wt)} g net</small></div><div class="n">${g(r.final_wt)} g<small>fine</small></div></div>`).join(''):'<div class="empty">Nothing in stock</div>'}</div>
       ${q?`<div class="card"><h2>Matching pieces</h2>${d.rows.map(r=>`<div class="row"><div class="t"><b>${esc(r.tag)} · ${esc(r.item_name)}</b><small>${r.purity}% · ${esc(r.location||'')} ${esc(r.shelf_tray||'')}</small></div><div class="n">${g(r.net_wt)} g<small>net</small></div></div>`).join('')||'<div class="empty">No matching piece</div>'}</div>`:''}`;
   },
@@ -192,7 +192,7 @@ const screens={
     const d=await get('daybook',{from,to});const out=$('#out');if(!out)return;
     setHead('Day Book',from===to?dmy(from):dmy(from)+' – '+dmy(to),false);
     out.className='';
-    out.innerHTML=`<div class="card"><h2>Sales</h2><div class="kv"><span>Cash bills</span><span>₹${inr(d.sales.cash)}</span><span>Credit bills</span><span>₹${inr(d.sales.credit)}</span><span>Old gold taken</span><span>₹${inr(d.sales.urd)}</span><span class="tot">${d.sales.n} bills</span><span class="tot">₹${inr((+d.sales.cash||0)+(+d.sales.credit||0))}</span></div></div>
+    out.innerHTML=`<div class="card"><h2>Sales</h2><div class="kv"><span>Cash bills</span><span>₹${inr(d.sales.cash)}</span><span>Credit bills</span><span>₹${inr(d.sales.credit)}</span><span>Old gold taken on bills</span><span>₹${inr(d.sales.urd)}</span><span>Old gold bills${d.urd_bills?.n?` (${d.urd_bills.n})`:''}</span><span>₹${inr(d.urd_bills?.amt||0)}</span><span class="tot">${d.sales.n} bills</span><span class="tot">₹${inr((+d.sales.cash||0)+(+d.sales.credit||0))}</span></div></div>
       <div class="card"><h2>Purchases</h2><div class="kv"><span>Cash</span><span>₹${inr(d.purchases.cash)}</span><span>Credit</span><span>₹${inr(d.purchases.credit)}</span><span class="tot">${d.purchases.n} invoices</span><span class="tot">₹${inr((+d.purchases.cash||0)+(+d.purchases.credit||0))}</span></div></div>
       <div class="card"><h2>Money received, by mode</h2>${d.receivedBy.length?`<div class="kv">${d.receivedBy.map(r=>`<span>${esc(r.mode)}</span><span>₹${inr(r.amount)}</span>`).join('')}</div>`:'<div class="empty">Nothing received</div>'}</div>
       <div class="card"><h2>Vouchers</h2><div class="kv"><span>Receipts</span><span>₹${inr(d.receipts.RECEIPT||0)}</span><span>Payments</span><span>₹${inr(d.receipts.PAYMENT||0)}</span></div></div>

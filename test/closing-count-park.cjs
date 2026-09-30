@@ -131,7 +131,8 @@ app.whenReady().then(() => {
     throws('same UTR twice', () => api.closing.match({ session_id: cl.id, settlement_ref: 'UTR1', provider: 'PhonePe',
       allocations: [{ source_type: bank.doc_type, source_id: bank.doc_id, amount: 1 }] }), /already matched/)
     // A cash bill after the close opened: the day changed under it.
-    api.sale.save(saleOf(t3, { amount_received: 100 }))
+    // Part-paid, so the rest goes on a named customer's khata.
+    api.sale.save(saleOf(t3, { amount_received: 100, party_id: cust, party_name: 'Rekha Shah' }))
     check('close sees the day changed', api.closing.read({ id: cl.id }).stale, true)
     throws('submit refuses a stale close', () => api.closing.submit({ id: cl.id }), /changed/)
     const fresh = api.closing.saveCounts({ session_id: cl.id, counts: [{ denomination: 500, qty: 1 }], other: 0 })

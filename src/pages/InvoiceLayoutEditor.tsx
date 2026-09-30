@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { BLOCKS, SOURCES, defaultLayout, normalizeLayout, type LayoutField } from '../print/layout'
 import { type InvoiceConfig } from '../print/invoice'
-import { Field, Input, Select } from '../lib/ui'
+import { HEADER_LIMITS, normalizeHeader, type HeaderDesign, type HeaderLine } from '../print/header'
+import { Check, Field, Input, Segmented, Select, useAction } from '../lib/ui'
 
 const COLUMN_NAMES: Record<string, string> = {
   no: 'Sr No', name: 'Item Name', hsn: 'HSN', purity: 'Purity', huid: 'HUID', qty: 'Qty',
@@ -83,6 +84,103 @@ export default function InvoiceLayoutEditor({ cfg, onChange }: { cfg: InvoiceCon
             <button className="btn btn-sm" disabled={i === order.length - 1} aria-label={`Move ${key} down`} onClick={() => moveColumn(order[i + 1], key)}>↓</button></td>
         </tr>)}
       </tbody></table></div>
+    </div>
+  </div>
+}
+
+/** Pictures wider than a printed A4 band needs are shrunk before they go into the setting. */
+const MAX_BANNER_PX = 2400
+function readBanner(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Could not read that picture.'))
+    reader.onload = () => {
+      const url = String(reader.result)
+      const img = new Image()
+      img.onerror = () => reject(new Error('That file is not a picture this app can print.'))
+      img.onload = () => {
+        if (img.naturalWidth <= MAX_BANNER_PX && url.length < 1_500_000) return resolve(url)
+        const scale = Math.min(1, MAX_BANNER_PX / img.naturalWidth)
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.round(img.naturalWidth * scale); canvas.height = Math.round(img.naturalHeight * scale)
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height)
+        // PNG keeps a transparent banner transparent; photos go smaller as JPEG.
+        resolve(file.type === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.9))
+      }
+      img.src = url
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+const LINES: [keyof Pick<HeaderDesign, 'name' | 'taglineLine' | 'address' | 'contact'>, string][] = [
+  ['name', 'Shop name'], ['taglineLine', 'Tagline'], ['address', 'Address'], ['contact', 'Contact & GST'],
+]
+const ALIGN_OPTIONS = [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Centre' }, { value: 'right', label: 'Right' }]
+
+/** Header style, band size, background and the text drawn on it. The preview beside it is the real print. */
+export function HeaderDesigner({ cfg, onChange }: { cfg: InvoiceConfig; onChange: (p: Partial<InvoiceConfig>) => void }) {
+  const h = normalizeHeader(cfg.header)
+  const set = (patch: Partial<HeaderDesign>) => onChange({ header: normalizeHeader({ ...h, ...patch }) })
+  const setLine = (key: typeof LINES[number][0], patch: Partial<HeaderLine>) => set({ [key]: { ...h[key], ...patch } })
+  const run = useAction()
+  const upload = (file?: File) => file && run(async () => set({ image: await readBanner(file) }))
+  return <div className="card">
+    <div className="card-head"><span className="card-title">Shop header</span></div>
+    <div className="card-body">
+      <div className="form-grid" style={{ gap: 12 }}>
+        <Field label="Header style" hint={cfg.paper === 'THERMAL' && !cfg.layout ? 'Prints on A4 bills; the thermal receipt keeps its simple header.' : undefined}>
+          <Segmented value={h.style} onChange={style => set({ style: style as HeaderDesign['style'] })}
+            options={[{ value: 'standard', label: 'Standard' }, { value: 'image', label: 'Image only' }, { value: 'banner', label: 'Image + text' }]} />
+        </Field>
+        {h.style !== 'standard' && <>
+          <Field label={`Header height: ${h.height} mm`}>
+            <input type="range" aria-label="Header height" min={HEADER_LIMITS.height[0]} max={HEADER_LIMITS.height[1]} value={h.height}
+              onChange={e => set({ height: Number(e.target.value) })} />
+          </Field>
+          <Field label={h.style === 'image' ? 'Banner image' : 'Background image'}
+            hint={h.style === 'image' && !h.image ? 'Until a picture is chosen the standard header prints.' : 'PNG or JPEG, ideally about 7 : 1 wide.'}>
+            <div className="row" style={{ flexWrap: 'wrap' }}>
+              <label className="btn btn-sm">{h.image ? 'Replace image…' : 'Upload image…'}
+                <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Header image" style={{ display: 'none' }}
+                  onChange={e => { upload(e.target.files?.[0]); e.target.value = '' }} /></label>
+              {h.image && <button className="btn btn-sm btn-danger" onClick={() => set({ image: '' })}>Remove image</button>}
+            </div>
+          </Field>
+          {h.image && <Field label="Image fit">
+            <Segmented value={h.fit} onChange={fit => set({ fit: fit as HeaderDesign['fit'] })}
+              options={[{ value: 'cover', label: 'Fill (crop)' }, { value: 'contain', label: 'Fit whole' }, { value: 'stretch', label: 'Stretch' }]} />
+          </Field>}
+        </>}
+        {h.style === 'banner' && <>
+          <Field label="Background colour" hint="Shows behind the text, and around an image that does not fill the band">
+            <div className="row">
+              <input type="color" aria-label="Header background colour" value={h.background || '#ffffff'} style={{ width: 44, height: 34, padding: 2 }}
+                onChange={e => set({ background: e.target.value })} />
+              <button className="btn btn-sm" disabled={!h.background} onClick={() => set({ background: '' })}>No colour</button>
+            </div>
+          </Field>
+          <Field label="Logo in the band">
+            <Select aria-label="Header logo position" value={h.logo} onChange={logo => set({ logo: logo as HeaderDesign['logo'] })}
+              options={[...ALIGN_OPTIONS, { value: 'hidden', label: 'Hidden' }]} />
+          </Field>
+          <Field label="Tagline" hint="A sub-line under the shop name">
+            <Input aria-label="Header tagline" value={h.tagline} placeholder="e.g. Trusted jewellers since 1985"
+              onChange={e => set({ tagline: e.target.value })} />
+          </Field>
+          {LINES.map(([key, label]) => <div key={key} className="col" style={{ gap: 6, borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+            <Check label={`Show ${label.toLowerCase()}`} checked={h[key].show} onChange={show => setLine(key, { show })} />
+            {h[key].show && <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+              <input type="color" aria-label={`${label} colour`} value={h[key].color} style={{ width: 36, height: 30, padding: 2 }}
+                onChange={e => setLine(key, { color: e.target.value })} />
+              <Input aria-label={`${label} size`} type="number" min={HEADER_LIMITS.size[0]} max={HEADER_LIMITS.size[1]} value={h[key].size}
+                style={{ width: 64 }} onChange={e => setLine(key, { size: Number(e.target.value) })} />
+              <Select aria-label={`${label} alignment`} value={h[key].align} options={ALIGN_OPTIONS}
+                onChange={align => setLine(key, { align: align as HeaderLine['align'] })} />
+            </div>}
+          </div>)}
+        </>}
+      </div>
     </div>
   </div>
 }

@@ -155,6 +155,95 @@ app.whenReady().then(() => {
     const last = api.looseItem.ledger({ item_id: maniId }).slice(-1)[0]
     check('adjustment is its own movement', last.doc_type, 'ADJUST')
     check('running balance on the ledger', last.balance_wt, 113)
+
+    head('10. A loose item cannot be tagged or sent out past its lot')
+    throws('tagging a loose item', () =>
+      api.tagStock.saveBatch({ itemId: maniId, rows: [{ gross_wt: 76.32, purity: 75 }] }))
+    check('lot untouched by the refused tag', balance(maniId).balance_wt, 113)
+    throws('purchase sending out more than is on hand', () => api.purchase.save({
+      head: {
+        prefix: 'PUR', invoice_date: DAY, party_id: supplier, party_name: 'Bead Supplier',
+        metal: 'Gold', gst_not_required: 1, amount_paid: 0,
+      },
+      items: [{
+        item_id: maniId, item_name: 'Mani', direction: 'OUT',
+        gross_wt: 500, net_wt: 500, purity: 0, rate: 35, wastage_pct: 0,
+      }],
+    }))
+    check('lot never goes below zero', balance(maniId).balance_wt, 113)
+
+    head('11. A tag left on a loose item by an older build is folded into its lot')
+    // The shop's case: Mani (loose) carries tag MANI00001 of 76.320 g, and a
+    // 3.250 g sale came off the lot, leaving it at -3.250 g.
+    const raw = db.get()
+    const fuliId = api.item.save({
+      name: 'Fuli', item_type_id: g22.item_type_id, item_group_id: g22.id,
+      design_id: null, weight_mode: 'WEIGHT', stock_mode: 'LOOSE_WT', uom: 'GRAM', hsn: '7117', image: '',
+    })
+    const tagId = raw.prepare(
+      `INSERT INTO tag_stock (tag, item_id, gross_wt, net_wt, purity, final_wt, entry_date)
+       VALUES ('FULI00001', ?, 76.32, 76.32, 75, 57.24, ?)`).run(fuliId, DAY).lastInsertRowid
+    raw.prepare(
+      `INSERT INTO loose_stock (metal, gross_wt, net_wt, fine_wt, doc_type, doc_id, doc_no,
+       direction, is_tagged, entry_date) VALUES ('Gold',76.32,76.32,57.24,'OPENING',?,'FULI00001','IN',1,?)`
+    ).run(tagId, DAY)
+    raw.prepare(
+      `INSERT INTO item_stock (item_id, gross_wt, doc_type, direction, entry_date)
+       VALUES (?, 3.25, 'SALE', 'OUT', ?)`).run(fuliId, DAY)
+    check('before: lot is below zero', balance(fuliId).balance_wt, -3.25)
+    db.close(); db.open(tmp)
+    check('after reopen: lot holds the tag less the sale', balance(fuliId).balance_wt, 73.07)
+    check('the tag is gone from stock',
+      db.get().prepare(`SELECT COUNT(*) c FROM tag_stock WHERE tag='FULI00001' AND status='IN_STOCK'`).get().c, 0)
+    check('its gold inflow is taken back',
+      db.get().prepare(`SELECT COUNT(*) c FROM loose_stock WHERE doc_type='OPENING' AND doc_id=?`).get(tagId).c, 0)
+    db.close(); db.open(tmp)
+    check('folding again changes nothing', balance(fuliId).balance_wt, 73.07)
+
+    head('12. Taking weight back off a lot cannot leave it owing')
+    // 50 g of dori bought, 40 g of it sold. The purchase cannot now be cut to
+    // 20 g or deleted, and a return of 10 g cannot be undone once resold:
+    // each would leave the lot below zero with the grams already out the door.
+    const doriId = api.item.save({
+      name: 'Dori', item_type_id: g22.item_type_id, item_group_id: g22.id,
+      design_id: null, weight_mode: 'WEIGHT', stock_mode: 'LOOSE_WT', uom: 'GRAM', hsn: '7117', image: '',
+    })
+    const doriHead = {
+      prefix: 'PUR', invoice_date: DAY, party_id: supplier, party_name: 'Bead Supplier',
+      metal: 'Gold', gst_not_required: 1, amount_paid: 0,
+    }
+    const doriLine = (wt) => ({
+      item_id: doriId, item_name: 'Dori', direction: 'IN',
+      gross_wt: wt, net_wt: wt, purity: 0, rate: 35, wastage_pct: 0,
+    })
+    const dp = api.purchase.save({ head: doriHead, items: [doriLine(50)] })
+    const sellDori = (wt) => api.sale.save({
+      head: {
+        prefix: 'Service', bill_date: DAY, party_id: customer, party_name: 'Walk-in',
+        gst_not_required: 1, payment_mode: 'Cash', amount_received: 0,
+      },
+      items: [{ item_id: doriId, item_name: 'Dori', gross_wt: wt, net_wt: wt, purity: 0, rate_per_gm: 60 }],
+    })
+    const ds = sellDori(40)
+    check('dori on hand', balance(doriId).balance_wt, 10)
+    throws('cutting the purchase below what has been sold', () => api.purchase.save({
+      head: { ...doriHead, id: dp.id, invoice_no: dp.invoice_no }, items: [doriLine(20)],
+    }))
+    check('lot unchanged by the refused edit', balance(doriId).balance_wt, 10)
+    throws('deleting the purchase once its beads are sold', () => api.purchase.remove({ id: dp.id }))
+    check('lot unchanged by the refused delete', balance(doriId).balance_wt, 10)
+    // A correction that leaves enough on hand still goes through.
+    api.purchase.save({ head: { ...doriHead, id: dp.id, invoice_no: dp.invoice_no }, items: [doriLine(45)] })
+    check('a smaller cut is allowed', balance(doriId).balance_wt, 5)
+    const dr = api.saleReturn.save({
+      head: { return_date: DAY, party_id: customer, party_name: 'Walk-in', against_sale_id: ds.id, gst_pct: 0 },
+      items: [{ item_id: doriId, item_name: 'Dori', gross_wt: 10, net_wt: 10, purity: 0, rate_per_gm: 60 }],
+    })
+    check('returned beads back in the lot', balance(doriId).balance_wt, 15)
+    sellDori(15)
+    check('and sold again', balance(doriId).balance_wt, 0)
+    throws('undoing the return once those beads are resold', () => api.saleReturn.remove({ id: dr.id }))
+    check('lot never goes below zero', balance(doriId).balance_wt, 0)
   } catch (e) {
     fail++
     console.log('  ERROR', e && e.stack ? e.stack : e)
